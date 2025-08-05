@@ -1,0 +1,58 @@
+name: Publish to JSR
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Verify version match
+        run: |
+          # Extract version from tag
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Extract version from deno.json
+          PACKAGE_VERSION=$(deno eval "const config = JSON.parse(Deno.readTextFileSync('./deno.json')); console.log(config.version)")
+
+          # Verify versions match
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match package version ($PACKAGE_VERSION)"
+            echo "Please update the version in deno.json before creating a release tag"
+            exit 1
+          fi
+
+          echo "Publishing version: $PACKAGE_VERSION"
+
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type check
+        run: deno check src/**/*.ts
+
+      - name: Run tests
+        run: deno test --allow-read --allow-write --allow-env --allow-net
+
+      - name: Dry run publish
+        run: deno publish --dry-run
+
+      - name: Publish to JSR
+        run: deno publish

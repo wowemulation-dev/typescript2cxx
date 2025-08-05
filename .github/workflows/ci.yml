@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type check
+        run: deno check src/**/*.ts
+
+      - name: Run tests
+        run: deno test --allow-read --allow-write --allow-env --allow-net
+
+      - name: Test coverage
+        run: |
+          deno test --allow-read --allow-write --allow-env --allow-net --coverage=cov_profile
+          deno coverage cov_profile --lcov --output=coverage.lcov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.lcov
+          fail_ci_if_error: false
+
+      # TODO: Enable JSR verification once swc parser is JSR-compatible
+      # - name: Verify package
+      #   run: deno publish --dry-run

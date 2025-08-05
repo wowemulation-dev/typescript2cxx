@@ -1,0 +1,54 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Extract version changelog
+        id: extract_changelog
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NUMBER=${VERSION#v}
+
+          # Extract the changelog section for this version
+          sed -n "/## \[$VERSION_NUMBER\]/,/## \[/p" CHANGELOG.md | sed '$d' > VERSION_CHANGELOG.md
+
+          # If no changelog found, create a basic one
+          if [ ! -s VERSION_CHANGELOG.md ]; then
+            echo "## $VERSION" > VERSION_CHANGELOG.md
+            echo "" >> VERSION_CHANGELOG.md
+            echo "Release $VERSION" >> VERSION_CHANGELOG.md
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: ${{ env.VERSION }}
+          body_path: VERSION_CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
