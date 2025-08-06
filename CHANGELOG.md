@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-08-06
+
+### Documentation
+
+- docs: Enhanced module documentation for better JSR.io score
+- docs: Added comprehensive JSDoc comments to all exported functions
+- docs: Added usage examples and feature descriptions
+- docs: Documented CLI module with installation and usage instructions
+
+### Notes
+
+This release improves documentation to achieve a better JSR.io package score.
+No functional changes.
+
 ## [0.1.5] - 2025-08-06
 
 ### Fixed
