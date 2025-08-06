@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-08-06
+
+### Fixed
+
+- fix: Documentation formatting issues preventing JSR.io publish
+- fix: Escaped JSDoc comments in code examples
+- fix: Changed glob pattern example to avoid formatter errors
+
+### Notes
+
+This release fixes documentation formatting that was preventing the package
+from publishing to JSR.io. All QA checks now pass.
+
 ## [0.1.6] - 2025-08-06
 
 ### Documentation

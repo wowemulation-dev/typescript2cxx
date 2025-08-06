@@ -1,24 +1,24 @@
 /**
  * TypeScript to C++20 Transpiler for Deno
- * 
+ *
  * Transform TypeScript code into high-performance C++20 with smart memory management
  * and JavaScript-compatible runtime types. This transpiler is designed for projects
  * that need native performance while maintaining TypeScript's developer experience.
- * 
+ *
  * ## Features
- * 
+ *
  * - Full TypeScript syntax support with TypeScript Compiler API
  * - Smart pointer inference (`unique_ptr`, `shared_ptr`, `weak_ptr`)
  * - JavaScript-compatible runtime types (`js::string`, `js::array`, etc.)
  * - Memory management annotations via JSDoc (`@weak`, `@shared`, `@unique`)
  * - Extensible plugin system for custom transformations
  * - Source map generation for debugging
- * 
+ *
  * ## Basic Usage
- * 
+ *
  * ```typescript
  * import { transpile } from "@wowemulation-dev/typescript2cxx";
- * 
+ *
  * const result = await transpile(`
  *   class Point {
  *     x: number = 42;
@@ -27,38 +27,38 @@
  *     }
  *   }
  * `);
- * 
+ *
  * console.log(result.header); // Generated C++ header
  * console.log(result.source); // Generated C++ source
  * ```
- * 
+ *
  * ## Memory Management
- * 
+ *
  * Control memory management with JSDoc annotations:
- * 
+ *
  * ```typescript
  * class Node {
- *   /** @weak */
+ *   /\** @weak *\/
  *   parent?: Node;
- *   
- *   /** @shared */
+ *
+ *   /\** @shared *\/
  *   data: Data;
- *   
- *   /** @unique */
+ *
+ *   /\** @unique *\/
  *   buffer: Buffer;
  * }
  * ```
- * 
+ *
  * ## CLI Usage
- * 
+ *
  * ```bash
  * # Install globally
  * deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
- * 
+ *
  * # Transpile a file
  * tsc2cxx input.ts -o output/
  * ```
- * 
+ *
  * @module typescript2cxx
  */
 
@@ -144,4 +144,4 @@ export { CodeGenError, ParseError, TranspilerError } from "./errors.ts";
 /**
  * Current version of typescript2cxx
  */
-export const VERSION = "0.1.6";
+export const VERSION = "0.1.7";

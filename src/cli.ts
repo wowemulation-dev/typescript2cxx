@@ -5,34 +5,34 @@
  *
  * Command-line interface for the typescript2cxx transpiler. This tool converts
  * TypeScript source files into C++20 code with smart memory management.
- * 
+ *
  * ## Installation
- * 
+ *
  * ```bash
  * deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
  * ```
- * 
+ *
  * ## Usage
- * 
+ *
  * ```bash
  * # Transpile a single file
  * tsc2cxx input.ts -o output/
- * 
- * # Watch mode
- * tsc2cxx src/**/*.ts -o build/ --watch
- * 
+ *
+ * # Watch mode for directory
+ * tsc2cxx src/ -o build/ --watch
+ *
  * # With plugins
  * tsc2cxx input.ts --plugin ./my-plugin.ts
  * ```
- * 
+ *
  * ## Options
- * 
+ *
  * - `-o, --output` - Output directory for generated files
  * - `-w, --watch` - Watch for file changes
  * - `--std` - C++ standard version (c++17, c++20, c++23)
  * - `--memory` - Memory management strategy
  * - `--plugin` - Load transpiler plugins
- * 
+ *
  * @module typescript2cxx/cli
  */
 
