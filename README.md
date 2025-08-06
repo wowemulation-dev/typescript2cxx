@@ -33,11 +33,26 @@ This transpiler enables WoW emulation developers to:
 ### Installation & Usage
 
 > **Note**: This package uses the TypeScript Compiler API (npm:typescript) for parsing and type checking.
-> It is now fully compatible with JSR.io publishing and can be used in any Deno project.
+> It is now published on JSR.io and can be easily installed in any Deno project.
+
+#### Install from JSR (Recommended)
+
+```bash
+# Install globally as a CLI tool
+deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
+
+# Use the installed CLI
+tsc2cxx input.ts -o output/
+
+# Or add to your project
+deno add @wowemulation-dev/typescript2cxx
+```
+
+#### Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/danielsreichenbach/typescript2cxx
+git clone https://github.com/wowemulation-dev/typescript2cxx
 cd typescript2cxx
 
 # Run directly with Deno
@@ -51,7 +66,11 @@ deno compile --allow-net --allow-read --allow-write --output typescript2cxx src/
 ### Module Usage
 
 ```typescript
-import { transpile } from "./src/mod.ts";
+// Import from JSR
+import { transpile } from "@wowemulation-dev/typescript2cxx";
+
+// Or import from local source
+// import { transpile } from "./src/mod.ts";
 
 // Transpile TypeScript to C++
 const result = await transpile(`
