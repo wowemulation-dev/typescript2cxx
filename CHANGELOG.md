@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-08-06
+
+### Added
+
+- feat: First official JSR.io publication
+- feat: Package now available at jsr.io/@wowemulation-dev/typescript2cxx
+
+### Documentation
+
+- docs: Consolidated v0.1.x release notes into single file
+- docs: Updated installation instructions to prioritize JSR
+
+### Notes
+
+This release marks the first successful publication to JSR.io. The package
+is now easily installable via `deno add` and `deno install` commands.
+All functionality remains the same as v0.1.2.
+
 ## [0.1.2] - 2025-08-06
 
 ### Added

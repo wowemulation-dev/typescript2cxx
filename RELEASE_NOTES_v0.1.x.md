@@ -227,3 +227,43 @@ import { transpile } from "@wowemulation-dev/typescript2cxx";
 ```
 
 **Full Changelog**: <https://github.com/wowemulation-dev/typescript2cxx/releases/tag/v0.1.2>
+
+---
+
+## typescript2cxx v0.1.3 - First JSR.io Publication
+
+Released: 2025-08-06
+
+### 🎉 Published on JSR.io!
+
+This release marks the first successful publication to JSR.io. typescript2cxx is now available at:
+**[jsr.io/@wowemulation-dev/typescript2cxx](https://jsr.io/@wowemulation-dev/typescript2cxx)**
+
+### 📦 What's New
+
+- **JSR.io Publication**: Package successfully published and available
+- **Easy Installation**: Full JSR ecosystem integration
+- **Documentation Updates**: Consolidated release notes for v0.1.x series
+
+### Installation
+
+Install directly from JSR:
+
+```bash
+# Global CLI installation
+deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
+
+# Add to your project
+deno add @wowemulation-dev/typescript2cxx
+```
+
+Use in your code:
+
+```typescript
+import { transpile } from "@wowemulation-dev/typescript2cxx";
+```
+
+All functionality remains the same as v0.1.2. This release focuses on
+making the package available through JSR.io's package registry.
+
+**Full Changelog**: <https://github.com/wowemulation-dev/typescript2cxx/releases/tag/v0.1.3>
