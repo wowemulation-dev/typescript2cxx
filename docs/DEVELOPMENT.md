@@ -9,9 +9,11 @@ The transpiler follows a traditional compiler architecture with distinct phases:
 ```text
 TypeScript Source
        ↓
-    Parser (swc)
+    Parser (TypeScript API)
        ↓
  TypeScript AST
+       ↓
+   Type Checker
        ↓
    Transformer
        ↓
@@ -26,7 +28,7 @@ TypeScript Source
 
 ```text
 src/
-├── ast/          # AST parsing with swc
+├── ast/          # AST parsing with TypeScript Compiler API
 │   └── parser.ts # TypeScript parser with feature detection
 ├── ir/           # Intermediate representation
 │   └── nodes.ts  # IR node definitions
@@ -36,6 +38,10 @@ src/
 │   └── generator.ts
 ├── memory/       # Memory management analysis
 │   ├── analyzer.ts
+│   └── types.ts
+├── type-checker/ # TypeScript type checking integration
+│   ├── checker.ts
+│   ├── simple-checker.ts
 │   └── types.ts
 ├── plugins/      # Plugin system
 │   ├── loader.ts
@@ -105,7 +111,7 @@ deno lint
 
 ### Parser (ast/parser.ts)
 
-Uses swc for fast TypeScript parsing with feature detection:
+Uses TypeScript Compiler API for accurate parsing with type information:
 
 - Async/await usage
 - Generators
@@ -219,12 +225,13 @@ Create minimal test cases in test files
 
 ## Future Enhancements
 
-### v0.1.1 - Next Minor Release
+### v0.1.1 - Released 2025-01-05
 
-- [ ] Enhanced error messages and diagnostics
-- [ ] Source map generation
-- [ ] Performance optimizations
-- [ ] Memory leak detection
+- [x] **TypeScript Compiler API migration** - Complete replacement of SWC
+- [x] **Type checker integration** - SimpleTypeChecker for C++ type mappings
+- [x] **JSR.io compatibility** - Now ready for JSR publishing
+- [x] **Enhanced type support** - Generics, unions, intersections, functions
+- [x] **All tests passing** - 50 test steps covering complete functionality
 
 ### v0.2.0 - Build System Integration
 
@@ -234,12 +241,24 @@ Create minimal test cases in test files
   - Cross-platform build configuration
   - Integration with vcpkg/Conan
   - Debug/Release configurations
-- [ ] Full TypeScript type checker integration
+- [ ] **Advanced Type Checker Features**
+  - Full TypeScript program analysis
+  - Cross-file type resolution
+  - Generic constraint validation
 - [ ] Module system support
 - [ ] More C++ standard library mappings
+
+### v0.1.2 - Next Minor Release
+
+- [ ] Enhanced error messages and diagnostics
+- [ ] Source map generation
+- [ ] Performance optimizations
+- [ ] Memory leak detection
 
 ### Future Versions
 
 - [ ] Optimization passes
 - [ ] Advanced memory management
 - [ ] GPU compute support
+- [ ] Async/await with C++20 coroutines
+- [ ] Full ES module support

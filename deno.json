@@ -1,6 +1,6 @@
 {
   "name": "@wowemulation-dev/typescript2cxx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT OR Apache-2.0",
   "exports": {
     ".": "./src/mod.ts",
@@ -37,12 +37,13 @@
   },
   "imports": {
     "@std/": "https://deno.land/std@0.220.0/",
-    "@std/testing": "https://deno.land/std@0.220.0/testing/mod.ts",
+    "@std/testing": "https://deno.land/std@0.220.0/testing/bdd.ts",
     "@std/testing/bdd": "https://deno.land/std@0.220.0/testing/bdd.ts",
     "@std/assert": "https://deno.land/std@0.220.0/assert/mod.ts",
     "@std/fs": "https://deno.land/std@0.220.0/fs/mod.ts",
     "@std/path": "https://deno.land/std@0.220.0/path/mod.ts",
     "@std/flags": "https://deno.land/std@0.220.0/flags/mod.ts",
+    "typescript": "npm:typescript@5.7.3",
     "@/": "./src/"
   },
   "nodeModulesDir": "auto",

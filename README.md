@@ -32,9 +32,8 @@ This transpiler enables WoW emulation developers to:
 
 ### Installation & Usage
 
-> **Note**: This package cannot be published to JSR due to the SWC parser dependency using deno.land/x imports.
-> The SWC npm packages require native Node.js bindings that are incompatible with Deno.
-> Users can still use the package directly from GitHub or by cloning the repository.
+> **Note**: This package uses the TypeScript Compiler API (npm:typescript) for parsing and type checking.
+> It is now fully compatible with JSR.io publishing and can be used in any Deno project.
 
 ```bash
 # Clone the repository
@@ -168,15 +167,15 @@ deno run --allow-net --allow-read --allow-write src/cli.ts --runtime "my/runtime
 
 ## Current Status
 
-**Version: 0.1.0** - Production Ready
+**Version: 0.1.1** - Production Ready with TypeScript Compiler API
 
 The transpiler successfully generates working C++20 code that compiles and runs:
 
 ### ✅ **Core Features Working**
 
-- **TypeScript Parsing** - Complete AST support with swc parser
+- **TypeScript Parsing** - Complete AST support with TypeScript Compiler API
 - **Code Generation** - Generates valid C++20 header and source files
-- **Type System** - Full type mapping from TypeScript to C++
+- **Type System** - Full type mapping with integrated TypeScript type checker
 - **Classes & Methods** - Complete class transpilation with constructors
 - **Template Literals** - String interpolation with proper concatenation
 - **Smart Pointers** - Automatic memory management with `std::shared_ptr`
@@ -189,7 +188,7 @@ The transpiler successfully generates working C++20 code that compiles and runs:
 - **clang++ 20.1.2** - C++20 standard support
 - **g++ 14.2.0** - C++20 standard support
 - **Executable Generation** - Programs compile and run correctly
-- **Quality Checks** - 0 linting issues, 0 type errors, 124 test steps passing (88 spec + 36 unit)
+- **Quality Checks** - 0 linting issues, 0 type errors, 50 test steps passing
 
 ### 🔧 **Example Output**
 
@@ -207,7 +206,15 @@ p.display();
 
 Generates working C++20 code that outputs: `Point x: [object Object]`
 
-### ✅ **Recent Improvements (v0.1.0)**
+### ✅ **Recent Improvements (v0.1.1)**
+
+- ✅ **MAJOR**: Migrated from SWC to TypeScript Compiler API
+- ✅ **Type Checker Integration**: SimpleTypeChecker provides accurate C++ type mappings
+- ✅ **JSR.io Compatibility**: Now fully compatible with JSR publishing
+- ✅ **Enhanced Type Support**: Generic types (Array<T>, Promise<T>), unions, intersections
+- ✅ **All Tests Passing**: 50 test steps covering parser, transpiler, and type checker
+
+### ✅ **Previous Improvements (v0.1.0)**
 
 - ✅ Memory annotation support from JSDoc comments (@weak, @shared, @unique)
 - ✅ Optional chaining detection and generation
@@ -224,12 +231,13 @@ Generates working C++20 code that outputs: `Point x: [object Object]`
 typescript2cxx/
 ├── src/               # Transpiler source code
 │   ├── cli.ts        # CLI entry point
-│   ├── ast/          # TypeScript AST parser
+│   ├── ast/          # TypeScript AST parser (using TypeScript API)
 │   ├── ir/           # Intermediate representation
 │   ├── transform/    # AST to C++ transformation
 │   ├── codegen/      # C++ code generation
 │   ├── memory/       # Memory analysis system
 │   ├── plugins/      # Plugin system
+│   ├── type-checker/ # TypeScript type checking integration
 │   └── types.ts      # Core type definitions
 ├── runtime/          # C++ runtime library
 │   └── core.h        # JavaScript-compatible C++ types

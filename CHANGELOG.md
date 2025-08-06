@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-08-06
+
 ### Added
 
+- feat: **TypeScript Compiler API integration** - Complete migration from SWC to TypeScript API
+- feat: **SimpleTypeChecker** - Type resolution without full program creation  
+- feat: **Enhanced type support** - Generic types (Array<T>, Promise<T>), unions, intersections
+- feat: **Function type resolution** - Proper C++ std::function generation
+- feat: **Type checking integration** - Basic type validation in parser
 - feat: memory annotation support from JSDoc comments (@weak, @shared, @unique)
 - feat: optional chaining detection and generation
 - feat: runtime include path configuration via --runtime CLI option
 
 ### Changed
 
+- **BREAKING**: Replaced SWC parser with TypeScript Compiler API (npm:typescript@5.7.3)
+- refactor: Parser now returns synchronous results (no longer async)
+- refactor: Transformer updated to work with TypeScript AST nodes
+- refactor: All node type checks now use ts.SyntaxKind enums
 - refactor: updated GitHub Actions to use explicit permissions instead of -A flag
 - refactor: updated test tasks in deno.json to include --allow-net permission
 
@@ -25,8 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: runtime include path now flows through the transpilation pipeline
 - fix: memory annotations properly applied in code generation
 - fix: optional chaining expressions generate correct C++ code
+- fix: Decorator API compatibility with latest TypeScript
+- fix: Property transformation to use 'type' instead of 'cppType'
+- fix: All 50 test steps now passing after migration
 
-## [0.1.0] - 2025-01-14
+### Removed
+
+- **BREAKING**: Removed deno.land/x/swc dependency
+- Removed SWC-specific AST handling code
+
+## [0.1.0] - 2025-08-05
 
 ### Added
 

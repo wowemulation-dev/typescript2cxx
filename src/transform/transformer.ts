@@ -2,7 +2,9 @@
  * AST to IR transformer
  */
 
+import { ts } from "../ast/parser.ts";
 import { MemoryAnnotation, MemoryAnnotationParser } from "../memory/annotations.ts";
+import type { SimpleTypeChecker } from "../type-checker/simple-checker.ts";
 import type {
   IRArrayExpression,
   IRAssignmentExpression,
@@ -64,8 +66,8 @@ export interface TransformOptions {
   /** Error reporter */
   errorReporter: any;
 
-  /** Type resolver */
-  typeResolver?: any;
+  /** Type checker instance */
+  typeChecker?: SimpleTypeChecker;
 
   /** Output filename */
   outputName?: string;
@@ -98,13 +100,16 @@ interface TransformContext {
 
   /** Memory annotation parser */
   memoryAnnotations: MemoryAnnotationParser;
+
+  /** Type checker instance */
+  typeChecker?: SimpleTypeChecker;
 }
 
 /**
  * Transform TypeScript AST to IR
  */
 export function transformToIR(
-  ast: any,
+  ast: ts.SourceFile,
   options: TransformOptions,
 ): IRProgram {
   const transformer = new ASTTransformer(options);
@@ -167,20 +172,19 @@ class ASTTransformer {
       headers: new Set(["<iostream>", "<string>", "<memory>"]),
       includes: new Set([runtimeInclude]),
       memoryAnnotations,
+      typeChecker: options.typeChecker,
     };
   }
 
   /**
    * Transform the AST to IR
    */
-  transform(ast: any): IRProgram {
+  transform(ast: ts.SourceFile): IRProgram {
     // Transform the module body
-    if (ast.body) {
-      for (const item of ast.body) {
-        const stmt = this.transformModuleItem(item);
-        if (stmt) {
-          this.context.currentModule.body.push(stmt);
-        }
+    for (const statement of ast.statements) {
+      const stmt = this.transformModuleItem(statement);
+      if (stmt) {
+        this.context.currentModule.body.push(stmt);
       }
     }
 
@@ -201,52 +205,52 @@ class ASTTransformer {
   /**
    * Transform a module-level item
    */
-  private transformModuleItem(node: any): IRStatement | null {
-    switch (node.type) {
-      case "ImportDeclaration":
-        return this.transformImport(node);
+  private transformModuleItem(node: ts.Statement): IRStatement | null {
+    switch (node.kind) {
+      case ts.SyntaxKind.ImportDeclaration:
+        return this.transformImport(node as ts.ImportDeclaration);
 
-      case "ExportDeclaration":
-        return this.transformExport(node);
+      case ts.SyntaxKind.ExportDeclaration:
+        return this.transformExport(node as ts.ExportDeclaration);
 
-      case "FunctionDeclaration":
-        return this.transformFunctionDeclaration(node);
+      case ts.SyntaxKind.FunctionDeclaration:
+        return this.transformFunctionDeclaration(node as ts.FunctionDeclaration);
 
-      case "ClassDeclaration":
-        return this.transformClassDeclaration(node);
+      case ts.SyntaxKind.ClassDeclaration:
+        return this.transformClassDeclaration(node as ts.ClassDeclaration);
 
-      case "VariableDeclaration":
-        return this.transformVariableDeclaration(node);
+      case ts.SyntaxKind.VariableStatement:
+        return this.transformVariableStatement(node as ts.VariableStatement);
 
-      case "TsInterfaceDeclaration":
-        return this.transformInterfaceDeclaration(node);
+      case ts.SyntaxKind.InterfaceDeclaration:
+        return this.transformInterfaceDeclaration(node as ts.InterfaceDeclaration);
 
-      case "TsTypeAliasDeclaration":
-        return this.transformTypeAlias(node);
+      case ts.SyntaxKind.TypeAliasDeclaration:
+        return this.transformTypeAlias(node as ts.TypeAliasDeclaration);
 
-      case "TsEnumDeclaration":
-        return this.transformEnumDeclaration(node);
+      case ts.SyntaxKind.EnumDeclaration:
+        return this.transformEnumDeclaration(node as ts.EnumDeclaration);
 
-      case "ExpressionStatement":
-        return this.transformExpressionStatement(node);
+      case ts.SyntaxKind.ExpressionStatement:
+        return this.transformExpressionStatement(node as ts.ExpressionStatement);
 
-      case "IfStatement":
-        return this.transformIfStatement(node);
+      case ts.SyntaxKind.IfStatement:
+        return this.transformIfStatement(node as ts.IfStatement);
 
-      case "WhileStatement":
-        return this.transformWhileStatement(node);
+      case ts.SyntaxKind.WhileStatement:
+        return this.transformWhileStatement(node as ts.WhileStatement);
 
-      case "ForStatement":
-        return this.transformForStatement(node);
+      case ts.SyntaxKind.ForStatement:
+        return this.transformForStatement(node as ts.ForStatement);
 
-      case "ReturnStatement":
-        return this.transformReturnStatement(node);
+      case ts.SyntaxKind.ReturnStatement:
+        return this.transformReturnStatement(node as ts.ReturnStatement);
 
-      case "BlockStatement":
-        return this.transformBlockStatement(node);
+      case ts.SyntaxKind.Block:
+        return this.transformBlockStatement(node as ts.Block);
 
       default:
-        this.warn(`Unsupported module item type: ${node.type}`);
+        this.warn(`Unsupported module item type: ${ts.SyntaxKind[node.kind]}`);
         return null;
     }
   }
@@ -326,16 +330,28 @@ class ASTTransformer {
   /**
    * Transform class declaration
    */
-  private transformClassDeclaration(node: any): IRClassDeclaration {
-    const name = node.identifier?.value || "anonymous";
+  private transformClassDeclaration(node: ts.ClassDeclaration): IRClassDeclaration {
+    const name = node.name?.text || "anonymous";
+
+    // Get superclass from heritage clauses
+    let superClassExpr: IRExpression | undefined;
+    if (node.heritageClauses) {
+      for (const clause of node.heritageClauses) {
+        if (clause.token === ts.SyntaxKind.ExtendsKeyword && clause.types.length > 0) {
+          const type = clause.types[0];
+          superClassExpr = this.transformExpression(type.expression);
+          break;
+        }
+      }
+    }
 
     const cls: IRClassDeclaration = {
       kind: IRNodeKind.ClassDeclaration,
       id: { kind: IRNodeKind.Identifier, name },
-      superClass: node.superClass ? this.transformExpression(node.superClass) : undefined,
+      superClass: superClassExpr,
       implements: [],
       members: [],
-      isAbstract: false,
+      isAbstract: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
     };
 
     // Transform class body
@@ -343,12 +359,11 @@ class ASTTransformer {
     this.context.currentClass = cls;
     this.pushScope();
 
-    if (node.body) {
-      for (const member of node.body) {
-        const irMember = this.transformClassMember(member);
-        if (irMember) {
-          cls.members.push(irMember);
-        }
+    // Transform class members
+    for (const member of node.members) {
+      const irMember = this.transformClassMember(member);
+      if (irMember) {
+        cls.members.push(irMember);
       }
     }
 
@@ -361,21 +376,19 @@ class ASTTransformer {
   /**
    * Transform class member
    */
-  private transformClassMember(node: any): IRClassMember | null {
-    switch (node.type) {
-      case "ClassProperty":
-      case "PropertyDefinition":
-        return this.transformPropertyDefinition(node);
+  private transformClassMember(node: ts.ClassElement): IRClassMember | null {
+    switch (node.kind) {
+      case ts.SyntaxKind.PropertyDeclaration:
+        return this.transformPropertyDefinition(node as ts.PropertyDeclaration);
 
-      case "MethodDefinition":
-      case "ClassMethod":
-        return this.transformMethodDefinition(node);
+      case ts.SyntaxKind.MethodDeclaration:
+        return this.transformMethodDefinition(node as ts.MethodDeclaration);
 
-      case "Constructor":
-        return this.transformConstructor(node);
+      case ts.SyntaxKind.Constructor:
+        return this.transformConstructor(node as ts.ConstructorDeclaration);
 
       default:
-        this.warn(`Unsupported class member type: ${node.type}`);
+        this.warn(`Unsupported class member type: ${ts.SyntaxKind[node.kind]}`);
         return null;
     }
   }
@@ -383,9 +396,11 @@ class ASTTransformer {
   /**
    * Transform property definition
    */
-  private transformPropertyDefinition(node: any): IRPropertyDefinition {
-    const key = this.getPropertyNameAsExpression(node.key);
-    const propertyName = this.getPropertyName(node.key);
+  private transformPropertyDefinition(node: ts.PropertyDeclaration): IRPropertyDefinition {
+    const key = node.name
+      ? this.getPropertyNameAsExpression(node.name)
+      : { kind: IRNodeKind.Identifier, name: "unknown" } as IRIdentifier;
+    const propertyName = node.name ? this.getPropertyName(node.name) : "unknown";
 
     // Get memory annotation from JSDoc comments
     const filename = this.options.filename || "<anonymous>";
@@ -400,12 +415,12 @@ class ASTTransformer {
 
     return {
       kind: IRNodeKind.VariableDeclaration,
-      key,
-      type: this.resolveType(node.typeAnnotation),
-      value: node.value ? this.transformExpression(node.value) : undefined,
-      accessibility: this.getAccessibility(node),
-      isStatic: node.static || false,
-      isReadonly: node.readonly || false,
+      key: key as (IRIdentifier | IRLiteral),
+      value: node.initializer ? this.transformExpression(node.initializer) : undefined,
+      type: node.type ? this.resolveType(node.type) : "auto",
+      accessibility: this.getAccessModifierFromNode(node),
+      isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
+      isReadonly: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword),
       memory,
     };
   }
@@ -413,13 +428,14 @@ class ASTTransformer {
   /**
    * Transform method definition
    */
-  private transformMethodDefinition(node: any): IRMethodDefinition {
-    const key = this.getPropertyNameAsExpression(node.key);
+  private transformMethodDefinition(node: ts.MethodDeclaration): IRMethodDefinition {
+    const key = node.name
+      ? this.getPropertyNameAsExpression(node.name)
+      : { kind: IRNodeKind.Identifier, name: "unknown" } as IRIdentifier;
 
-    // Handle both MethodDefinition and ClassMethod nodes
-    const funcNode = node.function || node.value || node;
-    const params = this.transformParameters(funcNode.params || []);
-    const returnType = this.resolveType(funcNode.returnType);
+    // In TypeScript AST, the method node itself contains all the information
+    const params = this.transformParameters(Array.from(node.parameters));
+    const returnType = node.type ? this.resolveType(node.type) : "auto";
 
     // Create the function declaration for the method
     const funcDecl: IRFunctionDeclaration = {
@@ -428,13 +444,13 @@ class ASTTransformer {
       params,
       returnType,
       body: null as any,
-      isAsync: funcNode.async || false,
-      isGenerator: funcNode.generator || false,
-      isStatic: node.static || false,
+      isAsync: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword),
+      isGenerator: !!node.asteriskToken,
+      isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
     };
 
     // Transform body
-    if (funcNode.body) {
+    if (node.body) {
       const prevFunc = this.context.currentFunction;
       this.context.currentFunction = funcDecl;
       this.pushScope();
@@ -448,7 +464,7 @@ class ASTTransformer {
         this.addToScope(param.name, paramIdent);
       }
 
-      funcDecl.body = this.transformBlockStatement(funcNode.body);
+      funcDecl.body = this.transformBlockStatement(node.body);
 
       this.popScope();
       this.context.currentFunction = prevFunc;
@@ -456,10 +472,10 @@ class ASTTransformer {
 
     const method: IRMethodDefinition = {
       kind: IRNodeKind.FunctionDeclaration,
-      key,
+      key: key as (IRIdentifier | IRLiteral),
       value: funcDecl,
-      accessibility: this.getAccessibility(node),
-      isStatic: node.static || false,
+      accessibility: this.getAccessModifierFromNode(node),
+      isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
     };
 
     return method;
@@ -509,21 +525,21 @@ class ASTTransformer {
   }
 
   /**
-   * Transform variable declaration
+   * Transform variable statement
    */
-  private transformVariableDeclaration(node: any): IRVariableDeclaration {
+  private transformVariableStatement(node: ts.VariableStatement): IRVariableDeclaration {
     const declarations: IRVariableDeclarator[] = [];
 
-    for (const decl of node.declarations) {
+    for (const decl of node.declarationList.declarations) {
       const id: IRIdentifier = {
         kind: IRNodeKind.Identifier,
-        name: decl.id?.value || "unknown",
+        name: ts.isIdentifier(decl.name) ? decl.name.text : "unknown",
       };
 
       const declarator: IRVariableDeclarator = {
         id,
-        cppType: this.resolveType(decl.id?.typeAnnotation),
-        init: decl.init ? this.transformExpression(decl.init) : undefined,
+        cppType: decl.type ? this.resolveType(decl.type) : "auto",
+        init: decl.initializer ? this.transformExpression(decl.initializer) : undefined,
         memory: MemoryManagement.Auto,
       };
 
@@ -531,9 +547,16 @@ class ASTTransformer {
       this.addToScope(id.name, id);
     }
 
+    const flags = node.declarationList.flags;
+    const declarationKind = (flags & ts.NodeFlags.Const)
+      ? "const"
+      : (flags & ts.NodeFlags.Let)
+      ? "let"
+      : "var";
+
     return {
       kind: IRNodeKind.VariableDeclaration,
-      declarationKind: node.kind === "const" ? "const" : node.kind === "let" ? "let" : "var",
+      declarationKind: declarationKind as VariableKind,
       declarations,
     };
   }
@@ -541,10 +564,10 @@ class ASTTransformer {
   /**
    * Transform interface declaration
    */
-  private transformInterfaceDeclaration(node: any): IRInterfaceDeclaration {
+  private transformInterfaceDeclaration(node: ts.InterfaceDeclaration): IRInterfaceDeclaration {
     return {
       kind: IRNodeKind.InterfaceDeclaration,
-      id: { kind: IRNodeKind.Identifier, name: node.id?.value || "unknown" },
+      id: { kind: IRNodeKind.Identifier, name: node.name.text },
       extends: [],
       body: {
         body: [],
@@ -555,7 +578,7 @@ class ASTTransformer {
   /**
    * Transform type alias
    */
-  private transformTypeAlias(_node: any): IRExpressionStatement {
+  private transformTypeAlias(_node: ts.TypeAliasDeclaration): IRExpressionStatement {
     // Type aliases don't generate runtime code
     // Return a placeholder expression statement
     return {
@@ -631,38 +654,40 @@ class ASTTransformer {
   /**
    * Transform for loop initializer
    */
-  private transformForInit(node: any): IRVariableDeclaration | IRExpression {
-    if (node.type === "VariableDeclaration") {
-      return this.transformVariableDeclaration(node);
+  private transformForInit(node: ts.ForInitializer): IRVariableDeclaration | IRExpression {
+    if (ts.isVariableDeclarationList(node)) {
+      // Create a synthetic variable statement
+      const varStmt = ts.factory.createVariableStatement(
+        undefined,
+        node,
+      );
+      return this.transformVariableStatement(varStmt);
     }
-    return this.transformExpression(node);
+    return this.transformExpression(node as ts.Expression);
   }
 
   /**
    * Transform return statement
    */
-  private transformReturnStatement(node: any): IRReturnStatement {
+  private transformReturnStatement(node: ts.ReturnStatement): IRReturnStatement {
     return {
       kind: IRNodeKind.ReturnStatement,
-      argument: node.argument ? this.transformExpression(node.argument) : undefined,
+      argument: node.expression ? this.transformExpression(node.expression) : undefined,
     };
   }
 
   /**
    * Transform block statement
    */
-  private transformBlockStatement(node: any): IRBlockStatement {
+  private transformBlockStatement(node: ts.Block): IRBlockStatement {
     this.pushScope();
 
     const statements: IRStatement[] = [];
 
-    if (node.stmts || node.body) {
-      const items = node.stmts || node.body;
-      for (const stmt of items) {
-        const irStmt = this.transformStatement(stmt);
-        if (irStmt) {
-          statements.push(irStmt);
-        }
+    for (const stmt of node.statements) {
+      const irStmt = this.transformStatement(stmt);
+      if (irStmt) {
+        statements.push(irStmt);
       }
     }
 
@@ -677,24 +702,24 @@ class ASTTransformer {
   /**
    * Transform any statement
    */
-  private transformStatement(node: any): IRStatement {
-    switch (node.type) {
-      case "BlockStatement":
-        return this.transformBlockStatement(node);
-      case "ExpressionStatement":
-        return this.transformExpressionStatement(node);
-      case "IfStatement":
-        return this.transformIfStatement(node);
-      case "WhileStatement":
-        return this.transformWhileStatement(node);
-      case "ForStatement":
-        return this.transformForStatement(node);
-      case "ReturnStatement":
-        return this.transformReturnStatement(node);
-      case "VariableDeclaration":
-        return this.transformVariableDeclaration(node);
+  private transformStatement(node: ts.Statement): IRStatement {
+    switch (node.kind) {
+      case ts.SyntaxKind.Block:
+        return this.transformBlockStatement(node as ts.Block);
+      case ts.SyntaxKind.ExpressionStatement:
+        return this.transformExpressionStatement(node as ts.ExpressionStatement);
+      case ts.SyntaxKind.IfStatement:
+        return this.transformIfStatement(node as ts.IfStatement);
+      case ts.SyntaxKind.WhileStatement:
+        return this.transformWhileStatement(node as ts.WhileStatement);
+      case ts.SyntaxKind.ForStatement:
+        return this.transformForStatement(node as ts.ForStatement);
+      case ts.SyntaxKind.ReturnStatement:
+        return this.transformReturnStatement(node as ts.ReturnStatement);
+      case ts.SyntaxKind.VariableStatement:
+        return this.transformVariableStatement(node as ts.VariableStatement);
       default: {
-        this.warn(`Unsupported statement type: ${node.type}`);
+        this.warn(`Unsupported statement type: ${ts.SyntaxKind[node.kind]}`);
         const placeholder: IRExpressionStatement = {
           kind: IRNodeKind.ExpressionStatement,
           expression: this.createLiteral(null),
@@ -707,65 +732,67 @@ class ASTTransformer {
   /**
    * Transform expression
    */
-  private transformExpression(node: any): IRExpression {
+  private transformExpression(node: ts.Expression): IRExpression {
     if (!node) {
       return this.createLiteral(null);
     }
 
-    switch (node.type) {
-      case "Identifier":
-        return this.transformIdentifier(node);
+    switch (node.kind) {
+      case ts.SyntaxKind.Identifier:
+        return this.transformIdentifier(node as ts.Identifier);
 
-      case "StringLiteral":
-      case "NumericLiteral":
-      case "BooleanLiteral":
-      case "NullLiteral":
+      case ts.SyntaxKind.StringLiteral:
+      case ts.SyntaxKind.NumericLiteral:
+      case ts.SyntaxKind.TrueKeyword:
+      case ts.SyntaxKind.FalseKeyword:
+      case ts.SyntaxKind.NullKeyword:
         return this.transformLiteral(node);
 
-      case "ArrayExpression":
-        return this.transformArrayExpression(node);
+      case ts.SyntaxKind.ArrayLiteralExpression:
+        return this.transformArrayExpression(node as ts.ArrayLiteralExpression);
 
-      case "ObjectExpression":
-        return this.transformObjectExpression(node);
+      case ts.SyntaxKind.ObjectLiteralExpression:
+        return this.transformObjectExpression(node as ts.ObjectLiteralExpression);
 
-      case "CallExpression":
-        return this.transformCallExpression(node);
+      case ts.SyntaxKind.CallExpression:
+        return this.transformCallExpression(node as ts.CallExpression);
 
-      case "MemberExpression":
-        return this.transformMemberExpression(node);
+      case ts.SyntaxKind.PropertyAccessExpression:
+      case ts.SyntaxKind.ElementAccessExpression:
+        return this.transformMemberExpression(
+          node as ts.PropertyAccessExpression | ts.ElementAccessExpression,
+        );
 
-      case "OptionalChainingExpression":
+      case ts.SyntaxKind.NonNullExpression:
         return this.transformOptionalChainingExpression(node);
 
-      case "BinaryExpression":
-        return this.transformBinaryExpression(node);
+      case ts.SyntaxKind.BinaryExpression:
+        return this.transformBinaryExpression(node as ts.BinaryExpression);
 
-      case "UnaryExpression":
-        return this.transformUnaryExpression(node);
+      case ts.SyntaxKind.PrefixUnaryExpression:
+      case ts.SyntaxKind.PostfixUnaryExpression:
+        return this.transformUnaryExpression(
+          node as ts.PrefixUnaryExpression | ts.PostfixUnaryExpression,
+        );
 
-      case "AssignmentExpression":
-        return this.transformAssignmentExpression(node);
+      case ts.SyntaxKind.ConditionalExpression:
+        return this.transformConditionalExpression(node as ts.ConditionalExpression);
 
-      case "ConditionalExpression":
-        return this.transformConditionalExpression(node);
-
-      case "TemplateLiteral":
+      case ts.SyntaxKind.TemplateExpression:
+      case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
         return this.transformTemplateLiteral(node);
 
-      case "ArrowFunctionExpression":
-        return this.transformArrowFunction(node);
+      case ts.SyntaxKind.ArrowFunction:
+        return this.transformArrowFunction(node as ts.ArrowFunction);
 
-      case "ThisExpression":
+      case ts.SyntaxKind.ThisKeyword:
         return this.transformThisExpression(node);
 
-      case "NewExpression":
-        return this.transformNewExpression(node);
-
-      case "UpdateExpression":
-        return this.transformUpdateExpression(node);
+      case ts.SyntaxKind.NewExpression:
+        return this.transformNewExpression(node as ts.NewExpression);
 
       default:
-        this.warn(`Unsupported expression type: ${node.type}`);
+        this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
         return this.createLiteral(null);
     }
   }
@@ -773,34 +800,38 @@ class ASTTransformer {
   /**
    * Transform identifier
    */
-  private transformIdentifier(node: any): IRIdentifier {
+  private transformIdentifier(node: ts.Identifier): IRIdentifier {
     return {
       kind: IRNodeKind.Identifier,
-      name: node.value,
+      name: node.text,
     };
   }
 
   /**
    * Transform literal
    */
-  private transformLiteral(node: any): IRLiteral {
+  private transformLiteral(node: ts.Expression): IRLiteral {
     let value: any;
     let type: string;
 
-    switch (node.type) {
-      case "StringLiteral":
-        value = node.value;
+    switch (node.kind) {
+      case ts.SyntaxKind.StringLiteral:
+        value = (node as ts.StringLiteral).text;
         type = "string";
         break;
-      case "NumericLiteral":
-        value = node.value;
+      case ts.SyntaxKind.NumericLiteral:
+        value = Number((node as ts.NumericLiteral).text);
         type = "number";
         break;
-      case "BooleanLiteral":
-        value = node.value;
+      case ts.SyntaxKind.TrueKeyword:
+        value = true;
         type = "boolean";
         break;
-      case "NullLiteral":
+      case ts.SyntaxKind.FalseKeyword:
+        value = false;
+        type = "boolean";
+        break;
+      case ts.SyntaxKind.NullKeyword:
         value = null;
         type = "null";
         break;
@@ -843,16 +874,15 @@ class ASTTransformer {
   /**
    * Transform array expression
    */
-  private transformArrayExpression(node: any): IRArrayExpression {
+  private transformArrayExpression(node: ts.ArrayLiteralExpression): IRArrayExpression {
     const elements: IRExpression[] = [];
 
-    if (node.elements) {
-      for (const elem of node.elements) {
-        if (elem?.expression) {
-          elements.push(this.transformExpression(elem.expression));
-        } else if (elem) {
-          elements.push(this.transformExpression(elem));
-        }
+    for (const elem of node.elements) {
+      if (ts.isSpreadElement(elem)) {
+        // Handle spread elements later
+        this.warn("Spread elements in arrays not yet supported");
+      } else {
+        elements.push(this.transformExpression(elem));
       }
     }
 
@@ -865,21 +895,28 @@ class ASTTransformer {
   /**
    * Transform object expression
    */
-  private transformObjectExpression(node: any): IRObjectExpression {
+  private transformObjectExpression(node: ts.ObjectLiteralExpression): IRObjectExpression {
     const properties: IRObjectProperty[] = [];
 
-    if (node.properties) {
-      for (const prop of node.properties) {
-        if (prop.type === "KeyValueProperty") {
-          properties.push({
-            key: this.getPropertyKeyAsExpression(prop.key),
-            value: this.transformExpression(prop.value),
-            kind: "init",
-            computed: prop.computed || false,
-            method: false,
-            shorthand: false,
-          });
-        }
+    for (const prop of node.properties) {
+      if (ts.isPropertyAssignment(prop)) {
+        properties.push({
+          key: this.getPropertyKeyAsExpression(prop.name),
+          value: this.transformExpression(prop.initializer),
+          kind: "init",
+          computed: ts.isComputedPropertyName(prop.name),
+          method: false,
+          shorthand: false,
+        });
+      } else if (ts.isShorthandPropertyAssignment(prop)) {
+        properties.push({
+          key: this.getPropertyKeyAsExpression(prop.name),
+          value: this.transformExpression(prop.name),
+          kind: "init",
+          computed: false,
+          method: false,
+          shorthand: true,
+        });
       }
     }
 
@@ -892,20 +929,23 @@ class ASTTransformer {
   /**
    * Transform call expression
    */
-  private transformCallExpression(node: any): IRCallExpression {
+  private transformCallExpression(node: ts.CallExpression): IRCallExpression {
     const args: IRExpression[] = [];
 
-    if (node.arguments) {
-      for (const arg of node.arguments) {
-        args.push(this.transformExpression(arg.expression));
+    for (const arg of node.arguments) {
+      if (ts.isSpreadElement(arg)) {
+        // Handle spread arguments later
+        this.warn("Spread arguments not yet supported");
+      } else {
+        args.push(this.transformExpression(arg));
       }
     }
 
     return {
       kind: IRNodeKind.CallExpression,
-      callee: this.transformExpression(node.callee),
+      callee: this.transformExpression(node.expression),
       arguments: args,
-      optional: false, // TODO: Detect optional chaining
+      optional: !!node.questionDotToken,
     };
   }
 
@@ -1148,26 +1188,26 @@ class ASTTransformer {
     };
   }
 
-  private getPropertyName(key: any): string {
-    if (key.type === "Identifier") {
-      return key.value;
+  private getPropertyName(key: ts.PropertyName): string {
+    if (ts.isIdentifier(key)) {
+      return key.text;
     }
-    if (key.type === "StringLiteral") {
-      return key.value;
+    if (ts.isStringLiteral(key)) {
+      return key.text;
     }
     return "unknown";
   }
 
-  private getPropertyNameAsExpression(key: any): IRIdentifier | IRLiteral {
-    if (key.type === "Identifier") {
-      return { kind: IRNodeKind.Identifier, name: key.value };
+  private getPropertyNameAsExpression(key: ts.PropertyName): IRIdentifier | IRLiteral {
+    if (ts.isIdentifier(key)) {
+      return { kind: IRNodeKind.Identifier, name: key.text };
     }
-    if (key.type === "StringLiteral") {
+    if (ts.isStringLiteral(key)) {
       return {
         kind: IRNodeKind.Literal,
-        value: key.value,
+        value: key.text,
         cppType: "string",
-        raw: `"${key.value}"`,
+        raw: `"${key.text}"`,
         literalType: "string",
       };
     }
@@ -1197,6 +1237,20 @@ class ASTTransformer {
   private getAccessModifier(node: any): AccessModifier {
     if (node.accessibility === "private") return AccessModifier.Private;
     if (node.accessibility === "protected") return AccessModifier.Protected;
+    return AccessModifier.Public;
+  }
+
+  private getAccessModifierFromNode(
+    node: ts.Node & { modifiers?: ts.NodeArray<ts.ModifierLike> },
+  ): AccessModifier {
+    if (node.modifiers) {
+      if (node.modifiers.some((m) => m.kind === ts.SyntaxKind.PrivateKeyword)) {
+        return AccessModifier.Private;
+      }
+      if (node.modifiers.some((m) => m.kind === ts.SyntaxKind.ProtectedKeyword)) {
+        return AccessModifier.Protected;
+      }
+    }
     return AccessModifier.Public;
   }
 
@@ -1258,34 +1312,69 @@ class ASTTransformer {
     return mapping[op] || "+";
   }
 
-  private resolveType(typeAnnotation: any): string {
-    if (!typeAnnotation) return "auto";
+  private resolveType(typeNode: ts.TypeNode | undefined): string {
+    if (!typeNode) return "auto";
 
-    if (typeAnnotation.typeAnnotation) {
-      return this.resolveTypeNode(typeAnnotation.typeAnnotation);
+    // If we have a type checker, use it for accurate type resolution
+    if (this.context.typeChecker) {
+      const resolvedType = this.context.typeChecker.getTypeAtLocation(typeNode);
+      return resolvedType.cppType;
     }
 
-    return "unknown";
+    // Fallback to basic type mapping
+    return this.resolveTypeNode(typeNode);
   }
 
-  private resolveTypeNode(node: any): string {
+  private resolveTypeNode(node: ts.TypeNode): string {
     if (!node) return "unknown";
 
-    switch (node.type) {
-      case "TsKeywordType":
-        return this.mapKeywordType(node.kind);
+    switch (node.kind) {
+      case ts.SyntaxKind.StringKeyword:
+        return "js::string";
+      case ts.SyntaxKind.NumberKeyword:
+        return "js::number";
+      case ts.SyntaxKind.BooleanKeyword:
+        return "bool";
+      case ts.SyntaxKind.VoidKeyword:
+        return "void";
+      case ts.SyntaxKind.AnyKeyword:
+        return "js::any";
+      case ts.SyntaxKind.UnknownKeyword:
+        return "js::unknown";
+      case ts.SyntaxKind.NeverKeyword:
+        return "void";
+      case ts.SyntaxKind.NullKeyword:
+        return "std::nullptr_t";
+      case ts.SyntaxKind.UndefinedKeyword:
+        return "js::undefined_t";
+      case ts.SyntaxKind.ObjectKeyword:
+        return "js::object";
 
-      case "TsTypeReference":
-        return node.typeName?.value || "unknown";
+      case ts.SyntaxKind.TypeReference: {
+        const typeRef = node as ts.TypeReferenceNode;
+        if (ts.isIdentifier(typeRef.typeName)) {
+          return typeRef.typeName.text;
+        }
+        return "unknown";
+      }
 
-      case "TsArrayType":
-        return `${this.resolveTypeNode(node.elemType)}[]`;
+      case ts.SyntaxKind.ArrayType: {
+        const arrayType = node as ts.ArrayTypeNode;
+        const elementType = this.resolveTypeNode(arrayType.elementType);
+        return `js::array<${elementType}>`;
+      }
 
-      case "TsUnionType":
-        return node.types.map((t: any) => this.resolveTypeNode(t)).join(" | ");
+      case ts.SyntaxKind.UnionType: {
+        const unionType = node as ts.UnionTypeNode;
+        const types = unionType.types.map((t) => this.resolveTypeNode(t));
+        return `std::variant<${types.join(", ")}>`;
+      }
 
-      case "TsIntersectionType":
-        return node.types.map((t: any) => this.resolveTypeNode(t)).join(" & ");
+      case ts.SyntaxKind.IntersectionType: {
+        const intersectionType = node as ts.IntersectionTypeNode;
+        const types = intersectionType.types.map((t) => this.resolveTypeNode(t));
+        return types.join(" & ");
+      }
 
       default:
         return "unknown";

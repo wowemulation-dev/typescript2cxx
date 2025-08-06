@@ -2,119 +2,121 @@
  * Parser tests
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { parseTypeScript } from "../src/ast/parser.ts";
+import { parseTypeScript, ts } from "../src/ast/parser.ts";
 import { ParseError } from "../src/errors.ts";
 
 describe("Parser", () => {
   describe("Basic parsing", () => {
-    it("should parse empty program", async () => {
-      const result = await parseTypeScript("");
+    it("should parse empty program", () => {
+      const result = parseTypeScript("");
 
       assertEquals(result.filename, "<anonymous>");
       assertEquals(typeof result.parseTime, "number");
       assertEquals(result.parseTime >= 0, true);
+      assertEquals(result.ast.statements.length, 0);
     });
 
-    it("should parse hello world", async () => {
+    it("should parse hello world", () => {
       const code = `console.log("Hello World!");`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
-      assertEquals(result.ast.type, "Module");
-      assertEquals(Array.isArray(result.ast.body), true);
+      assertEquals(result.ast.kind, ts.SyntaxKind.SourceFile);
+      assertEquals(Array.isArray(result.ast.statements), true);
+      assertEquals(result.ast.statements.length, 1);
     });
 
-    it("should track filename", async () => {
-      const result = await parseTypeScript("", { filename: "test.ts" });
+    it("should track filename", () => {
+      const result = parseTypeScript("", { filename: "test.ts" });
 
       assertEquals(result.filename, "test.ts");
+      assertEquals(result.ast.fileName, "test.ts");
     });
   });
 
   describe("Feature detection", () => {
-    it("should detect async functions", async () => {
+    it("should detect async functions", () => {
       const code = `async function test() { await Promise.resolve(); }`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasAsync, true);
     });
 
-    it("should detect generators", async () => {
+    it("should detect generators", () => {
       const code = `function* gen() { yield 1; }`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasGenerators, true);
     });
 
-    it("should detect decorators", async () => {
+    it("should detect decorators", () => {
       const code = `
         @decorator
         class Test {}
       `;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasDecorators, true);
     });
 
-    it("should detect template literals", async () => {
+    it("should detect template literals", () => {
       const code = "const msg = `Hello ${name}!`;";
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasTemplateLiterals, true);
     });
 
-    it.skip("should detect optional chaining", async () => {
-      // TODO: Fix optional chaining detection with swc AST
+    it("should detect optional chaining", () => {
       const code = `const x = obj?.prop;`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasOptionalChaining, true);
     });
 
-    it("should detect nullish coalescing", async () => {
+    it("should detect nullish coalescing", () => {
       const code = `const x = a ?? b;`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasNullishCoalescing, true);
     });
 
-    it("should detect bigint", async () => {
+    it("should detect bigint", () => {
       const code = `const big = 123n;`;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
       assertEquals(result.features.hasBigInt, true);
     });
   });
 
   describe("Error handling", () => {
-    it("should throw ParseError on invalid syntax", async () => {
+    it("should throw ParseError on invalid syntax", () => {
       const code = `function { invalid }`;
 
-      await assertRejects(
-        async () => await parseTypeScript(code),
+      assertThrows(
+        () => parseTypeScript(code),
         ParseError,
       );
     });
 
-    it("should include error location", async () => {
+    it("should include error location", () => {
       const code = `
         const x = 1;
         function { invalid
       `;
 
       try {
-        await parseTypeScript(code);
+        parseTypeScript(code);
         throw new Error("Should have thrown");
       } catch (error) {
         assertEquals(error instanceof ParseError, true);
-        // Location info may be available depending on swc error format
+        // Location info may be available depending on TypeScript error format
       }
     });
   });
 
   describe("TypeScript features", () => {
-    it("should parse type annotations", async () => {
+    it("should parse type annotations", () => {
       const code = `
         const x: number = 42;
         let y: string = "hello";
@@ -122,24 +124,26 @@ describe("Parser", () => {
           return a + b;
         }
       `;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
-      assertEquals(result.ast.type, "Module");
+      assertEquals(result.ast.kind, ts.SyntaxKind.SourceFile);
+      assertEquals(result.ast.statements.length, 3);
     });
 
-    it("should parse interfaces", async () => {
+    it("should parse interfaces", () => {
       const code = `
         interface Person {
           name: string;
           age: number;
         }
       `;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
-      assertEquals(result.ast.type, "Module");
+      assertEquals(result.ast.kind, ts.SyntaxKind.SourceFile);
+      assertEquals(result.ast.statements.length, 1);
     });
 
-    it("should parse classes with modifiers", async () => {
+    it("should parse classes with modifiers", () => {
       const code = `
         class Animal {
           private name: string;
@@ -151,12 +155,13 @@ describe("Parser", () => {
           }
         }
       `;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
-      assertEquals(result.ast.type, "Module");
+      assertEquals(result.ast.kind, ts.SyntaxKind.SourceFile);
+      assertEquals(result.ast.statements.length, 1);
     });
 
-    it("should parse generics", async () => {
+    it("should parse generics", () => {
       const code = `
         function identity<T>(arg: T): T {
           return arg;
@@ -166,9 +171,10 @@ describe("Parser", () => {
           value: T;
         }
       `;
-      const result = await parseTypeScript(code);
+      const result = parseTypeScript(code);
 
-      assertEquals(result.ast.type, "Module");
+      assertEquals(result.ast.kind, ts.SyntaxKind.SourceFile);
+      assertEquals(result.ast.statements.length, 2);
     });
   });
 });

@@ -1,12 +1,12 @@
 /**
- * TypeScript AST parser using swc
+ * TypeScript AST parser using TypeScript Compiler API
  */
 
-// NOTE: Using deno.land/x import for swc as npm version requires native bindings
-// This prevents JSR publishing but is necessary for the parser to work correctly
-import { parse } from "https://deno.land/x/swc@0.2.1/mod.ts";
+import ts from "typescript";
 import { ParseError } from "../errors.ts";
 import type { SourceLocation } from "../types.ts";
+import { SimpleTypeChecker } from "../type-checker/simple-checker.ts";
+import type { TypeCheckResult } from "../type-checker/types.ts";
 
 /**
  * Parse options
@@ -35,14 +35,26 @@ export interface ParseOptions {
 
   /** Syntax mode */
   syntax?: "typescript" | "ecmascript";
+
+  /** Enable type checking */
+  typeCheck?: boolean;
+
+  /** Type checking options */
+  typeCheckOptions?: {
+    /** Additional type definitions */
+    typeDefinitions?: string[];
+
+    /** Custom type mappings */
+    typeMappings?: Record<string, string>;
+  };
 }
 
 /**
  * Parse result
  */
 export interface ParseResult {
-  /** Parsed AST */
-  ast: any; // swc AST
+  /** Parsed AST (TypeScript SourceFile) */
+  ast: ts.SourceFile;
 
   /** Source file */
   filename: string;
@@ -52,6 +64,12 @@ export interface ParseResult {
 
   /** Detected features */
   features: DetectedFeatures;
+
+  /** Type checker instance */
+  typeChecker?: SimpleTypeChecker;
+
+  /** Type check result */
+  typeCheckResult?: TypeCheckResult;
 }
 
 /**
@@ -111,42 +129,124 @@ export interface DetectedFeatures {
 }
 
 /**
+ * Map target string to TypeScript ScriptTarget
+ */
+function getScriptTarget(target?: string): ts.ScriptTarget {
+  switch (target) {
+    case "es3":
+      return ts.ScriptTarget.ES3;
+    case "es5":
+      return ts.ScriptTarget.ES5;
+    case "es2015":
+      return ts.ScriptTarget.ES2015;
+    case "es2016":
+      return ts.ScriptTarget.ES2016;
+    case "es2017":
+      return ts.ScriptTarget.ES2017;
+    case "es2018":
+      return ts.ScriptTarget.ES2018;
+    case "es2019":
+      return ts.ScriptTarget.ES2019;
+    case "es2020":
+      return ts.ScriptTarget.ES2020;
+    case "es2021":
+      return ts.ScriptTarget.ES2021;
+    case "es2022":
+      return ts.ScriptTarget.ES2022;
+    default:
+      return ts.ScriptTarget.ES2022;
+  }
+}
+
+/**
  * Parse TypeScript source code
  */
-export async function parseTypeScript(
+export function parseTypeScript(
   source: string,
   options: ParseOptions = {},
-): Promise<ParseResult> {
+): ParseResult {
   const startTime = performance.now();
 
   try {
-    // Parse with swc
-    const ast = await parse(source, {
-      syntax: "typescript",
-      tsx: options.tsx ?? false,
-      decorators: options.decorators ?? true,
-      dynamicImport: options.dynamicImport ?? true,
-      target: options.target ?? "es2022",
-      // preserveAllComments: true, // Not supported in this swc version
-    } as any);
+    // Create source file
+    const scriptKind = options.tsx ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+    const sourceFile = ts.createSourceFile(
+      options.filename ?? "<anonymous>",
+      source,
+      getScriptTarget(options.target),
+      true, // setParentNodes
+      scriptKind,
+    );
+
+    // Check for parse errors by creating a program to get diagnostics
+    const program = ts.createProgram([options.filename ?? "<anonymous>"], {
+      target: getScriptTarget(options.target),
+      allowJs: true,
+    }, {
+      getSourceFile: (fileName) =>
+        fileName === (options.filename ?? "<anonymous>") ? sourceFile : undefined,
+      writeFile: () => {},
+      getCurrentDirectory: () => "",
+      getDirectories: () => [],
+      fileExists: () => true,
+      readFile: () => "",
+      getCanonicalFileName: (fileName) => fileName,
+      useCaseSensitiveFileNames: () => true,
+      getNewLine: () => "\n",
+      getDefaultLibFileName: () => "lib.d.ts",
+    });
+
+    const diagnostics = program.getSyntacticDiagnostics(sourceFile);
+    if (diagnostics.length > 0) {
+      const firstError = diagnostics[0];
+      const location = getDiagnosticLocation(firstError, sourceFile);
+      throw new ParseError(
+        ts.flattenDiagnosticMessageText(firstError.messageText, "\n"),
+        location,
+      );
+    }
 
     // Detect features
-    const features = detectFeatures(ast);
+    const features = detectFeatures(sourceFile);
 
     const parseTime = performance.now() - startTime;
 
+    // Create type checker if requested
+    let typeChecker: SimpleTypeChecker | undefined;
+    let typeCheckResult: TypeCheckResult | undefined;
+
+    if (options.typeCheck) {
+      typeChecker = new SimpleTypeChecker(sourceFile);
+
+      // Simple type check result
+      const checkResult = typeChecker.checkSourceFile();
+      typeCheckResult = {
+        hasErrors: checkResult.hasErrors,
+        errors: checkResult.errors.map((e) => ({
+          code: 0,
+          message: e.message,
+          location: e.location,
+        })),
+        program: program,
+        checker: undefined as any, // Simple checker doesn't have full TS checker
+      };
+    }
+
     return {
-      ast,
+      ast: sourceFile,
       filename: options.filename ?? "<anonymous>",
       parseTime,
       features,
+      typeChecker,
+      typeCheckResult,
     };
   } catch (error) {
-    // Convert swc error to our error type
-    const location = extractErrorLocation(error);
+    if (error instanceof ParseError) {
+      throw error;
+    }
+    // Convert TypeScript error to our error type
     throw new ParseError(
       error instanceof Error ? error.message : String(error),
-      location,
     );
   }
 }
@@ -160,7 +260,7 @@ export async function parseTypeScriptFile(
 ): Promise<ParseResult> {
   try {
     const source = await Deno.readTextFile(filePath);
-    return await parseTypeScript(source, {
+    return parseTypeScript(source, {
       ...options,
       filename: filePath,
     });
@@ -175,7 +275,7 @@ export async function parseTypeScriptFile(
 /**
  * Detect features used in the AST
  */
-function detectFeatures(ast: any): DetectedFeatures {
+function detectFeatures(sourceFile: ts.SourceFile): DetectedFeatures {
   const features: DetectedFeatures = {
     hasAsync: false,
     hasGenerators: false,
@@ -199,7 +299,7 @@ function detectFeatures(ast: any): DetectedFeatures {
 
   // Create a visitor to walk the AST
   const visitor = new FeatureDetector(features);
-  visitor.visitModule(ast);
+  visitor.visit(sourceFile);
 
   return features;
 }
@@ -210,236 +310,192 @@ function detectFeatures(ast: any): DetectedFeatures {
 class FeatureDetector {
   constructor(private features: DetectedFeatures) {}
 
-  visitModule(module: any): void {
-    if (module.body) {
-      for (const item of module.body) {
-        this.visitModuleItem(item);
-      }
-    }
-  }
-
-  visitModuleItem(item: any): void {
-    switch (item.type) {
-      case "FunctionDeclaration":
-        if (item.async) this.features.hasAsync = true;
-        if (item.generator) this.features.hasGenerators = true;
-        this.visitFunctionBody(item.body);
+  visit(node: ts.Node): void {
+    switch (node.kind) {
+      case ts.SyntaxKind.FunctionDeclaration:
+      case ts.SyntaxKind.FunctionExpression:
+      case ts.SyntaxKind.ArrowFunction:
+      case ts.SyntaxKind.MethodDeclaration: {
+        const func = node as ts.FunctionLikeDeclaration;
+        if (func.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword)) {
+          this.features.hasAsync = true;
+        }
+        if (func.asteriskToken) {
+          this.features.hasGenerators = true;
+        }
         break;
+      }
 
-      case "ClassDeclaration":
-        if (item.decorators?.length > 0) {
+      case ts.SyntaxKind.ClassDeclaration:
+      case ts.SyntaxKind.ClassExpression: {
+        const classNode = node as ts.ClassLikeDeclaration;
+        const decorators = ts.getDecorators?.(classNode) || [];
+        if (decorators.length > 0) {
           this.features.hasDecorators = true;
         }
-        this.visitClass(item);
-        break;
-
-      case "ImportDeclaration":
-        if (item.source.type === "CallExpression") {
-          this.features.hasDynamicImports = true;
-        }
-        break;
-
-      case "ExportDeclaration":
-        if (item.declaration) {
-          this.visitModuleItem(item.declaration);
-        }
-        break;
-
-      case "VariableDeclaration":
-        for (const decl of item.declarations) {
-          if (decl.init) {
-            this.visitExpression(decl.init);
+        // Check for private fields
+        classNode.members.forEach((member) => {
+          if (member.name && ts.isPrivateIdentifier(member.name)) {
+            this.features.hasPrivateFields = true;
           }
-        }
+          // Check for decorators on members that support them
+          if (ts.canHaveDecorators(member)) {
+            const memberDecorators = ts.getDecorators?.(member as any) || [];
+            if (memberDecorators.length > 0) {
+              this.features.hasDecorators = true;
+            }
+          }
+        });
         break;
-
-      case "ExpressionStatement":
-        this.visitExpression(item.expression);
-        break;
-    }
-  }
-
-  visitClass(classNode: any): void {
-    for (const member of classNode.body) {
-      if (member.type === "PrivateProperty") {
-        this.features.hasPrivateFields = true;
       }
 
-      if (member.decorators?.length > 0) {
-        this.features.hasDecorators = true;
-      }
-
-      if (member.value?.type === "FunctionExpression") {
-        if (member.value.async) this.features.hasAsync = true;
-        if (member.value.generator) this.features.hasGenerators = true;
-        this.visitFunctionBody(member.value.body);
-      }
-    }
-  }
-
-  visitFunctionBody(body: any): void {
-    if (!body) return;
-
-    for (const stmt of body.stmts || []) {
-      this.visitStatement(stmt);
-    }
-  }
-
-  visitStatement(stmt: any): void {
-    switch (stmt.type) {
-      case "ExpressionStatement":
-        this.visitExpression(stmt.expression);
-        break;
-
-      case "ReturnStatement":
-        if (stmt.argument) {
-          this.visitExpression(stmt.argument);
-        }
-        break;
-
-      case "IfStatement":
-        this.visitExpression(stmt.test);
-        this.visitStatement(stmt.consequent);
-        if (stmt.alternate) {
-          this.visitStatement(stmt.alternate);
-        }
-        break;
-
-      case "ForStatement":
-      case "WhileStatement":
-      case "DoWhileStatement":
-        if (stmt.test) this.visitExpression(stmt.test);
-        if (stmt.body) this.visitStatement(stmt.body);
-        break;
-
-      case "BlockStatement":
-        for (const s of stmt.stmts) {
-          this.visitStatement(s);
-        }
-        break;
-    }
-  }
-
-  visitExpression(expr: any): void {
-    if (!expr) return;
-
-    switch (expr.type) {
-      case "AwaitExpression":
+      case ts.SyntaxKind.AwaitExpression:
         this.features.hasAsync = true;
-        this.visitExpression(expr.argument);
         break;
 
-      case "YieldExpression":
+      case ts.SyntaxKind.YieldExpression:
         this.features.hasGenerators = true;
-        if (expr.argument) {
-          this.visitExpression(expr.argument);
-        }
         break;
 
-      case "BigIntLiteral":
+      case ts.SyntaxKind.BigIntLiteral:
         this.features.hasBigInt = true;
         break;
 
-      case "OptionalMemberExpression":
-      case "OptionalCallExpression":
-      case "OptionalChainingExpression":
-        this.features.hasOptionalChaining = true;
-        if (expr.base) {
-          this.visitExpression(expr.base);
-        }
-        break;
-
-      case "MemberExpression":
-        if (expr.optional) {
+      case ts.SyntaxKind.PropertyAccessExpression:
+      case ts.SyntaxKind.ElementAccessExpression: {
+        const expr = node as ts.PropertyAccessExpression | ts.ElementAccessExpression;
+        if (expr.questionDotToken) {
           this.features.hasOptionalChaining = true;
         }
-        this.visitExpression(expr.object);
-        this.visitExpression(expr.property);
         break;
+      }
 
-      case "CallExpression":
-        if (expr.optional) {
-          this.features.hasOptionalChaining = true;
-        }
-        this.visitExpression(expr.callee);
-        for (const arg of expr.arguments) {
-          this.visitExpression(arg.expression);
-        }
-        break;
-
-      case "BinaryExpression":
-        if (expr.operator === "??") {
+      case ts.SyntaxKind.BinaryExpression: {
+        const binary = node as ts.BinaryExpression;
+        if (binary.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
           this.features.hasNullishCoalescing = true;
         }
-        this.visitExpression(expr.left);
-        this.visitExpression(expr.right);
         break;
+      }
 
-      case "TemplateLiteral":
+      case ts.SyntaxKind.TemplateExpression:
+      case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
         this.features.hasTemplateLiterals = true;
         break;
 
-      case "TsConstAssertion":
-        this.features.hasConstAssertions = true;
+      case ts.SyntaxKind.ImportDeclaration: {
+        const importDecl = node as ts.ImportDeclaration;
+        // Check if it's a dynamic import
+        if (importDecl.moduleSpecifier.parent?.kind === ts.SyntaxKind.CallExpression) {
+          this.features.hasDynamicImports = true;
+        }
         break;
+      }
 
-      case "TsSatisfiesExpression":
+      case ts.SyntaxKind.CallExpression: {
+        const call = node as ts.CallExpression;
+        // Check for optional chaining
+        if (call.questionDotToken) {
+          this.features.hasOptionalChaining = true;
+        }
+        // Check for dynamic import()
+        if (call.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          this.features.hasDynamicImports = true;
+        }
+        break;
+      }
+
+      case ts.SyntaxKind.AsExpression: {
+        const asExpr = node as ts.AsExpression;
+        // Check for const assertions
+        if (asExpr.type.kind === ts.SyntaxKind.TypeReference) {
+          const typeRef = asExpr.type as ts.TypeReferenceNode;
+          if (ts.isIdentifier(typeRef.typeName) && typeRef.typeName.text === "const") {
+            this.features.hasConstAssertions = true;
+          }
+        }
+        break;
+      }
+
+      case ts.SyntaxKind.SatisfiesExpression:
         this.features.typeScriptFeatures.satisfies = true;
         break;
 
-      case "TsConditionalType":
+      case ts.SyntaxKind.ConditionalType:
         this.features.typeScriptFeatures.conditionalTypes = true;
         break;
 
-      case "TsMappedType":
+      case ts.SyntaxKind.MappedType:
         this.features.typeScriptFeatures.mappedTypes = true;
         break;
 
-      case "ArrayExpression":
-        for (const elem of expr.elements) {
-          if (elem?.expression) {
-            this.visitExpression(elem.expression);
-          }
-        }
+      case ts.SyntaxKind.TemplateLiteralType:
+        this.features.typeScriptFeatures.templateLiteralTypes = true;
         break;
 
-      case "ObjectExpression":
-        for (const prop of expr.properties) {
-          if (prop.type === "KeyValueProperty") {
-            this.visitExpression(prop.value);
-          }
+      case ts.SyntaxKind.TypeParameter: {
+        const typeParam = node as ts.TypeParameterDeclaration;
+        if (typeParam.modifiers?.some((m) => m.kind === ts.SyntaxKind.ConstKeyword)) {
+          this.features.typeScriptFeatures.constTypeParams = true;
         }
+        break;
+      }
+
+      case ts.SyntaxKind.JsxElement:
+      case ts.SyntaxKind.JsxSelfClosingElement:
+      case ts.SyntaxKind.JsxFragment:
+        this.features.hasJSX = true;
         break;
     }
+
+    // Visit children
+    ts.forEachChild(node, (child) => this.visit(child));
   }
 }
 
 /**
- * Extract error location from swc error
+ * Get diagnostic location from TypeScript diagnostic
  */
-function extractErrorLocation(error: unknown): SourceLocation | undefined {
-  if (error && typeof error === "object" && "span" in error) {
-    const span = (error as any).span;
-    return {
-      file: "<anonymous>",
-      line: span.start.line ?? 1,
-      column: span.start.column ?? 1,
-      endLine: span.end?.line,
-      endColumn: span.end?.column,
-    };
+function getDiagnosticLocation(
+  diagnostic: ts.Diagnostic,
+  sourceFile: ts.SourceFile,
+): SourceLocation | undefined {
+  if (diagnostic.start === undefined) {
+    return undefined;
   }
-  return undefined;
-}
 
-/**
- * Convert swc span to our SourceLocation
- */
-export function spanToLocation(span: any, filename: string): SourceLocation {
+  const start = sourceFile.getLineAndCharacterOfPosition(diagnostic.start);
+  const end = diagnostic.length
+    ? sourceFile.getLineAndCharacterOfPosition(diagnostic.start + diagnostic.length)
+    : undefined;
+
   return {
-    file: filename,
-    line: span.start.line ?? 1,
-    column: span.start.column ?? 1,
-    endLine: span.end?.line,
-    endColumn: span.end?.column,
+    file: sourceFile.fileName,
+    line: start.line + 1,
+    column: start.character + 1,
+    endLine: end ? end.line + 1 : undefined,
+    endColumn: end ? end.character + 1 : undefined,
   };
 }
+
+/**
+ * Convert TypeScript position to our SourceLocation
+ */
+export function nodeToLocation(node: ts.Node): SourceLocation {
+  const sourceFile = node.getSourceFile();
+  const start = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+  const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
+
+  return {
+    file: sourceFile.fileName,
+    line: start.line + 1,
+    column: start.character + 1,
+    endLine: end.line + 1,
+    endColumn: end.character + 1,
+  };
+}
+
+/**
+ * Export TypeScript for use in other modules
+ */
+export { ts };

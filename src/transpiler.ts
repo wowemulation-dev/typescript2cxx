@@ -58,13 +58,27 @@ export async function transpile(
       }
     }
 
-    // Parse TypeScript
-    const parseResult = await parseTypeScript(source, {
+    // Parse TypeScript with type checking enabled
+    const parseResult = parseTypeScript(source, {
       filename: options.filename ?? "<anonymous>",
       tsx: options.tsx ?? false,
       decorators: true,
       dynamicImport: true,
+      typeCheck: true,
+      typeCheckOptions: {
+        typeMappings: options.typeMappings,
+      },
     });
+
+    // Check for type errors
+    if (parseResult.typeCheckResult?.hasErrors) {
+      const firstError = parseResult.typeCheckResult.errors[0];
+      throw new TranspilerError(
+        `Type error: ${firstError.message}`,
+        "TYPE_ERROR",
+        firstError.location,
+      );
+    }
 
     // Run pre-transform plugins
     for (const plugin of plugins) {
@@ -73,7 +87,7 @@ export async function transpile(
       }
     }
 
-    // Transform to IR
+    // Transform to IR with type checker
     const ir = transformToIR(parseResult.ast, {
       context,
       plugins,
@@ -81,6 +95,7 @@ export async function transpile(
       outputName: options.outputName,
       source,
       filename: options.filename,
+      typeChecker: parseResult.typeChecker,
     });
 
     stats.nodesProcessed = countIRNodes(ir);
@@ -137,6 +152,7 @@ export async function transpile(
     if (error instanceof TranspilerError) {
       throw error;
     }
+    console.error("Transpiler error:", error);
     throw new TranspilerError(
       error instanceof Error ? error.message : String(error),
       "INTERNAL_ERROR",
