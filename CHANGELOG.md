@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-08-06
+
+### Fixed
+
+- fix: JSR publishing authentication via linked repository on JSR.io
+
+### Notes
+
+This release tests the JSR publishing workflow after linking the GitHub
+repository on JSR.io for automatic authentication with `deno publish`.
+
 ## [0.1.3] - 2025-08-06
 
 ### Added

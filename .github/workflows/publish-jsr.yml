@@ -52,7 +52,7 @@ jobs:
         run: deno test --allow-read --allow-write --allow-env --allow-net
 
       - name: Dry run publish
-        run: npx jsr publish --dry-run
+        run: deno publish --dry-run
 
       - name: Publish to JSR
-        run: npx jsr publish
+        run: deno publish
