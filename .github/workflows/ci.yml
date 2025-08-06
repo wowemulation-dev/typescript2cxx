@@ -45,6 +45,5 @@ jobs:
           files: ./coverage.lcov
           fail_ci_if_error: false
 
-      # TODO: Enable JSR verification once swc parser is JSR-compatible
-      # - name: Verify package
-      #   run: deno publish --dry-run
+      - name: Verify JSR package
+        run: deno publish --dry-run

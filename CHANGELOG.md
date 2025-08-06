@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - feat: **TypeScript Compiler API integration** - Complete migration from SWC to TypeScript API
-- feat: **SimpleTypeChecker** - Type resolution without full program creation  
+- feat: **SimpleTypeChecker** - Type resolution without full program creation
 - feat: **Enhanced type support** - Generic types (Array<T>, Promise<T>), unions, intersections
 - feat: **Function type resolution** - Proper C++ std::function generation
 - feat: **Type checking integration** - Basic type validation in parser
