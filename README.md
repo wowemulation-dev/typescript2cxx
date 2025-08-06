@@ -167,7 +167,7 @@ deno run --allow-net --allow-read --allow-write src/cli.ts --runtime "my/runtime
 
 ## Current Status
 
-**Version: 0.1.1** - Production Ready with TypeScript Compiler API
+**Version: 0.1.2** - Production Ready with JSR.io Publishing
 
 The transpiler successfully generates working C++20 code that compiles and runs:
 

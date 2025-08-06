@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-08-06
+
+### Added
+
+- feat: JSR.io publishing workflow enabled
+- feat: JSR package verification in CI pipeline
+
+### Fixed
+
+- fix: Code formatting issues in CHANGELOG.md
+- fix: Enabled JSR publish workflow (was disabled)
+- fix: Added JSR package dry-run verification to CI
+
+### Changed
+
+- chore: All QA checks passing (format, lint, type check, tests)
+
+### Notes
+
+This is a quick follow-up release to v0.1.1 that enables JSR.io publishing.
+The TypeScript Compiler API migration from v0.1.1 makes this possible.
+
 ## [0.1.1] - 2025-08-06
 
 ### Added
