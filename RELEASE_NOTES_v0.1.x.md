@@ -1,4 +1,4 @@
-# Release Notes - v0.1.0
+# Release Notes - v0.1.x Series
 
 ## typescript2cxx v0.1.0 - Production Ready Release
 
@@ -144,3 +144,86 @@ Special thanks to:
 ---
 
 **Full Changelog**: <https://github.com/wowemulation-dev/typescript2cxx/releases/tag/v0.1.0>
+
+---
+
+## typescript2cxx v0.1.1 - TypeScript Compiler API Migration
+
+Released: 2025-08-06
+
+### 🚀 Major Changes
+
+This release completes the migration from SWC to the TypeScript Compiler API, enabling JSR.io publishing and providing full TypeScript language support.
+
+#### ✅ TypeScript Compiler API Integration
+
+- **Complete SWC Replacement**: Migrated from deno.land/x/swc to npm:typescript@5.7.3
+- **SimpleTypeChecker**: Type resolution without full program creation
+- **Enhanced Type Support**: Generic types (Array<T>, Promise<T>), unions, intersections
+- **Function Type Resolution**: Proper C++ std::function generation
+- **JSR.io Compatibility**: Now ready for JSR.io publishing
+
+#### 🔧 Technical Improvements
+
+- Parser now returns synchronous results (no longer async)
+- Transformer updated to work with TypeScript AST nodes
+- All node type checks now use ts.SyntaxKind enums
+- Decorator API compatibility with latest TypeScript
+- Property transformation using 'type' instead of 'cppType'
+- All 50 test steps passing after migration
+
+#### 🐛 Bug Fixes
+
+- Fixed all C++ compilation issues
+- Runtime include path flows through pipeline
+- Memory annotations properly applied
+- Optional chaining expressions generate correct C++
+- Deprecated imports replaced
+
+### Breaking Changes
+
+- **Removed SWC dependency**: Projects using the parser API directly will need updates
+- **Parser API changes**: Now synchronous, returns TypeScript AST nodes
+
+**Full Changelog**: <https://github.com/wowemulation-dev/typescript2cxx/releases/tag/v0.1.1>
+
+---
+
+## typescript2cxx v0.1.2 - JSR.io Publishing Enabled
+
+Released: 2025-08-06
+
+### 📦 What's New
+
+This quick follow-up release enables JSR.io publishing, making typescript2cxx easily installable via JSR.
+
+#### ✅ JSR.io Publishing
+
+- **JSR Publishing Workflow**: Enabled and tested
+- **CI Integration**: JSR package verification in pipeline
+- **Easy Installation**: Now available on JSR.io
+
+#### 📚 Documentation
+
+- **Installation Instructions**: Added JSR install commands to README
+- **Module Usage**: Updated examples with JSR imports
+
+### Installation
+
+You can now install typescript2cxx directly from JSR:
+
+```bash
+# Install globally as CLI
+deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
+
+# Add to your project
+deno add @wowemulation-dev/typescript2cxx
+```
+
+### Import in your code:
+
+```typescript
+import { transpile } from "@wowemulation-dev/typescript2cxx";
+```
+
+**Full Changelog**: <https://github.com/wowemulation-dev/typescript2cxx/releases/tag/v0.1.2>
