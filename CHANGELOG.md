@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-08-06
+
+### Fixed
+
+- fix: JSR publish workflow now uses token authentication
+
+### Notes
+
+This release adds JSR_TOKEN authentication to the publish workflow as a
+temporary solution until OIDC authentication with linked repositories is working.
+
 ## [0.1.4] - 2025-08-06
 
 ### Fixed
