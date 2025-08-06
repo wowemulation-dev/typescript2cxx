@@ -18,3 +18,5 @@ Thumbs.db
 # Generated stuff
 /output/
 /node_modules/
+/cov_profile/
+/coverage.lcov

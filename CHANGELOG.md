@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix: Add coverage files to .gitignore (cov_profile/, coverage.lcov)
+
 ## [0.1.7] - 2025-08-06
 
 ### Fixed
