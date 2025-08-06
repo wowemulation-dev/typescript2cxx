@@ -37,7 +37,7 @@ This release delivers a **fully functional** TypeScript to C++ transpiler with v
 
 ```bash
 # Clone from GitHub
-git clone https://github.com/danielsreichenbach/typescript2cxx
+git clone https://github.com/wowemulation-dev/typescript2cxx
 cd typescript2cxx
 
 # Run directly with Deno
