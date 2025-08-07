@@ -41,6 +41,10 @@ export enum IRNodeKind {
   EnumDeclaration = "EnumDeclaration",
   TypeAliasDeclaration = "TypeAliasDeclaration",
 
+  // Decorators
+  Decorator = "Decorator",
+  DecoratorFactory = "DecoratorFactory",
+
   // Statements
   BlockStatement = "BlockStatement",
   ExpressionStatement = "ExpressionStatement",
@@ -274,6 +278,9 @@ export interface IRFunctionDeclaration extends IRDeclaration {
   /** Is static method */
   isStatic?: boolean;
 
+  /** Decorators */
+  decorators?: IRDecorator[];
+
   /** Is virtual method */
   isVirtual?: boolean;
 
@@ -308,6 +315,9 @@ export interface IRParameter {
 
   /** Memory management */
   memory: MemoryManagement;
+
+  /** Decorators */
+  decorators?: IRDecorator[];
 }
 
 /**
@@ -350,6 +360,9 @@ export interface IRClassDeclaration extends IRDeclaration {
 
   /** Template parameters */
   templateParams?: IRTemplateParameter[];
+
+  /** Decorator metadata */
+  decorators?: IRDecoratorMetadata;
 }
 
 /**
@@ -388,6 +401,9 @@ export interface IRPropertyDefinition extends IRNode {
 
   /** Property name */
   key: IRIdentifier | IRLiteral;
+
+  /** Decorators */
+  decorators?: IRDecorator[];
 
   /** Property type */
   type: string;
@@ -452,6 +468,55 @@ export interface IRAccessorProperty extends IRNode {
 
   /** Access modifier */
   accessibility?: "public" | "private" | "protected";
+}
+
+/**
+ * Decorator
+ */
+export interface IRDecorator extends IRNode {
+  kind: IRNodeKind.Decorator;
+
+  /** Decorator expression (identifier or call) */
+  expression: IRExpression;
+
+  /** Target type */
+  targetType: "class" | "method" | "property" | "parameter" | "accessor";
+
+  /** Target name (for members) */
+  targetName?: string;
+
+  /** Parameter index (for parameter decorators) */
+  parameterIndex?: number;
+}
+
+/**
+ * Decorator factory call
+ */
+export interface IRDecoratorFactory extends IRExpression {
+  kind: IRNodeKind.DecoratorFactory;
+
+  /** Factory function name */
+  name: string;
+
+  /** Factory arguments */
+  arguments: IRExpression[];
+}
+
+/**
+ * Decorator metadata
+ */
+export interface IRDecoratorMetadata {
+  /** Class decorators */
+  classDecorators?: IRDecorator[];
+
+  /** Member decorators (property/method name -> decorators) */
+  memberDecorators?: Map<string, IRDecorator[]>;
+
+  /** Parameter decorators (method name -> param index -> decorators) */
+  parameterDecorators?: Map<string, Map<number, IRDecorator[]>>;
+
+  /** Static member decorators */
+  staticDecorators?: Map<string, IRDecorator[]>;
 }
 
 /**

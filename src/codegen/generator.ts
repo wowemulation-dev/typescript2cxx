@@ -12,6 +12,8 @@ import type {
   IRCatchClause,
   IRClassDeclaration,
   IRConditionalExpression,
+  IRDecorator,
+  IRDecoratorMetadata,
   IRExpression,
   IRExpressionStatement,
   IRForStatement,
@@ -384,6 +386,16 @@ std::shared_ptr<js::Promise<${innerType}>>
         const superName = this.generateExpression(cls.superClass, context);
         classDecl += ` : public ${superName}`;
       }
+      
+      // Add has_metadata base if class has decorators
+      if (cls.decorators) {
+        if (cls.superClass) {
+          classDecl += `, public js::has_metadata<${name}>`;
+        } else {
+          classDecl += ` : public js::has_metadata<${name}>`;
+        }
+      }
+      
       if (cls.implements && cls.implements.length > 0) {
         // Handle interface implementation if needed
         // C++ doesn't have interfaces, so we treat them as additional base classes
@@ -459,13 +471,28 @@ std::shared_ptr<js::Promise<${innerType}>>
         context.indent--;
       }
 
-      lines.push("};");
+      // Add metadata storage if class has decorators
+      if (cls.decorators) {
+        lines.push("");
+        lines.push("public:");
+        context.indent++;
+        lines.push(this.getIndent(context) + `static js::metadata_t _metadata;`);
+        context.indent--;
+      }
+
+      lines.push("};")
       context.currentClass = prevClass;
       context.currentBaseClass = prevBaseClass;
       return lines.join("\n");
     } else {
       // Generate method implementations
       const lines: string[] = [];
+
+      // Generate metadata initialization if class has decorators
+      if (cls.decorators) {
+        lines.push(this.generateMetadataInitialization(cls, context));
+        lines.push("");
+      }
 
       for (const member of cls.members) {
         if (member.kind === IRNodeKind.FunctionDeclaration) {
@@ -1539,5 +1566,98 @@ std::shared_ptr<js::Promise<${innerType}>>
       return this.mapType(lit.cppType || "auto");
     }
     return "auto"; // Fallback, though this may still cause issues with extern
+  }
+
+  /**
+   * Generate metadata initialization for decorated classes
+   */
+  private generateMetadataInitialization(cls: IRClassDeclaration, context: CodeGenContext): string {
+    const lines: string[] = [];
+    const className = cls.id.name;
+    
+    lines.push(`// Initialize metadata for ${className}`);
+    lines.push(`js::metadata_t ${className}::_metadata = {`);
+    context.indent++;
+    
+    const metadataEntries: string[] = [];
+    
+    // Add class decorators
+    if (cls.decorators?.classDecorators) {
+      const decoratorNames = cls.decorators.classDecorators.map(d => {
+        if (d.expression.kind === IRNodeKind.Identifier) {
+          return `js::string("${(d.expression as IRIdentifier).name}")`;
+        } else if (d.expression.kind === IRNodeKind.CallExpression) {
+          const call = d.expression as IRCallExpression;
+          if (call.callee.kind === IRNodeKind.Identifier) {
+            return `js::string("${(call.callee as IRIdentifier).name}")`;
+          }
+        }
+        return `js::string("unknown")`;
+      });
+      
+      metadataEntries.push(
+        `{"__class_decorators__", js::any(js::array<js::string>({${decoratorNames.join(", ")}}))}`,
+      );
+    }
+    
+    // Add member decorators
+    if (cls.decorators?.memberDecorators) {
+      for (const [memberName, decorators] of cls.decorators.memberDecorators) {
+        metadataEntries.push(`{"${memberName}", js::boolean(true)}`);
+        
+        // Check for validation decorators
+        const validationDecorators = decorators.filter(d => {
+          if (d.expression.kind === IRNodeKind.Identifier) {
+            const name = (d.expression as IRIdentifier).name;
+            return name === "validate" || name === "required" || name === "email";
+          }
+          return false;
+        });
+        
+        if (validationDecorators.length > 0) {
+          const rules = validationDecorators.map(d => {
+            const name = (d.expression as IRIdentifier).name;
+            return `js::string("${name}")`;
+          });
+          metadataEntries.push(
+            `{"__validation_${memberName}__", js::any(js::array<js::string>({${rules.join(", ")}}))}`,
+          );
+        }
+      }
+    }
+    
+    // Add parameter decorators
+    if (cls.decorators?.parameterDecorators) {
+      for (const [methodName, params] of cls.decorators.parameterDecorators) {
+        for (const [index, decorators] of params) {
+          const decoratorNames = decorators.map(d => {
+            if (d.expression.kind === IRNodeKind.Identifier) {
+              return `js::string("${(d.expression as IRIdentifier).name}")`;
+            }
+            return `js::string("unknown")`;
+          });
+          
+          metadataEntries.push(
+            `{"__param_decorators__${methodName}_${index}", js::any(js::array<js::string>({${decoratorNames.join(", ")}}))}`,
+          );
+        }
+      }
+    }
+    
+    // Add static decorators
+    if (cls.decorators?.staticDecorators) {
+      for (const [memberName, _decorators] of cls.decorators.staticDecorators) {
+        metadataEntries.push(`{"${memberName}", js::boolean(true)}`);
+      }
+    }
+    
+    for (const entry of metadataEntries) {
+      lines.push(this.getIndent(context) + entry + (metadataEntries.indexOf(entry) < metadataEntries.length - 1 ? "," : ""));
+    }
+    
+    context.indent--;
+    lines.push("};");
+    
+    return lines.join("\n");
   }
 }

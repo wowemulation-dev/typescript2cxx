@@ -17,6 +17,8 @@ import type {
   IRClassMember,
   IRConditionalExpression,
   IRDeclaration as _IRDeclaration,
+  IRDecorator,
+  IRDecoratorMetadata,
   IRExpression,
   IRExpressionStatement,
   IRForStatement,
@@ -366,6 +368,12 @@ class ASTTransformer {
       members: [],
       isAbstract: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
     };
+
+    // Collect class decorators
+    const decoratorMetadata = this.collectDecoratorMetadata(node);
+    if (decoratorMetadata) {
+      cls.decorators = decoratorMetadata;
+    }
 
     // Transform class body
     const prevClass = this.context.currentClass;
@@ -1608,5 +1616,121 @@ class ASTTransformer {
     }
 
     return lineNumber;
+  }
+
+  /**
+   * Collect decorator metadata from a class
+   */
+  private collectDecoratorMetadata(node: ts.ClassDeclaration): IRDecoratorMetadata | undefined {
+    const metadata: IRDecoratorMetadata = {};
+    let hasDecorators = false;
+
+    // Collect class decorators
+    if (ts.canHaveDecorators(node)) {
+      const decorators = ts.getDecorators(node);
+      if (decorators && decorators.length > 0) {
+        metadata.classDecorators = decorators.map(d => this.transformDecorator(d, "class"));
+        hasDecorators = true;
+      }
+    }
+
+    // Collect member decorators
+    metadata.memberDecorators = new Map();
+    metadata.parameterDecorators = new Map();
+    metadata.staticDecorators = new Map();
+
+    for (const member of node.members) {
+      const memberName = this.getMemberName(member);
+      if (!memberName) continue;
+
+      // Check for member decorators
+      if (ts.canHaveDecorators(member)) {
+        const decorators = ts.getDecorators(member);
+        if (decorators && decorators.length > 0) {
+          const isStatic = member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
+          const targetType = this.getDecoratorTargetType(member);
+          const irDecorators = decorators.map(d => this.transformDecorator(d, targetType, memberName));
+          
+          if (isStatic) {
+            metadata.staticDecorators!.set(memberName, irDecorators);
+          } else {
+            metadata.memberDecorators!.set(memberName, irDecorators);
+          }
+          hasDecorators = true;
+        }
+      }
+
+      // Check for parameter decorators
+      if (ts.isMethodDeclaration(member) || ts.isConstructorDeclaration(member)) {
+        const params = member.parameters;
+        params.forEach((param, index) => {
+          if (ts.canHaveDecorators(param)) {
+            const decorators = ts.getDecorators(param);
+            if (decorators && decorators.length > 0) {
+              const methodName = ts.isConstructorDeclaration(member) ? "constructor" : memberName;
+              if (!metadata.parameterDecorators!.has(methodName)) {
+                metadata.parameterDecorators!.set(methodName, new Map());
+              }
+              const irDecorators = decorators.map(d => 
+                this.transformDecorator(d, "parameter", methodName, index)
+              );
+              metadata.parameterDecorators!.get(methodName)!.set(index, irDecorators);
+              hasDecorators = true;
+            }
+          }
+        });
+      }
+    }
+
+    return hasDecorators ? metadata : undefined;
+  }
+
+  /**
+   * Transform a single decorator
+   */
+  private transformDecorator(
+    decorator: ts.Decorator,
+    targetType: "class" | "method" | "property" | "parameter" | "accessor",
+    targetName?: string,
+    parameterIndex?: number
+  ): IRDecorator {
+    return {
+      kind: IRNodeKind.Decorator,
+      expression: this.transformExpression(decorator.expression),
+      targetType,
+      targetName,
+      parameterIndex,
+    };
+  }
+
+  /**
+   * Get the decorator target type from a class member
+   */
+  private getDecoratorTargetType(member: ts.ClassElement): "method" | "property" | "accessor" {
+    if (ts.isMethodDeclaration(member)) {
+      return "method";
+    } else if (ts.isPropertyDeclaration(member)) {
+      return "property";
+    } else if (ts.isGetAccessor(member) || ts.isSetAccessor(member)) {
+      return "accessor";
+    }
+    return "property";
+  }
+
+  /**
+   * Get member name from class element
+   */
+  private getMemberName(member: ts.ClassElement): string | undefined {
+    if (ts.isMethodDeclaration(member) || ts.isPropertyDeclaration(member) || 
+        ts.isGetAccessor(member) || ts.isSetAccessor(member)) {
+      if (member.name) {
+        if (ts.isIdentifier(member.name)) {
+          return member.name.text;
+        } else if (ts.isStringLiteral(member.name)) {
+          return member.name.text;
+        }
+      }
+    }
+    return undefined;
   }
 }
