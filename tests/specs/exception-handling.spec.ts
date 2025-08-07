@@ -5,7 +5,7 @@
 
 import { describe, it } from "@std/testing/bdd";
 import { assertStringIncludes } from "@std/assert";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 describe("Exception Handling", () => {
   describe("Basic try/catch", () => {

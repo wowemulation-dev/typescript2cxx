@@ -2,7 +2,7 @@
  * Tests for Type Guards and typeof operator
  */
 import { assertEquals } from "@std/assert";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 Deno.test("Type Guards: typeof operator basic types", async () => {
   const input = `

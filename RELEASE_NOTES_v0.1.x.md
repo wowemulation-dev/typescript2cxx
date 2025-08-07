@@ -75,7 +75,7 @@ deno run --allow-net --allow-read --allow-write src/cli.ts example.ts
 # Compile with clang++ or g++
 clang++ -std=c++20 -I. example.cpp -o example
 
-# Run the executable  
+# Run the executable
 ./example
 # Output: Point x: [object Object]
 ```
@@ -220,7 +220,7 @@ deno install -Arf -n tsc2cxx jsr:@wowemulation-dev/typescript2cxx/cli
 deno add @wowemulation-dev/typescript2cxx
 ```
 
-### Import in your code:
+### Import in your code
 
 ```typescript
 import { transpile } from "@wowemulation-dev/typescript2cxx";
@@ -234,7 +234,7 @@ import { transpile } from "@wowemulation-dev/typescript2cxx";
 
 Released: 2025-08-06
 
-### 🎉 Published on JSR.io!
+### 🎉 Published on JSR.io
 
 This release marks the first successful publication to JSR.io. typescript2cxx is now available at:
 **[jsr.io/@wowemulation-dev/typescript2cxx](https://jsr.io/@wowemulation-dev/typescript2cxx)**

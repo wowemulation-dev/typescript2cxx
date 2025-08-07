@@ -2,7 +2,7 @@
  * Tests for Intersection Type transpilation
  */
 import { assertEquals } from "@std/assert";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 Deno.test("Intersection Types: interface intersection", async () => {
   const input = `

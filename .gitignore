@@ -15,10 +15,8 @@
 .DS_Store
 Thumbs.db
 
-# Generated stuff
-/compiled_tests/
-/cov_profile/
-/coverage.lcov
+# Generated output (consolidated)
+/.output/
+
+# Dependencies
 /node_modules/
-/output/
-/test_output/

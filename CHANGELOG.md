@@ -11,6 +11,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix: Add coverage files to .gitignore (cov_profile/, coverage.lcov)
 
+## [0.5.0] - 2025-08-07
+
+### Fixed
+
+- fix: Circular dependency resolution in runtime/core.h
+- fix: Type inference for binary expressions generating invalid extern declarations
+- fix: Test runner absolute path resolution for runtime includes
+- fix: Test execution permissions with full --allow-run flag
+- fix: E2E compilation issues preventing C++ code from compiling
+
+### Changed
+
+- refactor: Restructured runtime header to define simple types before complex types
+- refactor: Enhanced code generator type inference for arithmetic operations
+- refactor: **Project Organization** - Consolidated all output into unified `.output/` directory structure
+  - Replaced 8+ scattered directories (cmake-test-output, cov_profile, etc.) with organized subdirectories
+  - All generated files now in `.output/{coverage,dist,docs,cmake-tests,reports}/`
+  - Moved CMake integration tests to `tests/integration/cmake-e2e.ts`
+  - Simplified .gitignore to single `.output/` entry
+  - Added `test:cmake` Deno task for E2E pipeline testing
+- chore: Updated version to 0.5.0 in deno.json
+
+### Documentation
+
+- docs: Created comprehensive release notes for v0.2.x, v0.3.x, and v0.4.x
+- docs: Updated README with current project status and achievements
+- docs: Enhanced feature compatibility tables
+
+## [0.4.0] - 2025-08-07
+
+### Added
+
+- feat: **Decorator Support** - Complete decorator implementation with metadata preservation
+  - Class, method, property, and accessor decorators
+  - Decorator factories with parameters
+  - Multiple decorators on same target
+  - C++ metadata storage using has_metadata<T> pattern
+
+- feat: **Exception Handling** - Full try/catch/finally support
+  - Proper stack unwinding semantics
+  - js::any as universal exception type
+  - Error hierarchy (Error, TypeError, ReferenceError)
+  - Nested try/catch blocks
+
+- feat: **Union Types** - Type-safe runtime unions
+  - string | number → js::typed::StringOrNumber
+  - T | null → js::typed::Nullable<T>
+  - T | undefined → js::typed::Optional<T>
+  - Complex unions fallback to js::any
+
+- feat: **Type Guards** - Runtime type checking
+  - typeof operator implementation
+  - Type predicate functions (is_string, is_number, etc.)
+  - Nullable type checking helpers
+  - Control flow type narrowing
+
+- feat: **Intersection Types** - Basic intersection support
+  - T & U type combinations
+  - Interface intersection
+  - Primitive & object intersection
+  - First-type prioritization strategy
+
+### Testing
+
+- feat: End-to-end test runner with C++ compilation
+- feat: Cross-platform compiler detection (clang++, g++, MSVC)
+- feat: Automatic compilation and execution of generated code
+- feat: 40+ new test cases for advanced features
+
 ## [0.3.0] - 2025-08-06
 
 ### Added - Comprehensive JavaScript Runtime Library

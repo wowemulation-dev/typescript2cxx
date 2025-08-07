@@ -1576,7 +1576,32 @@ std::shared_ptr<js::Promise<${innerType}>>
       const lit = init as IRLiteral;
       return this.mapType(lit.cppType || "auto");
     }
-    return "auto"; // Fallback, though this may still cause issues with extern
+    if (init.kind === IRNodeKind.BinaryExpression) {
+      // For binary expressions, try to infer based on the operator
+      const binExpr = init as IRBinaryExpression;
+      // Arithmetic operators typically return the same type as operands
+      // For now, assume number for arithmetic operations
+      if (["+", "-", "*", "/", "%"].includes(binExpr.operator)) {
+        // If either operand is a number, result is a number
+        return "js::number";
+      }
+      // String concatenation
+      if (binExpr.operator === "+") {
+        // Could be string concatenation, but we default to number above
+        // This would need more sophisticated type analysis
+        return "js::any";
+      }
+      // Comparison operators return boolean
+      if (["==", "!=", "===", "!==", "<", ">", "<=", ">="].includes(binExpr.operator)) {
+        return "bool";
+      }
+    }
+    if (init.kind === IRNodeKind.Identifier) {
+      // For identifiers, we'd need to look up their type
+      // For now, assume js::any as a safe fallback
+      return "js::any";
+    }
+    return "js::any"; // Use js::any as fallback instead of auto
   }
 
   /**

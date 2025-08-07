@@ -165,6 +165,60 @@ Plugins can extend functionality at multiple points:
 - Custom code emitters
 - Lifecycle hooks
 
+## Quick Reference
+
+### Running the Transpiler
+
+```bash
+# Basic usage
+deno run -A src/cli.ts input.ts -o output/
+
+# With runtime path
+deno run -A src/cli.ts input.ts -o output/ --runtime ./runtime
+
+# Watch mode (not yet implemented)
+deno run -A src/cli.ts input.ts -o output/ --watch
+
+# With type checking
+deno run -A src/cli.ts input.ts -o output/ --check
+```
+
+### Running Tests
+
+```bash
+# All tests
+deno task test
+
+# Unit tests only
+deno test src/**/*.test.ts --allow-all
+
+# Spec tests only
+deno task spec
+
+# E2E tests (requires C++ compiler)
+deno test tests/e2e/ --allow-all
+
+# With coverage
+deno task test:coverage
+deno task coverage
+```
+
+### Development Commands
+
+```bash
+# Format code
+deno fmt
+
+# Lint
+deno lint
+
+# Type check
+deno task check
+
+# Build executable
+deno task compile
+```
+
 ## Testing Generated Code
 
 To test if generated C++ code compiles:
@@ -186,17 +240,38 @@ clang++ -std=c++20 -I. hello-world.cpp -o hello-world
 
 **Note**: The generated code currently has compilation issues that are being addressed.
 
-## Known Limitations
+## Current Implementation Status (v0.4.1)
 
-Most core issues have been resolved in v0.1.0:
+### ✅ Fully Implemented Features
 
-1. ✅ **C++ Compilation**: All issues fixed - code compiles successfully
-2. ✅ **Template Literals**: Interpolation implemented and working
-3. ✅ **For Loop**: Increment expressions fixed
-4. ✅ **Method Bodies**: Generation working correctly
-5. ✅ **Optional Chaining**: Detection and generation implemented
-6. **Async/Await**: Requires coroutine implementation (future)
-7. **Modules**: ES modules not fully supported (future)
+1. **TypeScript Compiler API** - Complete type checking and analysis
+2. **Basic Language Constructs** - Variables, functions, classes, interfaces
+3. **Control Flow** - If/else, for, while, do-while, break, continue
+4. **Operators** - All arithmetic, logical, comparison, assignment operators
+5. **Template Literals** - Full interpolation support
+6. **Optional Chaining** - Safe property access with null checks
+7. **Class System** - Inheritance, constructors, methods, static members
+8. **Exception Handling** - Try/catch/finally/throw
+9. **Decorators** - Class, method, property, accessor decorators
+10. **Advanced Types** - Unions, intersections, type guards
+
+### 🔧 Partially Implemented
+
+1. **Functions** - Basic support, missing default/optional/rest parameters
+2. **Generics** - Basic type parameters, no constraints or variance
+3. **Type System** - Most types work, missing conditional/mapped types
+4. **Objects/Arrays** - Literals work, missing destructuring/spread
+
+### ❌ Not Implemented
+
+1. **Async/Await** - Requires C++20 coroutine implementation
+2. **Modules** - No ES module import/export support
+3. **Switch Statements** - Not implemented
+4. **For...of/in Loops** - Not implemented
+5. **Destructuring** - Object/array destructuring not supported
+6. **Spread Operator** - Not implemented
+7. **Nullish Coalescing** - ?? operator not supported
+8. **Build System Generation** - No CMake/Makefile generation
 
 ## Contributing
 
@@ -223,42 +298,85 @@ Add `console.log(JSON.stringify(ir, null, 2))` in transpiler.ts
 
 Create minimal test cases in test files
 
-## Future Enhancements
+## Release History
 
-### v0.1.1 - Released 2025-01-05
+### v0.4.1 - 2025-01-07
 
-- [x] **TypeScript Compiler API migration** - Complete replacement of SWC
-- [x] **Type checker integration** - SimpleTypeChecker for C++ type mappings
-- [x] **JSR.io compatibility** - Now ready for JSR publishing
-- [x] **Enhanced type support** - Generics, unions, intersections, functions
-- [x] **All tests passing** - 50 test steps covering complete functionality
+- ✅ Fixed E2E compilation issues
+- ✅ Resolved circular dependencies in runtime
+- ✅ Type inference for binary expressions
+- ✅ Test runner improvements
 
-### v0.2.0 - Build System Integration
+### v0.4.0 - 2025-01-07
 
-- [ ] **CMake Build Generation**
-  - Auto-generate CMakeLists.txt from TypeScript projects
-  - Support for executable and library targets
-  - Cross-platform build configuration
-  - Integration with vcpkg/Conan
-  - Debug/Release configurations
-- [ ] **Advanced Type Checker Features**
-  - Full TypeScript program analysis
-  - Cross-file type resolution
-  - Generic constraint validation
-- [ ] Module system support
-- [ ] More C++ standard library mappings
+- ✅ Decorator support with metadata
+- ✅ Union and intersection types
+- ✅ Type guards and typeof operator
+- ✅ Exception handling (try/catch/finally)
+- ✅ E2E test infrastructure
 
-### v0.1.2 - Next Minor Release
+### v0.3.0 - 2025-01-06
 
-- [ ] Enhanced error messages and diagnostics
-- [ ] Source map generation
-- [ ] Performance optimizations
-- [ ] Memory leak detection
+- ✅ Complete JavaScript runtime library
+- ✅ Math, Date, RegExp, JSON, Console objects
+- ✅ Error hierarchy implementation
+- ✅ 40+ runtime tests
 
-### Future Versions
+### v0.2.0 - 2025-01-06
 
-- [ ] Optimization passes
-- [ ] Advanced memory management
-- [ ] GPU compute support
+- ✅ Enhanced TypeScript support
+- ✅ Control flow statements
+- ✅ Class system improvements
+- ✅ Expression handling
+
+### v0.1.1 - 2025-01-05
+
+- ✅ TypeScript Compiler API migration
+- ✅ Type checker integration
+- ✅ JSR.io compatibility
+- ✅ Enhanced type support
+
+### v0.1.0 - 2025-01-05
+
+- ✅ Initial release
+- ✅ Basic transpilation working
+- ✅ Core IR design
+- ✅ Plugin system
+
+## Roadmap
+
+### Next: Async/Await & Modules
+
 - [ ] Async/await with C++20 coroutines
-- [ ] Full ES module support
+- [ ] ES module import/export
+- [ ] Dynamic imports
+- [ ] Promise implementation
+
+### Future: Advanced Control Flow
+
+- [ ] Switch statements
+- [ ] For...of and for...in loops
+- [ ] Labeled statements
+- [ ] Advanced break/continue
+
+### Future: Modern JavaScript
+
+- [ ] Destructuring (objects and arrays)
+- [ ] Spread operator
+- [ ] Rest parameters
+- [ ] Default parameters
+- [ ] Nullish coalescing
+
+### Future: Build System Integration
+
+- [ ] CMake generation (basic prototype exists)
+- [ ] Makefile generation
+- [ ] Package manager integration
+- [ ] Cross-compilation support
+
+### Future: Production Features
+
+- [ ] Source maps
+- [ ] Optimization passes
+- [ ] Full test coverage
+- [ ] Complete documentation

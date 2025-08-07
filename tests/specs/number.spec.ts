@@ -1,27 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 describe("Number Type Transpilation", () => {
-  const testOutputDir = "./test-output";
-
   async function testTranspilation(code: string) {
-    const filename = "test_" + Math.random().toString(36).substring(7);
-    const inputFile = `${testOutputDir}/${filename}.ts`;
-    const outputDir = `${testOutputDir}/${filename}`;
-
-    await Deno.mkdir(testOutputDir, { recursive: true });
-    await Deno.writeTextFile(inputFile, code);
-
-    const result = await transpile(inputFile, {
-      outputDir,
-      runtime: "embedded",
-      targetCppStandard: "c++20",
+    const result = await transpile(code, {
+      outputName: "test",
+      standard: "c++20",
     });
-
-    await Deno.remove(inputFile);
-    await Deno.remove(outputDir, { recursive: true });
-
     return result;
   }
 
@@ -36,7 +22,8 @@ describe("Number Type Transpilation", () => {
             console.log(a != undefined);
             console.log(!!a);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle any type with numbers", async () => {
@@ -50,7 +37,8 @@ describe("Number Type Transpilation", () => {
             console.log(a != undefined);
             console.log(!!a);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle strict equality with numbers", async () => {
@@ -64,7 +52,8 @@ describe("Number Type Transpilation", () => {
             console.log(a !== undefined);
             console.log(!!a);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle number operations with undefined", async () => {
@@ -76,7 +65,8 @@ describe("Number Type Transpilation", () => {
             a += 1;
             console.log(a);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle NaN and Infinity", async () => {
@@ -87,7 +77,8 @@ describe("Number Type Transpilation", () => {
             console.log(isNaN(NaN));
             console.log(isFinite(Infinity));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle number arithmetic", async () => {
@@ -100,7 +91,8 @@ describe("Number Type Transpilation", () => {
             console.log(a / b);
             console.log(a % b);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle Math operations", async () => {
@@ -113,6 +105,7 @@ describe("Number Type Transpilation", () => {
             console.log(Math.sin(0));
             console.log(Math.cos(0));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 });

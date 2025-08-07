@@ -1,27 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 describe("String Type Transpilation", () => {
-  const testOutputDir = "./test-output";
-
   async function testTranspilation(code: string) {
-    const filename = "test_" + Math.random().toString(36).substring(7);
-    const inputFile = `${testOutputDir}/${filename}.ts`;
-    const outputDir = `${testOutputDir}/${filename}`;
-
-    await Deno.mkdir(testOutputDir, { recursive: true });
-    await Deno.writeTextFile(inputFile, code);
-
-    const result = await transpile(inputFile, {
-      outputDir,
-      runtime: "embedded",
-      targetCppStandard: "c++20",
+    const result = await transpile(code, {
+      outputName: "test",
+      standard: "c++20",
     });
-
-    await Deno.remove(inputFile);
-    await Deno.remove(outputDir, { recursive: true });
-
     return result;
   }
 
@@ -32,7 +18,8 @@ describe("String Type Transpilation", () => {
             const message = greeting + ", " + name + "!";
             console.log(message);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string methods", async () => {
@@ -46,7 +33,8 @@ describe("String Type Transpilation", () => {
             console.log(str.substring(0, 5));
             console.log(str.slice(6));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string trim methods", async () => {
@@ -56,7 +44,8 @@ describe("String Type Transpilation", () => {
             console.log(str.trimStart());
             console.log(str.trimEnd());
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string split and join", async () => {
@@ -66,7 +55,8 @@ describe("String Type Transpilation", () => {
             console.log(fruits[0]);
             console.log(fruits.join(" - "));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string replace", async () => {
@@ -75,7 +65,8 @@ describe("String Type Transpilation", () => {
             const newStr = str.replace("World", "TypeScript");
             console.log(newStr);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle template literals", async () => {
@@ -85,7 +76,8 @@ describe("String Type Transpilation", () => {
             const message = \`Hello, my name is \${name} and I am \${age} years old.\`;
             console.log(message);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string comparisons", async () => {
@@ -97,7 +89,8 @@ describe("String Type Transpilation", () => {
             console.log(str1 === "apple");
             console.log(str1 !== str2);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string includes, startsWith, endsWith", async () => {
@@ -107,7 +100,8 @@ describe("String Type Transpilation", () => {
             console.log(str.startsWith("Hello"));
             console.log(str.endsWith("World"));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle string repeat and padStart/padEnd", async () => {
@@ -117,6 +111,7 @@ describe("String Type Transpilation", () => {
             console.log(str.padStart(5, "*"));
             console.log(str.padEnd(5, "-"));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 });

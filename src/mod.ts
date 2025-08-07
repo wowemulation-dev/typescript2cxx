@@ -144,4 +144,4 @@ export { CodeGenError, ParseError, TranspilerError } from "./errors.ts";
 /**
  * Current version of typescript2cxx
  */
-export const VERSION = "0.1.7";
+export const VERSION = "0.5.0";

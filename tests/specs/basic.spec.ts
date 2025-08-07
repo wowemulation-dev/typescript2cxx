@@ -1,65 +1,56 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { transpile } from "../../src/transpiler.ts";
-import { existsSync } from "@std/fs";
+import { transpile } from "../../src/mod.ts";
+import { runEndToEndTest } from "../../src/test-runner.ts";
 
 describe("Basic TypeScript Transpilation", () => {
-  const testOutputDir = "./test-output";
-
-  // Helper to transpile and compile test code
   async function testTranspilation(code: string) {
-    const filename = "test_" + Math.random().toString(36).substring(7);
-    const inputFile = `${testOutputDir}/${filename}.ts`;
-    const outputDir = `${testOutputDir}/${filename}`;
-
-    // Create test directory
-    await Deno.mkdir(testOutputDir, { recursive: true });
-
-    // Write test TypeScript file
-    await Deno.writeTextFile(inputFile, code);
-
-    // Transpile
-    const result = await transpile(inputFile, {
-      outputDir,
-      runtime: "embedded",
-      targetCppStandard: "c++20",
+    const result = await transpile(code, {
+      outputName: "test",
+      standard: "c++20",
     });
-
-    // Check that files were generated
-    assertEquals(result.success, true);
-    assertEquals(existsSync(`${outputDir}/${filename}.cpp`), true);
-    assertEquals(existsSync(`${outputDir}/${filename}.h`), true);
-
-    // Clean up
-    await Deno.remove(inputFile);
-    await Deno.remove(outputDir, { recursive: true });
-
     return result;
   }
 
+  async function testE2E(code: string, expectedOutput: string) {
+    // First test transpilation
+    const result = await testTranspilation(code);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
+    
+    // Then test the full E2E pipeline (if compiler is available)
+    try {
+      await runEndToEndTest(code, expectedOutput, "./runtime");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("No C++ compiler found")) {
+        console.warn("⚠️  Skipping E2E test: No C++ compiler found");
+      } else {
+        throw error;
+      }
+    }
+  }
+
   it("should transpile Hello World as string const", async () => {
-    const result = await testTranspilation(`
+    await testE2E(`
             console.log("Hello World!");
-        `);
-    assertEquals(result.success, true);
+        `, "Hello World!");
   });
 
   it("should transpile Hello World as variable", async () => {
-    const result = await testTranspilation(`
+    await testE2E(`
             var x: string = "Hello World!";
             console.log(x);
-        `);
-    assertEquals(result.success, true);
+        `, "Hello World!");
   });
 
   it("should transpile Hello World as function", async () => {
-    const result = await testTranspilation(`
+    await testE2E(`
             function x() {
                 console.log("Hello World!");
             }
             x();
-        `);
-    assertEquals(result.success, true);
+        `, "Hello World!");
   });
 
   it("should transpile Hello World as function declaration", async () => {
@@ -69,7 +60,8 @@ describe("Basic TypeScript Transpilation", () => {
             };
             x();
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should transpile Hello World as function return", async () => {
@@ -79,7 +71,8 @@ describe("Basic TypeScript Transpilation", () => {
             }
             console.log(x());
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should transpile Hello World as arrow function", async () => {
@@ -89,7 +82,8 @@ describe("Basic TypeScript Transpilation", () => {
             };
             x();
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should transpile direct function call (IIFE)", async () => {
@@ -98,7 +92,8 @@ describe("Basic TypeScript Transpilation", () => {
                 console.log("Hello World!");
             })();
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle variable reassignment with different types", async () => {
@@ -113,7 +108,8 @@ describe("Basic TypeScript Transpilation", () => {
             x = "Hello World!";
             console.log(x);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle let declarations with reassignment", async () => {
@@ -128,6 +124,7 @@ describe("Basic TypeScript Transpilation", () => {
             x = "Hello World!";
             console.log(x);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 });

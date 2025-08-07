@@ -3,6 +3,8 @@
  * Compiles and executes generated C++ code to verify correctness
  */
 
+import { resolve } from "@std/path";
+
 interface CompilerInfo {
   name: string;
   checkCommand: string[];
@@ -153,8 +155,8 @@ export class CrossPlatformTestRunner {
     executablePath: string,
   ): Promise<{ success: boolean; output: string }> {
     try {
-      // Ensure we have the correct executable path
-      const fullPath = executablePath.startsWith("./") ? executablePath : "./" + executablePath;
+      // Use the absolute path as provided by the compiler
+      const fullPath = executablePath;
 
       const command = new Deno.Command(fullPath, {
         stdout: "piped",
@@ -222,10 +224,14 @@ export class CrossPlatformTestRunner {
       // Import transpiler
       const { transpile } = await import("./transpiler.ts");
 
+      // Convert runtime path to absolute path
+      const absoluteRuntimePath = resolve(runtimePath);
+      const runtimeInclude = `${absoluteRuntimePath}/core.h`;
+
       // Transpile TypeScript to C++
       const result = await transpile(tsCode, {
         outputName: "test",
-        runtimeInclude: `${runtimePath}/core.h`,
+        runtimeInclude,
       });
 
       // Check for transpilation errors (transpile doesn't throw, it returns warnings)

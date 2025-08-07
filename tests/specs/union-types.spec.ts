@@ -2,7 +2,7 @@
  * Tests for Union Type transpilation
  */
 import { assertEquals } from "@std/assert";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 Deno.test("Union Types: basic string | number union", async () => {
   const input = `

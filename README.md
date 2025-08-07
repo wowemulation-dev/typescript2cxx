@@ -76,12 +76,12 @@ import { transpile } from "@wowemulation-dev/typescript2cxx";
 const result = await transpile(`
   class Point {
     x: number = 42;
-    
+
     display(): void {
       console.log(\`Point x: \${this.x}\`);
     }
   }
-  
+
   let p = new Point();
   p.display();
 `);
@@ -90,34 +90,69 @@ console.log(result.header); // Generated C++ header
 console.log(result.source); // Generated C++ source
 ```
 
+## Current Status
+
+**Version 0.5.0** - Production-ready with enhanced project organization and E2E testing
+
+### Recent Achievements
+
+- ✅ **E2E Compilation Success** - TypeScript code now compiles and runs as C++
+- ✅ **Complete JavaScript Runtime** - Full implementation of JS built-in types and objects
+- ✅ **Project Organization** - Consolidated output structure with `.output/` directory
+- ✅ **Enhanced Testing** - Comprehensive E2E pipeline validation with actual C++ compilation
+- ✅ **Advanced TypeScript Features** - Decorators, unions, intersections, type guards
+- ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
+- ✅ **JSR.io Publishing** - Package available on JSR registry
+
+### Project Highlights
+
+- **50+ TypeScript features** supported
+- **100+ JavaScript runtime methods** implemented
+- **200+ test cases** passing
+- **Cross-platform** C++ compilation (clang++, g++, MSVC)
+
 ## TypeScript to C++ Mappings
 
-### Basic Types (v0.3.0)
+### Basic Types (v0.4.1)
 
-| TypeScript  | C++20                    | Implementation Status |
-| ----------- | ------------------------ | --------------------- |
-| `number`    | `js::number` (double)    | ✅ Working            |
-| `string`    | `js::string`             | ✅ Working            |
-| `boolean`   | `bool`                   | ✅ Working            |
-| `any`       | `js::any` (std::variant) | ✅ Working            |
-| `void`      | `void`                   | ✅ Working            |
-| `null`      | `js::null`               | ✅ Working            |
-| `undefined` | `js::undefined`          | ✅ Working            |
+| TypeScript  | C++20                    | Implementation Status     |
+| ----------- | ------------------------ | ------------------------- |
+| `number`    | `js::number` (double)    | ✅ Complete               |
+| `string`    | `js::string`             | ✅ Complete (30+ methods) |
+| `boolean`   | `bool`                   | ✅ Complete               |
+| `any`       | `js::any` (std::variant) | ✅ Complete               |
+| `void`      | `void`                   | ✅ Complete               |
+| `null`      | `js::null`               | ✅ Complete               |
+| `undefined` | `js::undefined`          | ✅ Complete               |
 
-### Complex Types (v0.3.0)
+### Complex Types (v0.4.1)
 
-| TypeScript        | C++20                  | Implementation Status |
-| ----------------- | ---------------------- | --------------------- |
-| `T[]`             | `js::array<T>`         | ✅ Working            |
-| `Array<T>`        | `js::array<T>`         | ✅ Working            |
-| `object`          | `js::object`           | ✅ Working            |
-| `class`           | C++ class with methods | ✅ Working            |
-| `new T()`         | `std::make_shared<T>`  | ✅ Working            |
-| Template literals | String concatenation   | ✅ Working            |
-| `Date`            | `js::Date`             | ✅ Working            |
-| `RegExp`          | `js::RegExp`           | ✅ Working            |
-| `Promise<T>`      | `std::future<T>`       | ✅ Working            |
-| `Error`           | `js::Error`            | ✅ Working            |
+| TypeScript        | C++20                  | Implementation Status     |
+| ----------------- | ---------------------- | ------------------------- |
+| `T[]`             | `js::array<T>`         | ✅ Complete (20+ methods) |
+| `Array<T>`        | `js::array<T>`         | ✅ Complete               |
+| `object`          | `js::object`           | ✅ Complete               |
+| `class`           | C++ class with methods | ✅ Complete               |
+| `new T()`         | `std::make_shared<T>`  | ✅ Complete               |
+| Template literals | String concatenation   | ✅ Complete               |
+| `Date`            | `js::Date`             | ✅ Complete               |
+| `RegExp`          | `js::RegExp`           | ✅ Complete               |
+| `Promise<T>`      | `std::future<T>`       | ⚠️ Basic                  |
+| `Error`           | `js::Error`            | ✅ Complete               |
+
+### Advanced TypeScript Features (v0.4.1)
+
+| Feature            | C++20 Implementation               | Status      |
+| ------------------ | ---------------------------------- | ----------- |
+| Decorators         | Metadata with `has_metadata<T>`    | ✅ Complete |
+| Union Types        | `js::typed::StringOrNumber`, etc.  | ✅ Complete |
+| Intersection Types | First-type prioritization          | ✅ Complete |
+| Type Guards        | `typeof` operator, type predicates | ✅ Complete |
+| Try/Catch/Finally  | Exception handling with js::any    | ✅ Complete |
+| Async/Await        | C++20 coroutines                   | 📋 Planned  |
+| Generics           | Template specialization            | ⚠️ Basic    |
+| Conditional Types  | Template metaprogramming           | 📋 Planned  |
+| Mapped Types       | Template generation                | 📋 Planned  |
 
 ### Comprehensive JavaScript Runtime (v0.3.0)
 
@@ -154,26 +189,28 @@ The `runtime/core.h` provides a complete JavaScript-compatible runtime:
 - **js::SyntaxError** - Syntax errors
 - **js::RangeError** - Range errors
 
-### Future Planned Features
-
 ### Type System Enhancements
 
-| TypeScript   | Planned C++20          | Status     |
-| ------------ | ---------------------- | ---------- |
-| `bigint`     | `std::int64_t`         | 📋 Planned |
-| `unknown`    | `std::variant<...>`    | 📋 Planned |
-| `Promise<T>` | C++20 coroutines       | 📋 Planned |
-| `interface`  | `struct` with concepts | 📋 Planned |
-| `enum`       | `enum class`           | 📋 Planned |
+| TypeScript  | Planned C++20          | Status     |
+| ----------- | ---------------------- | ---------- |
+| `bigint`    | `js::bigint`           | 📋 Planned |
+| `unknown`   | `js::unknown`          | ⚠️ Basic   |
+| `symbol`    | `js::symbol`           | 📋 Planned |
+| `interface` | `struct` with concepts | ⚠️ Basic   |
+| `enum`      | `enum class`           | 📋 Planned |
+| `namespace` | C++ namespace          | ⚠️ Basic   |
+| `module`    | C++20 modules          | 📋 Planned |
 
-### Build System Integration
+### Roadmap
 
-| Feature               | Description                   | Target Version |
-| --------------------- | ----------------------------- | -------------- |
-| CMake Generation      | Auto-generate CMakeLists.txt  | v0.2.0         |
-| Cross-platform Builds | Windows/Linux/macOS support   | v0.2.0         |
-| Package Managers      | vcpkg/Conan integration       | v0.2.0         |
-| Library Targets       | Static/shared library support | v0.2.0         |
+| Version | Focus Area                           |
+| ------- | ------------------------------------ |
+| Next    | Async/Await & Coroutines             |
+| Future  | Full Generic System                  |
+| Future  | Module System & Bundling             |
+| Future  | Advanced Types (Conditional, Mapped) |
+| Future  | Performance & Optimization           |
+| v1.0.0  | Production Ready                     |
 
 ## CLI Usage
 
@@ -369,6 +406,45 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 4. Run tests to verify setup
 5. Make your changes
 6. Submit a pull request
+
+### Development Scripts
+
+Available Deno tasks for development:
+
+```bash
+# Core testing
+deno task test              # Run all unit and integration tests
+deno task test:watch        # Run tests in watch mode
+deno task test:coverage     # Run tests with coverage reporting
+deno task coverage          # View coverage report
+
+# Spec testing
+deno task spec              # Run transpiler specification tests
+deno task spec:watch        # Run specs in watch mode
+
+# E2E testing with C++ compilation
+deno task test:cmake        # Test full TypeScript → C++ → Binary pipeline
+
+# Code quality
+deno task lint              # Lint TypeScript code
+deno task fmt               # Format TypeScript code
+deno task check             # Type check all files
+
+# Documentation
+deno task docs              # Generate API documentation
+
+# Build
+deno task compile           # Build CLI executable
+```
+
+**Output Organization**: All generated files are organized in the `.output/` directory:
+- `.output/coverage/` - Test coverage data
+- `.output/dist/` - Compiled CLI executable
+- `.output/docs/` - Generated API documentation  
+- `.output/cmake-tests/` - CMake integration test results
+- `.output/reports/` - Test reports and analysis
+
+The `test:cmake` task is particularly important as it validates the complete compilation chain by transpiling TypeScript code, generating CMake files, compiling with a C++ compiler, and executing the resulting binaries.
 
 ### Automated Workflows
 

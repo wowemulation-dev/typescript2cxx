@@ -2,7 +2,7 @@
  * Tests for TypeScript decorator support
  */
 import { assertEquals } from "@std/assert";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 Deno.test("decorators: class decorator", async () => {
   const input = `

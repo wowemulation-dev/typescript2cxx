@@ -1,27 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { transpile } from "../../src/transpiler.ts";
+import { transpile } from "../../src/mod.ts";
 
 describe("Array Type Transpilation", () => {
-  const testOutputDir = "./test-output";
-
   async function testTranspilation(code: string) {
-    const filename = "test_" + Math.random().toString(36).substring(7);
-    const inputFile = `${testOutputDir}/${filename}.ts`;
-    const outputDir = `${testOutputDir}/${filename}`;
-
-    await Deno.mkdir(testOutputDir, { recursive: true });
-    await Deno.writeTextFile(inputFile, code);
-
-    const result = await transpile(inputFile, {
-      outputDir,
-      runtime: "embedded",
-      targetCppStandard: "c++20",
+    const result = await transpile(code, {
+      outputName: "test",
+      standard: "c++20",
     });
-
-    await Deno.remove(inputFile);
-    await Deno.remove(outputDir, { recursive: true });
-
     return result;
   }
 
@@ -32,7 +18,8 @@ describe("Array Type Transpilation", () => {
             console.log(numbers[4]);
             console.log(numbers.length);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array push and pop", async () => {
@@ -44,7 +31,8 @@ describe("Array Type Transpilation", () => {
             console.log(last);
             console.log(arr.length);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array shift and unshift", async () => {
@@ -55,7 +43,8 @@ describe("Array Type Transpilation", () => {
             const first = arr.shift();
             console.log(first);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array slice", async () => {
@@ -66,7 +55,8 @@ describe("Array Type Transpilation", () => {
             console.log(slice1[0]);
             console.log(slice2.length);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array map", async () => {
@@ -76,7 +66,8 @@ describe("Array Type Transpilation", () => {
             console.log(doubled[0]);
             console.log(doubled[4]);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array filter", async () => {
@@ -86,7 +77,8 @@ describe("Array Type Transpilation", () => {
             console.log(evens.length);
             console.log(evens[0]);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array reduce", async () => {
@@ -95,7 +87,8 @@ describe("Array Type Transpilation", () => {
             const sum = numbers.reduce((acc, x) => acc + x, 0);
             console.log(sum);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array forEach", async () => {
@@ -103,7 +96,8 @@ describe("Array Type Transpilation", () => {
             const numbers = [1, 2, 3];
             numbers.forEach(x => console.log(x));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array find and findIndex", async () => {
@@ -114,7 +108,8 @@ describe("Array Type Transpilation", () => {
             console.log(found);
             console.log(index);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array includes and indexOf", async () => {
@@ -125,7 +120,8 @@ describe("Array Type Transpilation", () => {
             console.log(numbers.includes(10));
             console.log(numbers.indexOf(10));
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array join", async () => {
@@ -134,7 +130,8 @@ describe("Array Type Transpilation", () => {
             const sentence = words.join(" ");
             console.log(sentence);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array reverse and sort", async () => {
@@ -145,7 +142,8 @@ describe("Array Type Transpilation", () => {
             numbers.reverse();
             console.log(numbers[0]);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle array every and some", async () => {
@@ -156,7 +154,8 @@ describe("Array Type Transpilation", () => {
             console.log(allEven);
             console.log(hasOdd);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 
   it("should handle nested arrays", async () => {
@@ -166,6 +165,7 @@ describe("Array Type Transpilation", () => {
             console.log(matrix[1][1]);
             console.log(matrix.length);
         `);
-    assertEquals(result.success, true);
+    assertEquals(typeof result.header, "string");
+    assertEquals(typeof result.source, "string");
   });
 });

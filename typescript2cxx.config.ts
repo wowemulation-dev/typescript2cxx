@@ -218,7 +218,7 @@ const config: TranspilerConfig = {
     cmake: {
       generate: true,
       projectName: "MyProject",
-      minimumVersion: "3.20",
+      minimumVersion: "3.28",
       findPackages: ["Boost", "Threads"],
     },
 
