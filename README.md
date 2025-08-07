@@ -92,7 +92,7 @@ console.log(result.source); // Generated C++ source
 
 ## Current Status
 
-**Version 0.5.0** - Production-ready with enhanced project organization and E2E testing
+**Version 0.5.1** - Production-ready with enhanced project organization and E2E testing
 
 ### Recent Achievements
 
