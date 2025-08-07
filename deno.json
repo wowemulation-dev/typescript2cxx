@@ -21,7 +21,8 @@
     "check": "deno check src/**/*.ts tests/**/*.ts",
     "compile": "deno compile --allow-read --allow-write --allow-env --output=.output/dist/typescript2cxx src/cli.ts",
     "docs": "deno doc --html --output=.output/docs src/**/*.ts",
-    "bench": "deno bench --allow-read --allow-write --allow-env --allow-net"
+    "bench": "deno bench --allow-read --allow-write --allow-env --allow-net",
+    "pre-release": "deno run --allow-all scripts/pre-release-qa.ts"
   },
   "lint": {
     "rules": {

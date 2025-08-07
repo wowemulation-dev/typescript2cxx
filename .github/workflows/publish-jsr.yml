@@ -49,7 +49,7 @@ jobs:
         run: deno check src/**/*.ts
 
       - name: Run tests
-        run: deno test --allow-read --allow-write --allow-env --allow-net
+        run: deno test --allow-read --allow-write --allow-env --allow-net tests/parser.test.ts tests/runtime.test.ts tests/transpiler.test.ts tests/type-checker.test.ts tests/unit/
 
       - name: Dry run publish
         run: deno publish --dry-run

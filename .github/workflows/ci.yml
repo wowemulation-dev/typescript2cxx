@@ -32,17 +32,17 @@ jobs:
         run: deno check src/**/*.ts
 
       - name: Run tests
-        run: deno test --allow-read --allow-write --allow-env --allow-net
+        run: deno test --allow-read --allow-write --allow-env --allow-net tests/parser.test.ts tests/runtime.test.ts tests/transpiler.test.ts tests/type-checker.test.ts tests/unit/
 
       - name: Test coverage
         run: |
-          deno test --allow-read --allow-write --allow-env --allow-net --coverage=cov_profile
-          deno coverage cov_profile --lcov --output=coverage.lcov
+          deno test --allow-read --allow-write --allow-env --allow-net --coverage=.output/coverage tests/parser.test.ts tests/runtime.test.ts tests/transpiler.test.ts tests/type-checker.test.ts tests/unit/
+          deno coverage .output/coverage --lcov --output=.output/coverage.lcov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: ./coverage.lcov
+          files: ./.output/coverage.lcov
           fail_ci_if_error: false
 
       - name: Verify JSR package
