@@ -140,22 +140,22 @@ export class SimpleTypeChecker {
         const intersectionType = typeNode as ts.IntersectionTypeNode;
         // For now, similar to union types but with intersection semantics
         const types = intersectionType.types.map((t) => this.getTypeString(t));
-        
+
         // For simple intersections, use the most specific type
         // This is a simplified approach - full intersection types are complex in C++
         if (types.length > 0) {
           // Prioritize object types over primitive types
-          const objectTypes = types.filter(t => 
+          const objectTypes = types.filter((t) =>
             !["string", "number", "boolean", "void", "null", "undefined"].includes(t)
           );
-          
+
           if (objectTypes.length > 0) {
             return objectTypes[0]; // Use the first object type
           }
-          
+
           return types[0]; // Fallback to first type
         }
-        
+
         return "unknown";
       }
 
@@ -256,16 +256,18 @@ export class SimpleTypeChecker {
         // This is a simplified approach - full intersection types would require
         // complex C++ template programming or multiple inheritance
         if (types.length > 0) {
-          // Prioritize object types over primitive types  
-          const objectTypes = types.filter(t => 
-            !["js::string", "js::number", "bool", "void", "js::null_t", "js::undefined_t"].includes(t)
+          // Prioritize object types over primitive types
+          const objectTypes = types.filter((t) =>
+            !["js::string", "js::number", "bool", "void", "js::null_t", "js::undefined_t"].includes(
+              t,
+            )
           );
-          
+
           if (objectTypes.length > 0) {
             // Use the first object type as the primary type
             return objectTypes[0];
           }
-          
+
           // If all are primitives, use the first one
           return types[0];
         }

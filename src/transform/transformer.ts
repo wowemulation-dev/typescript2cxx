@@ -635,9 +635,10 @@ class ASTTransformer {
    * Transform if statement
    */
   private transformIfStatement(node: any): IRIfStatement {
+    const test = this.transformExpression(node.expression);
     return {
       kind: IRNodeKind.IfStatement,
-      test: this.transformExpression(node.test),
+      test: test,
       consequent: this.transformStatement(node.consequent),
       alternate: node.alternate ? this.transformStatement(node.alternate) : undefined,
     };
@@ -868,6 +869,9 @@ class ASTTransformer {
 
       case ts.SyntaxKind.AwaitExpression:
         return this.transformAwaitExpression(node as ts.AwaitExpression);
+
+      case ts.SyntaxKind.TypeOfExpression:
+        return this.transformTypeOfExpression(node as ts.TypeOfExpression);
 
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
@@ -1111,6 +1115,18 @@ class ASTTransformer {
       operator: op,
       operand: this.transformExpression(node.argument),
       prefix: node.prefix !== false,
+    };
+  }
+
+  /**
+   * Transform typeof expression
+   */
+  private transformTypeOfExpression(node: ts.TypeOfExpression): IRUnaryExpression {
+    return {
+      kind: IRNodeKind.UnaryExpression,
+      operator: "typeof",
+      operand: this.transformExpression(node.expression),
+      prefix: true,
     };
   }
 
@@ -1436,8 +1452,8 @@ class ASTTransformer {
     return mapping[op] || "+";
   }
 
-  private mapUnaryOperator(op: string): UnaryOp {
-    const mapping: Record<string, UnaryOp> = {
+  private mapUnaryOperator(op: string | number): UnaryOp {
+    const mapping: Record<string | number, UnaryOp> = {
       "+": "+",
       "-": "-",
       "!": "!",
@@ -1447,6 +1463,16 @@ class ASTTransformer {
       "typeof": "typeof",
       "void": "void",
       "delete": "delete",
+      // TypeScript SyntaxKind mappings
+      [ts.SyntaxKind.PlusToken]: "+",
+      [ts.SyntaxKind.MinusToken]: "-",
+      [ts.SyntaxKind.ExclamationToken]: "!",
+      [ts.SyntaxKind.TildeToken]: "~",
+      [ts.SyntaxKind.PlusPlusToken]: "++",
+      [ts.SyntaxKind.MinusMinusToken]: "--",
+      [ts.SyntaxKind.TypeOfKeyword]: "typeof",
+      [ts.SyntaxKind.VoidKeyword]: "void",
+      [ts.SyntaxKind.DeleteKeyword]: "delete",
     };
 
     return mapping[op] || "+";
