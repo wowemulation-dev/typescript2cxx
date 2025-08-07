@@ -1061,7 +1061,7 @@ class CppGenerator {
     if (tsType.startsWith("js::")) {
       return tsType;
     }
-    
+
     const typeMap: Record<string, string> = {
       "string": "js::string",
       "number": "js::number",

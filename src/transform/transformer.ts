@@ -538,7 +538,7 @@ class ASTTransformer {
 
       const declarator: IRVariableDeclarator = {
         id,
-        cppType: decl.type ? this.resolveType(decl.type) : "auto",
+        cppType: decl.type ? this.resolveTypeForDeclaration(decl) : "auto",
         init: decl.initializer ? this.transformExpression(decl.initializer) : undefined,
         memory: MemoryManagement.Auto,
       };
@@ -1055,36 +1055,36 @@ class ASTTransformer {
     // TypeScript template expressions
     if (node.kind === ts.SyntaxKind.TemplateExpression) {
       const parts: Array<IRExpression | IRLiteral> = [];
-      
+
       // Add the head literal
       if (node.head && node.head.text) {
         parts.push(this.createLiteral(node.head.text));
       }
-      
+
       // Add template spans (expression + literal)
       if (node.templateSpans) {
         for (const span of node.templateSpans) {
           // Add the expression
           parts.push(this.transformExpression(span.expression));
-          
+
           // Add the literal part after the expression
           if (span.literal && span.literal.text) {
             parts.push(this.createLiteral(span.literal.text));
           }
         }
       }
-      
+
       return {
         kind: IRNodeKind.TemplateLiteral,
         parts,
       } as IRTemplateLiteral;
     }
-    
+
     // No substitution template literal (simple template string)
     if (node.kind === ts.SyntaxKind.NoSubstitutionTemplateLiteral) {
       return this.createLiteral(node.text || "");
     }
-    
+
     // Fallback for other cases
     return this.createLiteral("");
   }
@@ -1343,6 +1343,19 @@ class ASTTransformer {
 
     // Fallback to basic type mapping
     return this.resolveTypeNode(typeNode);
+  }
+
+  private resolveTypeForDeclaration(decl: ts.VariableDeclaration): string {
+    if (!decl.type) return "auto";
+
+    // If we have a type checker, use the declaration node as key (not the type node)
+    if (this.context.typeChecker) {
+      const resolvedType = this.context.typeChecker.getTypeAtLocation(decl);
+      return resolvedType.cppType;
+    }
+
+    // Fallback to basic type mapping using the type annotation
+    return this.resolveTypeNode(decl.type);
   }
 
   private resolveTypeNode(node: ts.TypeNode): string {

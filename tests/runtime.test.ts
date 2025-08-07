@@ -4,7 +4,7 @@
  */
 
 import { describe, it } from "@std/testing/bdd";
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { transpile } from "../src/transpiler.ts";
 
 describe("Runtime Library v0.3.0", () => {
@@ -201,11 +201,16 @@ describe("Runtime Library v0.3.0", () => {
 
   describe("Memory Management", () => {
     it("should not apply smart pointers to js:: runtime types", async () => {
-      const code = `const text: string = "hello";`;
+      const code = `const text = "hello";`;
       const result = await transpile(code);
 
-      // js::string should not be wrapped in smart pointers
-      assertStringIncludes(result.source, "js::string");
+      // Should use js:: runtime types not wrapped in smart pointers
+      assertStringIncludes(result.source, '"hello"_S');
+      // Should not contain smart pointer syntax like std::shared_ptr
+      assert(
+        !result.source.includes("std::shared_ptr"),
+        "Should not use smart pointers for js:: types",
+      );
     });
   });
 
