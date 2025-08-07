@@ -23,6 +23,8 @@ import type {
   IRDecoratorMetadata,
   IRExpression,
   IRExpressionStatement,
+  IRForInStatement,
+  IRForOfStatement,
   IRForStatement,
   IRFunctionDeclaration,
   IRIdentifier,
@@ -38,6 +40,7 @@ import type {
   IRObjectProperty,
   IROptionalChainingExpression,
   IRParameter,
+  IRPattern,
   IRProgram,
   IRPropertyDefinition,
   IRReturnStatement,
@@ -713,6 +716,41 @@ class ASTTransformer {
   }
 
   /**
+   * Transform for...of statement
+   */
+  private transformForOfStatement(node: ts.ForOfStatement): IRForOfStatement {
+    this.pushScope();
+
+    const forOfStmt: IRForOfStatement = {
+      kind: IRNodeKind.ForOfStatement,
+      left: this.transformForOfLeft(node.initializer),
+      right: this.transformExpression(node.expression),
+      body: this.transformStatement(node.statement),
+      isAsync: node.awaitModifier !== undefined,
+    };
+
+    this.popScope();
+    return forOfStmt;
+  }
+
+  /**
+   * Transform for...in statement
+   */
+  private transformForInStatement(node: ts.ForInStatement): IRForInStatement {
+    this.pushScope();
+
+    const forInStmt: IRForInStatement = {
+      kind: IRNodeKind.ForInStatement,
+      left: this.transformForInLeft(node.initializer),
+      right: this.transformExpression(node.expression),
+      body: this.transformStatement(node.statement),
+    };
+
+    this.popScope();
+    return forInStmt;
+  }
+
+  /**
    * Transform for loop initializer
    */
   private transformForInit(node: ts.ForInitializer): IRVariableDeclaration | IRExpression {
@@ -725,6 +763,48 @@ class ASTTransformer {
       return this.transformVariableStatement(varStmt);
     }
     return this.transformExpression(node as ts.Expression);
+  }
+
+  /**
+   * Transform for...of left side (variable declaration or identifier)
+   */
+  private transformForOfLeft(node: ts.ForInitializer): IRVariableDeclaration | IRPattern {
+    if (ts.isVariableDeclarationList(node)) {
+      // Create a synthetic variable statement for for...of
+      const varStmt = ts.factory.createVariableStatement(
+        undefined,
+        node,
+      );
+      return this.transformVariableStatement(varStmt);
+    }
+    // For now, handle simple identifier cases
+    // TODO: Add full pattern support later
+    if (ts.isIdentifier(node)) {
+      return this.transformIdentifier(node);
+    }
+    // Fallback for now - should add proper pattern support
+    throw new Error(`Unsupported for...of pattern: ${ts.SyntaxKind[node.kind]}`);
+  }
+
+  /**
+   * Transform for...in left side (variable declaration or identifier)
+   */
+  private transformForInLeft(node: ts.ForInitializer): IRVariableDeclaration | IRPattern {
+    if (ts.isVariableDeclarationList(node)) {
+      // Create a synthetic variable statement for for...in
+      const varStmt = ts.factory.createVariableStatement(
+        undefined,
+        node,
+      );
+      return this.transformVariableStatement(varStmt);
+    }
+    // For now, handle simple identifier cases
+    // TODO: Add full pattern support later
+    if (ts.isIdentifier(node)) {
+      return this.transformIdentifier(node);
+    }
+    // Fallback for now - should add proper pattern support
+    throw new Error(`Unsupported for...in pattern: ${ts.SyntaxKind[node.kind]}`);
   }
 
   /**
@@ -843,6 +923,10 @@ class ASTTransformer {
         return this.transformWhileStatement(node as ts.WhileStatement);
       case ts.SyntaxKind.ForStatement:
         return this.transformForStatement(node as ts.ForStatement);
+      case ts.SyntaxKind.ForOfStatement:
+        return this.transformForOfStatement(node as ts.ForOfStatement);
+      case ts.SyntaxKind.ForInStatement:
+        return this.transformForInStatement(node as ts.ForInStatement);
       case ts.SyntaxKind.ReturnStatement:
         return this.transformReturnStatement(node as ts.ReturnStatement);
       case ts.SyntaxKind.BreakStatement:

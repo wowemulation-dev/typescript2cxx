@@ -18,6 +18,8 @@ import type {
   IRDecoratorMetadata as _IRDecoratorMetadata,
   IRExpression,
   IRExpressionStatement,
+  IRForInStatement,
+  IRForOfStatement,
   IRForStatement,
   IRFunctionDeclaration,
   IRIdentifier,
@@ -304,6 +306,12 @@ class CppGenerator {
 
       case IRNodeKind.ForStatement:
         return this.generateFor(stmt as IRForStatement, context);
+
+      case IRNodeKind.ForOfStatement:
+        return this.generateForOf(stmt as IRForOfStatement, context);
+
+      case IRNodeKind.ForInStatement:
+        return this.generateForIn(stmt as IRForInStatement, context);
 
       case IRNodeKind.ReturnStatement:
         return this.generateReturn(stmt as IRReturnStatement, context);
@@ -833,6 +841,86 @@ std::shared_ptr<js::Promise<${innerType}>>
 
     context.indent++;
     const bodyCode = this.generateStatement(forStmt.body, context);
+    if (bodyCode) {
+      lines.push(...bodyCode.split("\n").map((line) => line ? this.getIndent(context) + line : ""));
+    }
+    context.indent--;
+
+    lines.push("}");
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Generate for...of statement
+   */
+  private generateForOf(forOfStmt: IRForOfStatement, context: CodeGenContext): string {
+    const lines: string[] = [];
+
+    // Generate the loop variable
+    let loopVar = "";
+    if (forOfStmt.left.kind === IRNodeKind.VariableDeclaration) {
+      const varDecl = forOfStmt.left as IRVariableDeclaration;
+      const declarator = varDecl.declarations[0];
+      loopVar = this.generateIdentifier(declarator.id as IRIdentifier, context);
+
+      // For C++, we need to create an iterator-based loop
+      const iterableExpr = this.generateExpression(forOfStmt.right, context);
+
+      lines.push(`for (auto& ${loopVar} : ${iterableExpr}) {`);
+    } else {
+      // Handle simple identifier assignment (not full patterns for now)
+      const identId = forOfStmt.left as IRIdentifier;
+      loopVar = this.generateIdentifier(identId, context);
+      const iterableExpr = this.generateExpression(forOfStmt.right, context);
+
+      lines.push(`for (auto& ${loopVar} : ${iterableExpr}) {`);
+    }
+
+    context.indent++;
+    const bodyCode = this.generateStatement(forOfStmt.body, context);
+    if (bodyCode) {
+      lines.push(...bodyCode.split("\n").map((line) => line ? this.getIndent(context) + line : ""));
+    }
+    context.indent--;
+
+    lines.push("}");
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Generate for...in statement
+   */
+  private generateForIn(forInStmt: IRForInStatement, context: CodeGenContext): string {
+    const lines: string[] = [];
+
+    // Generate the loop variable
+    let loopVar = "";
+    if (forInStmt.left.kind === IRNodeKind.VariableDeclaration) {
+      const varDecl = forInStmt.left as IRVariableDeclaration;
+      const declarator = varDecl.declarations[0];
+      loopVar = this.generateIdentifier(declarator.id as IRIdentifier, context);
+
+      // For C++, we enumerate object properties using a helper
+      const objectExpr = this.generateExpression(forInStmt.right, context);
+
+      lines.push(`for (auto& ${loopVar}_pair : js::Object::entries(${objectExpr})) {`);
+      context.indent++;
+      lines.push(this.getIndent(context) + `auto ${loopVar} = ${loopVar}_pair.first;`);
+    } else {
+      // Handle simple identifier assignment
+      const identId = forInStmt.left as IRIdentifier;
+      loopVar = this.generateIdentifier(identId, context);
+      const objectExpr = this.generateExpression(forInStmt.right, context);
+
+      lines.push(`for (auto& ${loopVar}_pair : js::Object::entries(${objectExpr})) {`);
+      context.indent++;
+      lines.push(this.getIndent(context) + `auto ${loopVar} = ${loopVar}_pair.first;`);
+    }
+
+    context.indent++;
+    const bodyCode = this.generateStatement(forInStmt.body, context);
     if (bodyCode) {
       lines.push(...bodyCode.split("\n").map((line) => line ? this.getIndent(context) + line : ""));
     }

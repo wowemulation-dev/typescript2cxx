@@ -581,6 +581,41 @@ export interface IRForStatement extends IRStatement {
 }
 
 /**
+ * For...of statement (iterator-based loop)
+ */
+export interface IRForOfStatement extends IRStatement {
+  kind: IRNodeKind.ForOfStatement;
+
+  /** Loop variable declaration or pattern */
+  left: IRVariableDeclaration | IRPattern;
+
+  /** Iterable expression */
+  right: IRExpression;
+
+  /** Loop body */
+  body: IRStatement;
+
+  /** Is async iteration (for await...of) */
+  isAsync?: boolean;
+}
+
+/**
+ * For...in statement (property enumeration loop)
+ */
+export interface IRForInStatement extends IRStatement {
+  kind: IRNodeKind.ForInStatement;
+
+  /** Loop variable declaration or pattern */
+  left: IRVariableDeclaration | IRPattern;
+
+  /** Object to enumerate */
+  right: IRExpression;
+
+  /** Loop body */
+  body: IRStatement;
+}
+
+/**
  * Switch statement
  */
 export interface IRSwitchStatement extends IRStatement {

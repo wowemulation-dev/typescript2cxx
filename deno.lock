@@ -5,6 +5,7 @@
     "jsr:@std/internal@^1.0.9": "1.0.10",
     "jsr:@std/path@1": "1.1.1",
     "npm:@swc/core@1.3.107": "1.3.107",
+    "npm:typescript@5.6.3": "5.6.3",
     "npm:typescript@5.7.3": "5.7.3"
   },
   "jsr": {
@@ -100,6 +101,10 @@
       "dependencies": [
         "@swc/counter"
       ]
+    },
+    "typescript@5.6.3": {
+      "integrity": "sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==",
+      "bin": true
     },
     "typescript@5.7.3": {
       "integrity": "sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==",
