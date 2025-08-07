@@ -583,6 +583,30 @@ Based on analysis of both reference implementations:
    - Bundle WASM with package
    - Increases package size significantly
 
+## ✅ Completed (v0.4.0-dev)
+
+### Basic Decorator Support ✅ COMPLETE
+
+- ✅ **Decorator Implementation**
+  - ✅ Class decorators with metadata preservation
+  - ✅ Method decorators 
+  - ✅ Property decorators
+  - ✅ Accessor (getter/setter) decorators
+  - ✅ Basic parameter decorators
+  - ✅ Multiple decorators on same target
+  - ✅ Decorator factories support
+  - ✅ Metadata inheritance in class hierarchies
+  - ✅ C++ metadata storage using `has_metadata<T>` base class pattern
+  - ✅ 10 comprehensive decorator tests passing
+  - ✅ Generated C++ code uses initialization lists for metadata
+
+- ✅ **Testing Infrastructure**
+  - ✅ End-to-end test runner with C++ compilation
+  - ✅ Cross-platform compiler detection (clang++, g++, MSVC)
+  - ✅ Automatic C++ compilation and execution
+  - ✅ Integration test framework
+  - ✅ Spec test runner with TypeScript compatibility flags
+
 ## ✅ Completed (v0.3.0)
 
 ### Comprehensive JavaScript Runtime Library ✅ COMPLETE
@@ -879,7 +903,7 @@ Based on analysis of both reference implementations:
    - ✅ Async/await with C++20 coroutines
    - ✅ Full class inheritance with extends and super
    - ✅ Exception handling (try/catch/finally/throw)
-   - [ ] Decorators
+   - ✅ Decorators (basic support with metadata preservation)
 
 2. **Type System**
    - [ ] Union/intersection types
@@ -888,10 +912,10 @@ Based on analysis of both reference implementations:
    - [ ] Type guards
 
 3. **Testing Infrastructure**
-   - [ ] End-to-end test runner with C++ compilation
-   - [ ] Cross-platform compiler detection (clang++, g++, MSVC)
-   - [ ] Automatic execution of generated code
-   - [ ] Integration test framework
+   - ✅ End-to-end test runner with C++ compilation
+   - ✅ Cross-platform compiler detection (clang++, g++, MSVC)
+   - ✅ Automatic execution of generated code
+   - ✅ Integration test framework
 
 ### Phase 4: Production Ready (v1.0.0)
 
