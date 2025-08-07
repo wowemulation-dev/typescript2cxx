@@ -56,6 +56,7 @@ export enum IRNodeKind {
   ContinueStatement = "ContinueStatement",
   ThrowStatement = "ThrowStatement",
   TryStatement = "TryStatement",
+  CatchClause = "CatchClause",
 
   // Expressions
   Identifier = "Identifier",
@@ -829,6 +830,48 @@ export interface IRIndexSignature extends IRNode {
 
   /** Is readonly */
   readonly: boolean;
+}
+
+/**
+ * Try statement
+ */
+export interface IRTryStatement extends IRStatement {
+  kind: IRNodeKind.TryStatement;
+
+  /** Try block */
+  block: IRBlockStatement;
+
+  /** Catch handler */
+  handler?: IRCatchClause;
+
+  /** Finally block */
+  finalizer?: IRBlockStatement;
+}
+
+/**
+ * Catch clause
+ */
+export interface IRCatchClause extends IRNode {
+  kind: IRNodeKind.CatchClause;
+
+  /** Exception parameter */
+  param?: IRIdentifier;
+
+  /** Exception type */
+  exceptionType?: string;
+
+  /** Catch body */
+  body: IRBlockStatement;
+}
+
+/**
+ * Throw statement
+ */
+export interface IRThrowStatement extends IRStatement {
+  kind: IRNodeKind.ThrowStatement;
+
+  /** Expression to throw */
+  argument: IRExpression;
 }
 
 /**

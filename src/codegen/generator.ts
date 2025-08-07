@@ -8,6 +8,7 @@ import type {
   IRBinaryExpression,
   IRBlockStatement,
   IRCallExpression,
+  IRCatchClause,
   IRClassDeclaration,
   IRConditionalExpression,
   IRExpression,
@@ -29,6 +30,8 @@ import type {
   IRReturnStatement,
   IRStatement,
   IRTemplateLiteral,
+  IRThrowStatement,
+  IRTryStatement,
   IRUnaryExpression,
   IRVariableDeclaration,
   IRWhileStatement,
@@ -288,6 +291,12 @@ class CppGenerator {
 
       case IRNodeKind.ReturnStatement:
         return this.generateReturn(stmt as IRReturnStatement, context);
+
+      case IRNodeKind.TryStatement:
+        return this.generateTry(stmt as IRTryStatement, context);
+
+      case IRNodeKind.ThrowStatement:
+        return this.generateThrow(stmt as IRThrowStatement, context);
 
       case IRNodeKind.ExpressionStatement:
         return this.generateExpressionStatement(stmt as IRExpressionStatement, context);
@@ -654,6 +663,49 @@ class CppGenerator {
   }
 
   /**
+   * Generate try statement
+   */
+  private generateTry(tryStmt: IRTryStatement, context: CodeGenContext): string {
+    const tryBlock = this.generateBlock(tryStmt.block, context);
+    let result = `try ${tryBlock}`;
+
+    if (tryStmt.handler) {
+      const catchBlock = this.generateCatch(tryStmt.handler, context);
+      result += ` ${catchBlock}`;
+    }
+
+    if (tryStmt.finalizer) {
+      const finallyBlock = this.generateBlock(tryStmt.finalizer, context);
+      // C++ doesn't have finally, but we can simulate with RAII
+      // For now, we'll add a comment and execute the finally block
+      result += ` /* finally */ ${finallyBlock}`;
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate catch clause
+   */
+  private generateCatch(catchClause: IRCatchClause, context: CodeGenContext): string {
+    // Use js::any as universal exception type for flexibility
+    const exceptionType = "js::any";
+    const paramName = catchClause.param?.name || "e";
+
+    const catchBody = this.generateBlock(catchClause.body, context);
+    return `catch (const ${exceptionType}& ${paramName}) ${catchBody}`;
+  }
+
+  /**
+   * Generate throw statement
+   */
+  private generateThrow(throwStmt: IRThrowStatement, context: CodeGenContext): string {
+    const expression = this.generateExpression(throwStmt.argument, context);
+    // Wrap all thrown expressions in js::any for universal exception handling
+    return `throw js::any(${expression});`;
+  }
+
+  /**
    * Generate expression statement
    */
   private generateExpressionStatement(
@@ -929,7 +981,7 @@ class CppGenerator {
     const left = this.generateExpression(expr.left, context);
     const right = this.generateExpression(expr.right, context);
 
-    return `(${left} ${expr.operator} ${right})`;
+    return `${left} ${expr.operator} ${right}`;
   }
 
   /**

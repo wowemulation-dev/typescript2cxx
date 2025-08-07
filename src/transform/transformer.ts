@@ -11,6 +11,7 @@ import type {
   IRBinaryExpression,
   IRBlockStatement,
   IRCallExpression,
+  IRCatchClause,
   IRClassDeclaration,
   IRClassMember,
   IRConditionalExpression,
@@ -38,6 +39,8 @@ import type {
   IRStatement,
   IRTemplateLiteral,
   IRThisExpression,
+  IRThrowStatement,
+  IRTryStatement,
   IRUnaryExpression,
   IRVariableDeclaration,
   IRVariableDeclarator,
@@ -245,6 +248,12 @@ class ASTTransformer {
 
       case ts.SyntaxKind.ReturnStatement:
         return this.transformReturnStatement(node as ts.ReturnStatement);
+
+      case ts.SyntaxKind.TryStatement:
+        return this.transformTryStatement(node as ts.TryStatement);
+
+      case ts.SyntaxKind.ThrowStatement:
+        return this.transformThrowStatement(node as ts.ThrowStatement);
 
       case ts.SyntaxKind.Block:
         return this.transformBlockStatement(node as ts.Block);
@@ -677,6 +686,44 @@ class ASTTransformer {
   }
 
   /**
+   * Transform try statement
+   */
+  private transformTryStatement(node: ts.TryStatement): IRTryStatement {
+    return {
+      kind: IRNodeKind.TryStatement,
+      block: this.transformBlockStatement(node.tryBlock),
+      handler: node.catchClause ? this.transformCatchClause(node.catchClause) : undefined,
+      finalizer: node.finallyBlock ? this.transformBlockStatement(node.finallyBlock) : undefined,
+    };
+  }
+
+  /**
+   * Transform catch clause
+   */
+  private transformCatchClause(node: ts.CatchClause): IRCatchClause {
+    return {
+      kind: IRNodeKind.CatchClause,
+      param: node.variableDeclaration?.name && ts.isIdentifier(node.variableDeclaration.name)
+        ? this.transformIdentifier(node.variableDeclaration.name)
+        : undefined,
+      exceptionType: node.variableDeclaration?.type
+        ? this.resolveType(node.variableDeclaration.type)
+        : "js::Error",
+      body: this.transformBlockStatement(node.block),
+    };
+  }
+
+  /**
+   * Transform throw statement
+   */
+  private transformThrowStatement(node: ts.ThrowStatement): IRThrowStatement {
+    return {
+      kind: IRNodeKind.ThrowStatement,
+      argument: this.transformExpression(node.expression),
+    };
+  }
+
+  /**
    * Transform block statement
    */
   private transformBlockStatement(node: ts.Block): IRBlockStatement {
@@ -718,6 +765,10 @@ class ASTTransformer {
         return this.transformReturnStatement(node as ts.ReturnStatement);
       case ts.SyntaxKind.VariableStatement:
         return this.transformVariableStatement(node as ts.VariableStatement);
+      case ts.SyntaxKind.TryStatement:
+        return this.transformTryStatement(node as ts.TryStatement);
+      case ts.SyntaxKind.ThrowStatement:
+        return this.transformThrowStatement(node as ts.ThrowStatement);
       default: {
         this.warn(`Unsupported statement type: ${ts.SyntaxKind[node.kind]}`);
         const placeholder: IRExpressionStatement = {
@@ -999,8 +1050,20 @@ class ASTTransformer {
   /**
    * Transform binary expression
    */
-  private transformBinaryExpression(node: any): IRBinaryExpression {
-    const op = this.mapBinaryOperator(node.operator);
+  private transformBinaryExpression(node: any): IRBinaryExpression | IRAssignmentExpression {
+    const opText = ts.tokenToString(node.operatorToken.kind);
+
+    // Check if this is an assignment expression
+    if (opText === "=" || opText?.endsWith("=")) {
+      return {
+        kind: IRNodeKind.AssignmentExpression,
+        operator: opText,
+        left: this.transformExpression(node.left),
+        right: this.transformExpression(node.right),
+      };
+    }
+
+    const op = this.mapBinaryOperator(opText || String(node.operator));
 
     return {
       kind: IRNodeKind.BinaryExpression,
