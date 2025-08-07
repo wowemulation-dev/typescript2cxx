@@ -78,7 +78,7 @@ export class SimpleTypeChecker {
   /**
    * Resolve a type node to our resolved type format
    */
-  private resolveTypeNode(typeNode: ts.TypeNode): ResolvedType {
+  public resolveTypeNode(typeNode: ts.TypeNode): ResolvedType {
     const typeString = this.getTypeString(typeNode);
     const cppType = this.mapToCppType(typeNode, typeString);
     const flags = this.getTypeFlags(typeNode);
@@ -153,6 +153,11 @@ export class SimpleTypeChecker {
         return `(${params}) => ${returnType}`;
       }
 
+      case ts.SyntaxKind.ParenthesizedType: {
+        const parenType = typeNode as ts.ParenthesizedTypeNode;
+        return this.getTypeString(parenType.type);
+      }
+
       default:
         return "unknown";
     }
@@ -193,7 +198,36 @@ export class SimpleTypeChecker {
       case ts.SyntaxKind.UnionType: {
         const unionType = typeNode as ts.UnionTypeNode;
         const types = unionType.types.map((t) => this.resolveTypeNode(t).cppType);
-        return `std::variant<${types.join(", ")}>`;
+
+        // Map common union patterns to typed wrappers
+        if (types.length === 2) {
+          // Check for string | number pattern
+          const hasString = types.some((t) => t === "js::string" || t === "string");
+          const hasNumber = types.some((t) => t === "js::number" || t === "number");
+
+          if (hasString && hasNumber) {
+            return "js::typed::StringOrNumber";
+          }
+
+          // Check for T | null or T | undefined patterns
+          const hasNull = types.some((t) =>
+            t === "js::null_t" || t === "null" || t === "std::nullptr_t"
+          );
+          const hasUndefined = types.some((t) => t === "js::undefined_t" || t === "undefined");
+
+          if (hasNull || hasUndefined) {
+            const nonNullType = types.find((t) =>
+              t !== "js::null_t" && t !== "null" && t !== "std::nullptr_t" &&
+              t !== "js::undefined_t" && t !== "undefined"
+            );
+            if (nonNullType) {
+              return `js::typed::Nullable<${nonNullType}>`;
+            }
+          }
+        }
+
+        // Fallback to js::any for complex unions
+        return "js::any";
       }
 
       case ts.SyntaxKind.TypeReference: {
@@ -225,6 +259,20 @@ export class SimpleTypeChecker {
         });
         const returnType = funcType.type ? this.resolveTypeNode(funcType.type).cppType : "void";
         return `std::function<${returnType}(${params.join(", ")})>`;
+      }
+
+      case ts.SyntaxKind.LiteralType: {
+        const literalType = typeNode as ts.LiteralTypeNode;
+        if (literalType.literal.kind === ts.SyntaxKind.NullKeyword) {
+          return "std::nullptr_t";
+        }
+        // Handle other literal types (string, number, boolean literals)
+        return "js::any"; // Fallback for other literal types
+      }
+
+      case ts.SyntaxKind.ParenthesizedType: {
+        const parenType = typeNode as ts.ParenthesizedTypeNode;
+        return this.mapToCppType(parenType.type, this.getTypeString(parenType.type));
       }
 
       default:

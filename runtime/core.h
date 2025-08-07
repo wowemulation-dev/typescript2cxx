@@ -1015,4 +1015,10 @@ auto array<T>::flatMap(Func func) const -> array<typename std::decay<decltype(fu
 
 } // namespace js
 
+// Include typed wrappers for union types
+#include "typed_wrappers.h"
+
+// Include type guards for typeof and type checking
+#include "type_guards.h"
+
 #endif // TYPESCRIPT2CXX_RUNTIME_CORE_H

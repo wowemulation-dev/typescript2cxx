@@ -73,7 +73,7 @@ export class CrossPlatformTestRunner {
 
   public async detectCompiler(): Promise<void> {
     if (this.selectedCompiler) return; // Already detected
-    
+
     for (const compiler of CrossPlatformTestRunner.compilers) {
       try {
         const command = new Deno.Command(compiler.checkCommand[0], {
@@ -154,9 +154,7 @@ export class CrossPlatformTestRunner {
   ): Promise<{ success: boolean; output: string }> {
     try {
       // Ensure we have the correct executable path
-      const fullPath = executablePath.startsWith("./")
-        ? executablePath
-        : "./" + executablePath;
+      const fullPath = executablePath.startsWith("./") ? executablePath : "./" + executablePath;
 
       const command = new Deno.Command(fullPath, {
         stdout: "piped",
@@ -231,7 +229,7 @@ export class CrossPlatformTestRunner {
       });
 
       // Check for transpilation errors (transpile doesn't throw, it returns warnings)
-      const errors = result.warnings.filter(w => w.severity === "error");
+      const errors = result.warnings.filter((w) => w.severity === "error");
       if (errors.length > 0) {
         return {
           success: false,

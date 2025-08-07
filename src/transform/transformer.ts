@@ -1455,9 +1455,9 @@ class ASTTransformer {
   private resolveType(typeNode: ts.TypeNode | undefined): string {
     if (!typeNode) return "auto";
 
-    // If we have a type checker, use it for accurate type resolution
+    // If we have a type checker, use it directly for type node resolution
     if (this.context.typeChecker) {
-      const resolvedType = this.context.typeChecker.getTypeAtLocation(typeNode);
+      const resolvedType = this.context.typeChecker.resolveTypeNode(typeNode);
       return resolvedType.cppType;
     }
 
@@ -1497,7 +1497,7 @@ class ASTTransformer {
       case ts.SyntaxKind.NeverKeyword:
         return "void";
       case ts.SyntaxKind.NullKeyword:
-        return "std::nullptr_t";
+        return "js::null_t";
       case ts.SyntaxKind.UndefinedKeyword:
         return "js::undefined_t";
       case ts.SyntaxKind.ObjectKeyword:
@@ -1520,13 +1520,56 @@ class ASTTransformer {
       case ts.SyntaxKind.UnionType: {
         const unionType = node as ts.UnionTypeNode;
         const types = unionType.types.map((t) => this.resolveTypeNode(t));
-        return `std::variant<${types.join(", ")}>`;
+
+        // Map common union patterns to typed wrappers
+        if (types.length === 2) {
+          // Check for string | number pattern
+          const hasString = types.some((t) => t === "js::string" || t === "string");
+          const hasNumber = types.some((t) => t === "js::number" || t === "number");
+
+          if (hasString && hasNumber) {
+            return "js::typed::StringOrNumber";
+          }
+
+          // Check for T | null or T | undefined patterns
+          const hasNull = types.some((t) =>
+            t === "js::null_t" || t === "null" || t === "std::nullptr_t"
+          );
+          const hasUndefined = types.some((t) => t === "js::undefined_t" || t === "undefined");
+
+          if (hasNull || hasUndefined) {
+            const nonNullType = types.find((t) =>
+              t !== "js::null_t" && t !== "null" && t !== "std::nullptr_t" &&
+              t !== "js::undefined_t" && t !== "undefined"
+            );
+            if (nonNullType) {
+              return `js::typed::Nullable<${nonNullType}>`;
+            }
+          }
+        }
+
+        // Fallback to js::any for complex unions
+        return "js::any";
       }
 
       case ts.SyntaxKind.IntersectionType: {
         const intersectionType = node as ts.IntersectionTypeNode;
         const types = intersectionType.types.map((t) => this.resolveTypeNode(t));
         return types.join(" & ");
+      }
+
+      case ts.SyntaxKind.LiteralType: {
+        const literalType = node as ts.LiteralTypeNode;
+        if (literalType.literal.kind === ts.SyntaxKind.NullKeyword) {
+          return "std::nullptr_t";
+        }
+        // Handle other literal types
+        return "js::any";
+      }
+
+      case ts.SyntaxKind.ParenthesizedType: {
+        const parenType = node as ts.ParenthesizedTypeNode;
+        return this.resolveTypeNode(parenType.type);
       }
 
       default:

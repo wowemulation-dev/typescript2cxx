@@ -1,6 +1,6 @@
 {
   "name": "@wowemulation-dev/typescript2cxx",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT OR Apache-2.0",
   "exports": {
     ".": "./src/mod.ts",
@@ -26,7 +26,8 @@
     "rules": {
       "tags": ["recommended"],
       "exclude": ["no-explicit-any"]
-    }
+    },
+    "exclude": ["test-output/"]
   },
   "fmt": {
     "lineWidth": 100,

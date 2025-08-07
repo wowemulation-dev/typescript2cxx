@@ -90,6 +90,9 @@ export enum IRNodeKind {
   // Types
   TypeAnnotation = "TypeAnnotation",
   TypeParameter = "TypeParameter",
+  UnionType = "UnionType",
+  IntersectionType = "IntersectionType",
+  TypeGuard = "TypeGuard",
 
   // C++ specific
   CppRawExpression = "CppRawExpression",
@@ -963,4 +966,46 @@ export interface IRSmartPointerExpression extends IRExpression {
 
   /** Make function (make_shared, make_unique) */
   makeFunction?: string;
+}
+
+/**
+ * Union type (T | U)
+ */
+export interface IRUnionType extends IRNode {
+  kind: IRNodeKind.UnionType;
+
+  /** Types in the union */
+  types: IRNode[];
+
+  /** C++ wrapper type to generate (e.g., js::typed::StringOrNumber) */
+  cppType?: string;
+}
+
+/**
+ * Intersection type (T & U)
+ */
+export interface IRIntersectionType extends IRNode {
+  kind: IRNodeKind.IntersectionType;
+
+  /** Types in the intersection */
+  types: IRNode[];
+
+  /** C++ implementation strategy */
+  strategy: "inheritance" | "composition" | "duck_typing";
+}
+
+/**
+ * Type guard function (val is Type)
+ */
+export interface IRTypeGuard extends IRExpression {
+  kind: IRNodeKind.TypeGuard;
+
+  /** Parameter being checked */
+  parameter: IRIdentifier;
+
+  /** Type to guard against */
+  guardedType: IRNode;
+
+  /** Guard expression (typeof param === "string") */
+  expression: IRExpression;
 }

@@ -589,7 +589,7 @@ Based on analysis of both reference implementations:
 
 - ✅ **Decorator Implementation**
   - ✅ Class decorators with metadata preservation
-  - ✅ Method decorators 
+  - ✅ Method decorators
   - ✅ Property decorators
   - ✅ Accessor (getter/setter) decorators
   - ✅ Basic parameter decorators
@@ -606,6 +606,24 @@ Based on analysis of both reference implementations:
   - ✅ Automatic C++ compilation and execution
   - ✅ Integration test framework
   - ✅ Spec test runner with TypeScript compatibility flags
+
+### Advanced Type System Support ✅ COMPLETE
+
+- ✅ **Union Types Implementation**
+  - ✅ `string | number` → `js::typed::StringOrNumber` typed wrapper
+  - ✅ `T | null` → `js::typed::Nullable<T>` nullable wrapper
+  - ✅ `T | undefined` → `js::typed::Nullable<T>` optional wrapper
+  - ✅ Complex unions fallback to `js::any`
+  - ✅ Function parameters and return types with unions
+  - ✅ Array of union types support
+  - ✅ Runtime type-safe wrappers with conversion methods
+
+- ✅ **Type Guards Foundation**
+  - ✅ `typeof` operator runtime implementation
+  - ✅ Type predicate functions (is_string, is_number, is_boolean, etc.)
+  - ✅ Nullable type checking helpers
+  - ✅ Runtime type guards infrastructure
+  - ✅ Basic typeof operator AST handling
 
 ## ✅ Completed (v0.3.0)
 
@@ -906,10 +924,11 @@ Based on analysis of both reference implementations:
    - ✅ Decorators (basic support with metadata preservation)
 
 2. **Type System**
-   - [ ] Union/intersection types
-   - [ ] Conditional types
-   - [ ] Mapped types
-   - [ ] Type guards
+   - ✅ Union types (string | number → js::typed::StringOrNumber, T | null → js::typed::Nullable<T>)
+   - ✅ Type guards (basic typeof operator support and runtime type checking)
+   - [ ] Intersection types (basic support)
+   - [ ] Conditional types (future enhancement)
+   - [ ] Mapped types (future enhancement)
 
 3. **Testing Infrastructure**
    - ✅ End-to-end test runner with C++ compilation
