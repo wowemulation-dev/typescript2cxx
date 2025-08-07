@@ -11,7 +11,7 @@ This document tracks planned features and known issues for typescript2cxx.
 - **Core TypeScript Features**: ~60% complete
 - **JavaScript Runtime**: ~85% complete
 - **Advanced Features**: ~40% complete
-- **Build & Tooling**: ~30% complete
+- **Build & Tooling**: ~40% complete
 
 ### Key Achievements
 
@@ -21,6 +21,7 @@ This document tracks planned features and known issues for typescript2cxx.
 - ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
 - ✅ **Advanced Types** - Unions, intersections, type guards, decorators
 - ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline
+- ✅ **CMake Build System** - Complete CMake integration with CLI support
 - ✅ **JSR.io Publishing** - Package available on JSR registry
 
 ### Major Gaps
@@ -31,7 +32,6 @@ This document tracks planned features and known issues for typescript2cxx.
 - ❌ **Function Features** - No default/optional/rest parameters
 - ❌ **Destructuring** - No object/array destructuring
 - ❌ **Modern Operators** - No nullish coalescing, spread operator
-- ❌ **Build System** - No CMake/Makefile generation
 
 ## 🚨 Critical Path to Feature Parity with Prototypes
 
@@ -370,14 +370,17 @@ Based on analysis of both reference implementations:
   - Stack trace mapping
   - Breakpoint preservation
 
-- [x] **Build System Integration** ✅ PARTIAL (v0.4.1)
-  - ✅ CMake generation (prototype implemented, config-integrated)
-  - [ ] Makefile generation
-  - [ ] vcpkg/Conan support (config types defined)
-  - [ ] Cross-compilation
-  - [ ] Platform-specific code
+- [x] **Build System Integration** ✅ COMPLETED (v0.5.2)
+  - ✅ CMake generation with full CLI integration
+  - ✅ --cmake flag integrated with transpiler workflow
+  - ✅ Debug/Release build configurations
+  - ✅ vcpkg/Conan package manager support (config types implemented)
+  - ✅ Cross-platform build configuration (Windows/Linux/macOS)
   - ✅ CMake config integration with typescript2cxx.config.ts
-  - [ ] CLI integration (--cmake flag)
+  - ✅ End-to-end tested workflow (TypeScript → CMake → Executable)
+  - [ ] Makefile generation
+  - [ ] Cross-compilation targets
+  - [ ] Platform-specific code paths
 
 - [ ] **IDE Support**
   - Language server protocol
@@ -615,6 +618,26 @@ Based on analysis of both reference implementations:
 3. **Option 3**: Vendor SWC WASM build
    - Bundle WASM with package
    - Increases package size significantly
+
+## ✅ Completed (v0.5.2)
+
+### Build System Integration ✅ COMPLETE
+
+- ✅ **CMake Build System**
+  - ✅ Full CMakeLists.txt generation with proper configuration
+  - ✅ CLI integration with `--cmake` flag
+  - ✅ Automatic C++20 standard configuration
+  - ✅ Cross-platform compiler support (GCC, Clang, MSVC)
+  - ✅ Debug/Release/RelWithDebInfo/MinSizeRel build configurations
+  - ✅ Runtime library integration with automatic include paths
+  - ✅ Installation targets for executable and library outputs
+  - ✅ End-to-end tested workflow (TypeScript → CMake → Executable)
+
+- ✅ **Package Manager Support**
+  - ✅ vcpkg configuration types with manifest generation capability
+  - ✅ Conan configuration types with conanfile generation capability
+  - ✅ CMakePresets.json generation for vcpkg integration
+  - ✅ Package manager integration in generated CMakeLists.txt
 
 ## ✅ Completed (v0.4.0-dev)
 
