@@ -952,21 +952,34 @@ class ASTTransformer {
   /**
    * Transform member expression
    */
-  private transformMemberExpression(node: any): IRMemberExpression {
+  private transformMemberExpression(
+    node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
+  ): IRMemberExpression {
     // Check if this is computed access (array[index])
-    const isComputed = node.property && node.property.type === "Computed";
+    const isComputed = node.kind === ts.SyntaxKind.ElementAccessExpression;
 
     let property: IRExpression;
     if (isComputed) {
-      // For computed access, use the expression inside the Computed node
-      property = this.transformExpression(node.property.expression);
+      // For element access, use the argument expression
+      const elementAccess = node as ts.ElementAccessExpression;
+      property = this.transformExpression(elementAccess.argumentExpression);
     } else {
-      property = this.transformExpression(node.property);
+      // For property access, transform the property name
+      const propertyAccess = node as ts.PropertyAccessExpression;
+      if (ts.isPrivateIdentifier(propertyAccess.name)) {
+        // Handle private identifiers
+        property = {
+          kind: IRNodeKind.Identifier,
+          name: propertyAccess.name.text,
+        } as IRIdentifier;
+      } else {
+        property = this.transformIdentifier(propertyAccess.name);
+      }
     }
 
     return {
       kind: IRNodeKind.MemberExpression,
-      object: this.transformExpression(node.object),
+      object: this.transformExpression(node.expression),
       property,
       computed: isComputed,
       optional: false, // TODO: Detect optional chaining
@@ -1089,18 +1102,18 @@ class ASTTransformer {
   /**
    * Transform new expression
    */
-  private transformNewExpression(node: any): IRNewExpression {
+  private transformNewExpression(node: ts.NewExpression): IRNewExpression {
     const args: IRExpression[] = [];
 
     if (node.arguments) {
       for (const arg of node.arguments) {
-        args.push(this.transformExpression(arg.expression));
+        args.push(this.transformExpression(arg));
       }
     }
 
     return {
       kind: IRNodeKind.NewExpression,
-      callee: this.transformExpression(node.callee),
+      callee: this.transformExpression(node.expression),
       arguments: args,
     };
   }

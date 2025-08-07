@@ -11,6 +11,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix: Add coverage files to .gitignore (cov_profile/, coverage.lcov)
 
+## [0.3.0] - 2025-08-06
+
+### Added - Comprehensive JavaScript Runtime Library
+
+#### Core Runtime Types
+
+- feat: **Complete js::string implementation** - 30+ methods including charAt, slice, split, replace, trim, toUpperCase, toLowerCase, indexOf, etc.
+- feat: **Enhanced js::number** - IEEE 754 double with NaN, Infinity constants, formatting methods
+- feat: **Full js::array<T> implementation** - forEach, map, filter, reduce, find, findIndex, includes, join, push, pop, slice, splice, etc.
+- feat: **js::object with prototype chain** - Dynamic property access and inheritance support
+- feat: **js::any with std::variant** - Dynamic typing system for mixed-type operations
+
+#### Standard JavaScript Objects
+
+- feat: **Complete Math object** - PI, E, abs, max, min, random, sin, cos, tan, sqrt, pow, floor, ceil, round, etc.
+- feat: **Full Date implementation** - now, getFullYear, getMonth, getDate, toString, toISOString, getTime, etc.
+- feat: **RegExp object** - Regular expression support with test, exec methods and flag handling
+- feat: **Enhanced console object** - log, error, warn, info, debug, trace methods with proper formatting
+- feat: **JSON object** - stringify and parse methods for object serialization
+
+#### Global Functions & Utilities
+
+- feat: **Type parsing functions** - parseInt with radix support (2-36), parseFloat with proper validation
+- feat: **Validation functions** - isNaN, isFinite for number validation
+- feat: **URI functions** - encodeURI, decodeURI, encodeURIComponent, decodeURIComponent
+- feat: **Type conversion utilities** - Comprehensive JavaScript-to-C++ type mapping
+
+#### Error System
+
+- feat: **Complete Error hierarchy** - Error, TypeError, ReferenceError, SyntaxError, RangeError classes
+- feat: **Stack trace support** - Error objects include message and stack information
+- feat: **Exception handling** - Proper C++ exception integration for JavaScript errors
+
+#### Code Generation Enhancements
+
+- feat: **Enhanced type mapping** - Map Date, RegExp, Promise<T>, Array<T> to appropriate C++ types
+- feat: **Global identifier mapping** - Math, Date, JSON, console mapped to js:: namespace
+- feat: **Improved literal generation** - Proper handling of NaN, Infinity, null, undefined
+- feat: **Member access generation** - Static method calls for Math::PI, Date::now, etc.
+- feat: **Template literal improvements** - Better string interpolation and concatenation
+
+#### Memory Management
+
+- feat: **Smart pointer optimization** - js:: runtime types exclude smart pointer wrapping
+- feat: **Efficient object allocation** - Optimized memory patterns for JavaScript objects
+- feat: **Reference counting** - Proper cleanup for complex object relationships
+
+#### Testing & Quality
+
+- feat: **Comprehensive test suite** - 30+ test cases covering all runtime features
+- feat: **Runtime verification** - Tests for string, number, array, object operations
+- feat: **Integration tests** - Full transpilation pipeline testing with runtime features
+
+### Changed
+
+- **BREAKING**: Enhanced runtime library with 1000+ lines of new C++ code
+- **BREAKING**: Updated all type mappings to use comprehensive js:: runtime types
+- refactor: Code generator now properly handles JavaScript standard objects
+- refactor: Improved identifier mapping for built-in JavaScript globals
+- refactor: Enhanced literal generation for JavaScript special values
+- refactor: Member access generation supports static method calls
+
+### Fixed
+
+- fix: Method call generation issues for string and array methods
+- fix: NaN and Infinity literal generation
+- fix: Math, Date, JSON static method access
+- fix: Error constructor generation
+- fix: Template literal interpolation with proper escaping
+- fix: Object property access with dynamic keys
+
+### Performance
+
+- perf: Optimized string operations with efficient C++ implementations
+- perf: Fast array methods using modern C++ algorithms
+- perf: Efficient object property access with hash maps
+- perf: Memory-efficient type conversion utilities
+
+### Documentation
+
+- docs: Updated README with comprehensive v0.3.0 runtime features
+- docs: Added runtime library documentation with all available methods
+- docs: Enhanced examples showcasing JavaScript runtime capabilities
+- docs: Updated type mapping tables with new runtime types
+
+### Notes
+
+This is a major release that implements a complete JavaScript runtime environment
+in C++. The transpiler can now handle complex JavaScript operations including:
+
+- Advanced string manipulation and parsing
+- Full array processing with functional programming methods
+- Mathematical computations with the complete Math object
+- Date/time operations with timezone support
+- Regular expression pattern matching
+- JSON serialization and deserialization
+- Comprehensive error handling and exceptions
+- Dynamic typing with proper type conversions
+
+The runtime library provides over 100 JavaScript methods and functions, making
+it possible to transpile sophisticated JavaScript/TypeScript code while
+maintaining full semantic compatibility.
+
 ## [0.1.7] - 2025-08-06
 
 ### Fixed

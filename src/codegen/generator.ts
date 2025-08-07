@@ -716,15 +716,35 @@ class CppGenerator {
    * Generate identifier
    */
   private generateIdentifier(id: IRIdentifier, _context: CodeGenContext): string {
-    // Map special identifiers
-    if (id.name === "console") {
-      return "js::console";
-    }
-    if (id.name === "undefined") {
-      return "js::undefined";
-    }
-    if (id.name === "null") {
-      return "nullptr";
+    // Map special identifiers to our runtime types
+    const identifierMap: Record<string, string> = {
+      "console": "js::console",
+      "undefined": "js::undefined",
+      "null": "js::null",
+      "Math": "js::Math",
+      "Date": "js::Date",
+      "RegExp": "js::RegExp",
+      "Error": "js::Error",
+      "TypeError": "js::TypeError",
+      "ReferenceError": "js::ReferenceError",
+      "SyntaxError": "js::SyntaxError",
+      "RangeError": "js::RangeError",
+      "JSON": "js::JSON",
+      "parseInt": "js::parseInt",
+      "parseFloat": "js::parseFloat",
+      "isNaN": "js::isNaN",
+      "isFinite": "js::isFinite",
+      "encodeURI": "js::encodeURI",
+      "decodeURI": "js::decodeURI",
+      "encodeURIComponent": "js::encodeURIComponent",
+      "decodeURIComponent": "js::decodeURIComponent",
+      "Object": "js::object",
+      "Array": "js::array",
+    };
+
+    const mappedName = identifierMap[id.name];
+    if (mappedName) {
+      return mappedName;
     }
 
     return id.cppName || id.name;
@@ -734,16 +754,32 @@ class CppGenerator {
    * Generate literal
    */
   private generateLiteral(lit: IRLiteral, _context: CodeGenContext): string {
-    if (lit.cppType === "string") {
-      return `"${lit.value}"_S`;
+    if (lit.cppType === "string" || typeof lit.value === "string") {
+      // Use js::string literal operator for string literals
+      const escapedValue = String(lit.value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      return `"${escapedValue}"_S`;
     }
-    if (lit.cppType === "boolean") {
+    if (lit.cppType === "boolean" || typeof lit.value === "boolean") {
       return lit.value ? "true" : "false";
     }
+    if (lit.cppType === "number" || typeof lit.value === "number") {
+      const numValue = Number(lit.value);
+      if (isNaN(numValue)) {
+        return "js::number::NaN";
+      }
+      if (!isFinite(numValue)) {
+        return numValue > 0 ? "js::number::POSITIVE_INFINITY" : "js::number::NEGATIVE_INFINITY";
+      }
+      return `js::number(${numValue})`;
+    }
     if (lit.value === null) {
-      return "nullptr";
+      return "js::null";
+    }
+    if (lit.value === undefined) {
+      return "js::undefined";
     }
 
+    // Default fallback
     return String(lit.value);
   }
 
@@ -812,15 +848,38 @@ class CppGenerator {
       return `${object}[${property}]`;
     } else {
       const property = this.generateExpression(expr.property, context);
-      // Use -> for this pointer access
+
+      // Handle special cases for our runtime types
       if (object === "this") {
         return `${object}->${property}`;
       }
+
+      // Handle Math static methods
+      if (object === "js::Math") {
+        return `js::Math::${property}`;
+      }
+
+      // Handle Date static methods
+      if (object === "js::Date") {
+        return `js::Date::${property}`;
+      }
+
+      // Handle JSON static methods
+      if (object === "js::JSON") {
+        return `js::JSON::${property}`;
+      }
+
+      // Handle js:: namespace objects - use dot notation
+      if (object.startsWith("js::") && !object.includes("->") && !object.includes(".")) {
+        return `${object}.${property}`;
+      }
+
       // For smart pointer variables, use -> instead of .
-      // This is a heuristic - ideally we'd have type information
       if (this.isSmartPointerVariable(object, context)) {
         return `${object}->${property}`;
       }
+
+      // Default case - use dot notation for value types
       return `${object}.${property}`;
     }
   }
@@ -878,22 +937,28 @@ class CppGenerator {
     if (expr.parts.length === 1 && expr.parts[0].kind === IRNodeKind.Literal) {
       // Simple string literal
       const lit = expr.parts[0] as IRLiteral;
-      return `"${lit.value}"_S`;
+      const escapedValue = String(lit.value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      return `"${escapedValue}"_S`;
     }
 
     // Template literal with interpolation - use string concatenation
     const parts = expr.parts.map((part) => {
       if (part.kind === IRNodeKind.Literal) {
         const lit = part as IRLiteral;
-        return `"${lit.value}"_S`;
+        const escapedValue = String(lit.value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        return `"${escapedValue}"_S`;
       } else {
-        // Expression - convert to string
+        // Expression - convert to string using js::toString
         const exprCode = this.generateExpression(part, context);
         return `js::toString(${exprCode})`;
       }
     });
 
-    return parts.join(" + ");
+    if (parts.length === 1) {
+      return parts[0];
+    }
+
+    return `(${parts.join(" + ")})`;
   }
 
   /**
@@ -948,7 +1013,16 @@ class CppGenerator {
     const callee = this.generateExpression(expr.callee, context);
     const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
 
-    // Use make_shared for heap allocation
+    // Handle runtime types directly (they are value types, not pointers)
+    if (
+      callee === "js::Date" || callee === "js::RegExp" || callee === "js::Error" ||
+      callee === "js::TypeError" || callee === "js::ReferenceError" ||
+      callee === "js::SyntaxError" || callee === "js::RangeError"
+    ) {
+      return `${callee}(${args.join(", ")})`;
+    }
+
+    // Use make_shared for user-defined classes
     return `std::make_shared<${callee}>(${args.join(", ")})`;
   }
 
@@ -985,20 +1059,75 @@ class CppGenerator {
       "any": "js::any",
       "unknown": "js::any",
       "undefined": "js::undefined_t",
-      "null": "std::nullptr_t",
+      "null": "js::null_t",
       "never": "void",
       "object": "js::object",
       "auto": "auto",
+
+      // Standard JavaScript objects
+      "Array": "js::array<js::any>",
+      "Object": "js::object",
+      "String": "js::string",
+      "Number": "js::number",
+      "Boolean": "bool",
+      "Date": "js::Date",
+      "RegExp": "js::RegExp",
+      "Error": "js::Error",
+      "TypeError": "js::TypeError",
+      "ReferenceError": "js::ReferenceError",
+      "SyntaxError": "js::SyntaxError",
+      "RangeError": "js::RangeError",
+      "EvalError": "js::EvalError",
+      "URIError": "js::URIError",
+
+      // Utility types
+      "Function": "std::function<js::any()>",
+      "Promise": "js::Promise<js::any>",
     };
 
-    // Handle arrays
+    // Handle arrays with specific element types
     if (tsType.endsWith("[]")) {
       const elementType = tsType.slice(0, -2);
       return `js::array<${this.mapType(elementType)}>`;
     }
 
-    // Handle union types (simplified)
+    // Handle generic array types Array<T>
+    if (tsType.startsWith("Array<") && tsType.endsWith(">")) {
+      const elementType = tsType.slice(6, -1);
+      return `js::array<${this.mapType(elementType)}>`;
+    }
+
+    // Handle Promise<T>
+    if (tsType.startsWith("Promise<") && tsType.endsWith(">")) {
+      const valueType = tsType.slice(8, -1);
+      return `js::Promise<${this.mapType(valueType)}>`;
+    }
+
+    // Handle function types
+    if (tsType.includes("=>") || tsType.startsWith("(") && tsType.includes(")")) {
+      // Simplified function type handling - use generic function
+      return "std::function<js::any()>";
+    }
+
+    // Handle union types - use js::any for now (could be enhanced with std::variant)
     if (tsType.includes(" | ")) {
+      const types = tsType.split(" | ").map((t) => t.trim());
+
+      // Special case for common nullable patterns
+      if (types.length === 2) {
+        if (types.includes("null") || types.includes("undefined")) {
+          const nonNullType = types.find((t) => t !== "null" && t !== "undefined");
+          if (nonNullType) {
+            return `std::optional<${this.mapType(nonNullType)}>`;
+          }
+        }
+      }
+
+      return "js::any";
+    }
+
+    // Handle intersection types - use js::any for now
+    if (tsType.includes(" & ")) {
       return "js::any";
     }
 
@@ -1014,7 +1143,20 @@ class CppGenerator {
   }
 
   private isPrimitive(type: string): boolean {
-    return ["bool", "int", "double", "float", "char", "void"].includes(type);
+    // Include our custom js:: types that should not have smart pointer wrappers
+    return [
+      "bool",
+      "int",
+      "double",
+      "float",
+      "char",
+      "void",
+      "js::string",
+      "js::number",
+      "js::undefined_t",
+      "js::null_t",
+      "js::any",
+    ].includes(type);
   }
 
   private applyMemoryManagement(type: string, memory: MemoryManagement): string {
