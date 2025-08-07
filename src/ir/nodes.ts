@@ -581,6 +581,30 @@ export interface IRForStatement extends IRStatement {
 }
 
 /**
+ * Switch statement
+ */
+export interface IRSwitchStatement extends IRStatement {
+  kind: IRNodeKind.SwitchStatement;
+
+  /** Switch discriminant */
+  discriminant: IRExpression;
+
+  /** Switch cases */
+  cases: IRSwitchCase[];
+}
+
+/**
+ * Switch case
+ */
+export interface IRSwitchCase extends IRNode {
+  /** Test value (null for default case) */
+  test: IRExpression | null;
+
+  /** Statements for this case */
+  consequent: IRStatement[];
+}
+
+/**
  * Return statement
  */
 export interface IRReturnStatement extends IRStatement {
@@ -588,6 +612,26 @@ export interface IRReturnStatement extends IRStatement {
 
   /** Return value */
   argument?: IRExpression;
+}
+
+/**
+ * Break statement
+ */
+export interface IRBreakStatement extends IRStatement {
+  kind: IRNodeKind.BreakStatement;
+
+  /** Optional label */
+  label?: string;
+}
+
+/**
+ * Continue statement
+ */
+export interface IRContinueStatement extends IRStatement {
+  kind: IRNodeKind.ContinueStatement;
+
+  /** Optional label */
+  label?: string;
 }
 
 /**

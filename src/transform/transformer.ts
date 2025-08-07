@@ -11,11 +11,13 @@ import type {
   IRAwaitExpression,
   IRBinaryExpression,
   IRBlockStatement,
+  IRBreakStatement,
   IRCallExpression,
   IRCatchClause,
   IRClassDeclaration,
   IRClassMember,
   IRConditionalExpression,
+  IRContinueStatement,
   IRDeclaration as _IRDeclaration,
   IRDecorator,
   IRDecoratorMetadata,
@@ -40,6 +42,8 @@ import type {
   IRPropertyDefinition,
   IRReturnStatement,
   IRStatement,
+  IRSwitchCase,
+  IRSwitchStatement,
   IRTemplateLiteral,
   IRThisExpression,
   IRThrowStatement,
@@ -243,6 +247,9 @@ class ASTTransformer {
       case ts.SyntaxKind.IfStatement:
         return this.transformIfStatement(node as ts.IfStatement);
 
+      case ts.SyntaxKind.SwitchStatement:
+        return this.transformSwitchStatement(node as ts.SwitchStatement);
+
       case ts.SyntaxKind.WhileStatement:
         return this.transformWhileStatement(node as ts.WhileStatement);
 
@@ -251,6 +258,12 @@ class ASTTransformer {
 
       case ts.SyntaxKind.ReturnStatement:
         return this.transformReturnStatement(node as ts.ReturnStatement);
+
+      case ts.SyntaxKind.BreakStatement:
+        return this.transformBreakStatement(node as ts.BreakStatement);
+
+      case ts.SyntaxKind.ContinueStatement:
+        return this.transformContinueStatement(node as ts.ContinueStatement);
 
       case ts.SyntaxKind.TryStatement:
         return this.transformTryStatement(node as ts.TryStatement);
@@ -645,6 +658,31 @@ class ASTTransformer {
   }
 
   /**
+   * Transform switch statement
+   */
+  private transformSwitchStatement(node: ts.SwitchStatement): IRSwitchStatement {
+    const cases: IRSwitchCase[] = node.caseBlock.clauses.map((clause) => {
+      if (ts.isDefaultClause(clause)) {
+        return {
+          test: null,
+          consequent: clause.statements.map((stmt) => this.transformStatement(stmt)),
+        } as IRSwitchCase;
+      } else {
+        return {
+          test: this.transformExpression(clause.expression),
+          consequent: clause.statements.map((stmt) => this.transformStatement(stmt)),
+        } as IRSwitchCase;
+      }
+    });
+
+    return {
+      kind: IRNodeKind.SwitchStatement,
+      discriminant: this.transformExpression(node.expression),
+      cases,
+    };
+  }
+
+  /**
    * Transform while statement
    */
   private transformWhileStatement(node: any): IRWhileStatement {
@@ -696,6 +734,26 @@ class ASTTransformer {
     return {
       kind: IRNodeKind.ReturnStatement,
       argument: node.expression ? this.transformExpression(node.expression) : undefined,
+    };
+  }
+
+  /**
+   * Transform break statement
+   */
+  private transformBreakStatement(node: ts.BreakStatement): IRBreakStatement {
+    return {
+      kind: IRNodeKind.BreakStatement,
+      label: node.label ? node.label.text : undefined,
+    };
+  }
+
+  /**
+   * Transform continue statement
+   */
+  private transformContinueStatement(node: ts.ContinueStatement): IRContinueStatement {
+    return {
+      kind: IRNodeKind.ContinueStatement,
+      label: node.label ? node.label.text : undefined,
     };
   }
 
@@ -779,12 +837,18 @@ class ASTTransformer {
         return this.transformExpressionStatement(node as ts.ExpressionStatement);
       case ts.SyntaxKind.IfStatement:
         return this.transformIfStatement(node as ts.IfStatement);
+      case ts.SyntaxKind.SwitchStatement:
+        return this.transformSwitchStatement(node as ts.SwitchStatement);
       case ts.SyntaxKind.WhileStatement:
         return this.transformWhileStatement(node as ts.WhileStatement);
       case ts.SyntaxKind.ForStatement:
         return this.transformForStatement(node as ts.ForStatement);
       case ts.SyntaxKind.ReturnStatement:
         return this.transformReturnStatement(node as ts.ReturnStatement);
+      case ts.SyntaxKind.BreakStatement:
+        return this.transformBreakStatement(node as ts.BreakStatement);
+      case ts.SyntaxKind.ContinueStatement:
+        return this.transformContinueStatement(node as ts.ContinueStatement);
       case ts.SyntaxKind.VariableStatement:
         return this.transformVariableStatement(node as ts.VariableStatement);
       case ts.SyntaxKind.TryStatement:

@@ -8,10 +8,12 @@ import type {
   IRAwaitExpression,
   IRBinaryExpression,
   IRBlockStatement,
+  IRBreakStatement,
   IRCallExpression,
   IRCatchClause,
   IRClassDeclaration,
   IRConditionalExpression,
+  IRContinueStatement,
   IRDecorator as _IRDecorator,
   IRDecoratorMetadata as _IRDecoratorMetadata,
   IRExpression,
@@ -32,6 +34,8 @@ import type {
   IRPropertyDefinition,
   IRReturnStatement,
   IRStatement,
+  IRSwitchCase as _IRSwitchCase,
+  IRSwitchStatement,
   IRTemplateLiteral,
   IRThrowStatement,
   IRTryStatement,
@@ -292,6 +296,9 @@ class CppGenerator {
       case IRNodeKind.IfStatement:
         return this.generateIf(stmt as IRIfStatement, context);
 
+      case IRNodeKind.SwitchStatement:
+        return this.generateSwitch(stmt as IRSwitchStatement, context);
+
       case IRNodeKind.WhileStatement:
         return this.generateWhile(stmt as IRWhileStatement, context);
 
@@ -306,6 +313,12 @@ class CppGenerator {
 
       case IRNodeKind.ThrowStatement:
         return this.generateThrow(stmt as IRThrowStatement, context);
+
+      case IRNodeKind.BreakStatement:
+        return this.generateBreak(stmt as IRBreakStatement, context);
+
+      case IRNodeKind.ContinueStatement:
+        return this.generateContinue(stmt as IRContinueStatement, context);
 
       case IRNodeKind.ExpressionStatement:
         return this.generateExpressionStatement(stmt as IRExpressionStatement, context);
@@ -720,6 +733,63 @@ std::shared_ptr<js::Promise<${innerType}>>
   }
 
   /**
+   * Generate switch statement
+   */
+  private generateSwitch(switchStmt: IRSwitchStatement, context: CodeGenContext): string {
+    const lines: string[] = [];
+
+    const discriminant = this.generateExpression(switchStmt.discriminant, context);
+    lines.push(`switch (${discriminant}) {`);
+
+    context.indent++;
+
+    for (const caseClause of switchStmt.cases) {
+      if (caseClause.test === null) {
+        // Default case
+        lines.push(this.getIndent(context) + "default:");
+      } else {
+        const caseValue = this.generateExpression(caseClause.test, context);
+        lines.push(this.getIndent(context) + `case ${caseValue}:`);
+      }
+
+      // Generate statements for this case
+      if (caseClause.consequent.length > 0) {
+        context.indent++;
+        for (const stmt of caseClause.consequent) {
+          const code = this.generateStatement(stmt, context);
+          if (code) {
+            lines.push(
+              ...code.split("\n").map((line) => line ? this.getIndent(context) + line : ""),
+            );
+          }
+        }
+
+        // Check if we need to add a break statement
+        // Only add break if the last statement is not already a break/return/throw
+        const lastStmt = caseClause.consequent[caseClause.consequent.length - 1];
+        if (
+          !lastStmt || (
+            lastStmt.kind !== IRNodeKind.ReturnStatement &&
+            lastStmt.kind !== IRNodeKind.ThrowStatement &&
+            lastStmt.kind !== IRNodeKind.BreakStatement
+          )
+        ) {
+          // JavaScript switch statements have implicit fall-through
+          // In C++, we need explicit break statements to prevent fall-through
+          // However, we'll preserve JavaScript semantics by allowing fall-through
+          // unless there's an explicit break
+        }
+        context.indent--;
+      }
+    }
+
+    context.indent--;
+    lines.push("}");
+
+    return lines.join("\n");
+  }
+
+  /**
    * Generate while statement
    */
   private generateWhile(whileStmt: IRWhileStatement, context: CodeGenContext): string {
@@ -804,6 +874,28 @@ std::shared_ptr<js::Promise<${innerType}>>
     }
 
     return "return;";
+  }
+
+  /**
+   * Generate break statement
+   */
+  private generateBreak(breakStmt: IRBreakStatement, _context: CodeGenContext): string {
+    if (breakStmt.label) {
+      // C++ labeled break (using goto)
+      return `goto ${breakStmt.label}_end;`;
+    }
+    return "break;";
+  }
+
+  /**
+   * Generate continue statement
+   */
+  private generateContinue(continueStmt: IRContinueStatement, _context: CodeGenContext): string {
+    if (continueStmt.label) {
+      // C++ labeled continue (using goto)
+      return `goto ${continueStmt.label}_continue;`;
+    }
+    return "continue;";
   }
 
   /**
