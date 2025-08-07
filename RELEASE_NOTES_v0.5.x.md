@@ -1,5 +1,41 @@
 # Release Notes - v0.5.x Series
 
+## Version 0.5.2 - Settings Configuration Improvements
+
+_Released: 2025-01-14_
+
+### Overview
+
+Version 0.5.2 is a maintenance release focusing on configuration improvements and development workflow enhancements.
+
+### Configuration Improvements
+
+#### Settings Management
+
+- **Hook configuration cleanup**: Removed potentially problematic automatic QA hooks
+  - Prevents infinite loop scenarios in development workflow
+  - Manual QA execution provides better control and flexibility
+  - Maintains quality standards while avoiding automation pitfalls
+
+### Development Experience
+
+- **Workflow refinement**: Enhanced development process reliability
+  - Clear manual QA execution after task completion
+  - Improved control over when quality checks are performed
+  - Better separation of concerns between task completion and quality validation
+
+### Compatibility
+
+- **Full backward compatibility**: No breaking changes to public APIs
+- **Feature preservation**: All existing transpilation functionality maintained
+- **Quality assurance**: Manual QA process ensures continued high standards
+
+### Migration Guide
+
+No migration required - this is a configuration improvement release with full backward compatibility.
+
+---
+
 ## Version 0.5.1 - QA Pipeline Improvements
 
 _Released: 2025-01-14_
@@ -10,7 +46,7 @@ Version 0.5.1 is a maintenance release focusing on quality assurance pipeline im
 
 ### Quality Assurance Improvements
 
-#### TypeScript Configuration 
+#### TypeScript Configuration
 
 - **Fixed lib conflicts**: Resolved TypeScript compiler conflicts between DOM and Deno APIs
   - Changed from `["deno.window", "dom", "dom.iterable", "dom.asynciterable", "esnext"]`
@@ -52,10 +88,11 @@ Version 0.5.1 is a maintenance release focusing on quality assurance pipeline im
 ### Expected Test Results
 
 This release maintains the expected test pattern:
+
 - **29 test suites PASS** - All implemented features work correctly
 - **8 test suites with expected failures** - Advanced features planned for v0.6.0+
   - Async/await with C++20 coroutines
-  - Complex inheritance patterns  
+  - Complex inheritance patterns
   - Advanced type guard implementations
 
 ### Migration Guide
@@ -224,7 +261,7 @@ Version 0.6.0 will focus on:
 
 ---
 
-## Version 0.5.2 - Future Patch Release
+## Version 0.5.3 - Future Patch Release
 
 _Planned_
 
