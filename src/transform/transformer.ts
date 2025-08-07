@@ -839,6 +839,9 @@ class ASTTransformer {
       case ts.SyntaxKind.ThisKeyword:
         return this.transformThisExpression(node);
 
+      case ts.SyntaxKind.SuperKeyword:
+        return this.transformSuperExpression(node);
+
       case ts.SyntaxKind.NewExpression:
         return this.transformNewExpression(node as ts.NewExpression);
 
@@ -1167,6 +1170,15 @@ class ASTTransformer {
     return {
       kind: IRNodeKind.ThisExpression,
     };
+  }
+
+  /**
+   * Transform super expression
+   */
+  private transformSuperExpression(_node: any): IRIdentifier {
+    // We represent super as a special identifier
+    // The code generator will handle it appropriately
+    return { kind: IRNodeKind.Identifier, name: "super" };
   }
 
   /**

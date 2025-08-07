@@ -101,6 +101,9 @@ interface CodeGenContext {
   /** Current class being generated */
   currentClass?: string;
 
+  /** Current base class name */
+  currentBaseClass?: string;
+
   /** Options */
   options: TranspileOptions;
 }
@@ -344,15 +347,32 @@ class CppGenerator {
   private generateClass(cls: IRClassDeclaration, context: CodeGenContext): string {
     const name = cls.id.name;
     const prevClass = context.currentClass;
+    const prevBaseClass = context.currentBaseClass;
     context.currentClass = name;
+    
+    // Track base class for super calls
+    if (cls.superClass) {
+      context.currentBaseClass = this.generateExpression(cls.superClass, context);
+    }
 
     if (context.isHeader) {
       const lines: string[] = [];
-      lines.push(
-        `class ${name}${
-          cls.superClass ? ` : public ${this.generateExpression(cls.superClass, context)}` : ""
-        } {`,
-      );
+      
+      // Generate class declaration with inheritance
+      let classDecl = `class ${name}`;
+      if (cls.superClass) {
+        const superName = this.generateExpression(cls.superClass, context);
+        classDecl += ` : public ${superName}`;
+      }
+      if (cls.implements && cls.implements.length > 0) {
+        // Handle interface implementation if needed
+        // C++ doesn't have interfaces, so we treat them as additional base classes
+        for (const iface of cls.implements) {
+          classDecl += `, public ${iface}`;
+        }
+      }
+      classDecl += " {";
+      lines.push(classDecl);
 
       // Group members by access level
       const publicMembers: any[] = [];
@@ -370,12 +390,24 @@ class CppGenerator {
         }
       }
 
+      // Check if we need a default constructor
+      const hasConstructor = cls.members.some(
+        (m) => m.kind === IRNodeKind.FunctionDeclaration && 
+        this.getMethodName((m as IRMethodDefinition).key) === "constructor"
+      );
+
       // Generate members by access level
-      if (publicMembers.length > 0) {
+      if (publicMembers.length > 0 || !hasConstructor) {
         lines.push("public:");
         context.indent++;
+        
+        // Add default constructor if needed
+        if (!hasConstructor) {
+          lines.push(this.getIndent(context) + `${name}() = default;`);
+        }
+        
         for (const member of publicMembers) {
-          const code = this.generateClassMember(member, context);
+          const code = this.generateClassMember(member, context, cls);
           if (code) {
             lines.push(this.getIndent(context) + code);
           }
@@ -387,7 +419,7 @@ class CppGenerator {
         lines.push("protected:");
         context.indent++;
         for (const member of protectedMembers) {
-          const code = this.generateClassMember(member, context);
+          const code = this.generateClassMember(member, context, cls);
           if (code) {
             lines.push(this.getIndent(context) + code);
           }
@@ -399,7 +431,7 @@ class CppGenerator {
         lines.push("private:");
         context.indent++;
         for (const member of privateMembers) {
-          const code = this.generateClassMember(member, context);
+          const code = this.generateClassMember(member, context, cls);
           if (code) {
             lines.push(this.getIndent(context) + code);
           }
@@ -409,6 +441,7 @@ class CppGenerator {
 
       lines.push("};");
       context.currentClass = prevClass;
+      context.currentBaseClass = prevBaseClass;
       return lines.join("\n");
     } else {
       // Generate method implementations
@@ -425,7 +458,25 @@ class CppGenerator {
 
             // Handle constructor specially
             if (methodName === "constructor") {
-              lines.push(`${name}::${name}(${params}) {`);
+              let ctorLine = `${name}::${name}(${params})`;
+              
+              // Add initializer list for base class constructor if needed
+              if (cls.superClass) {
+                // Check for super() calls in constructor body
+                const hasSuperCall = this.findSuperConstructorCall(funcDecl.body);
+                if (hasSuperCall) {
+                  const superArgs = hasSuperCall.arguments
+                    .map(arg => this.generateExpression(arg, context))
+                    .join(", ");
+                  ctorLine += ` : ${this.generateExpression(cls.superClass, context)}(${superArgs})`;
+                } else {
+                  // Call default constructor of base class
+                  ctorLine += ` : ${this.generateExpression(cls.superClass, context)}()`;
+                }
+              }
+              
+              ctorLine += " {";
+              lines.push(ctorLine);
             } else {
               const returnType = this.mapType(funcDecl.returnType);
               lines.push(`${returnType} ${name}::${methodName}(${params}) {`);
@@ -447,6 +498,7 @@ class CppGenerator {
       }
 
       context.currentClass = prevClass;
+      context.currentBaseClass = prevBaseClass;
       return lines.join("\n").trim();
     }
   }
@@ -454,7 +506,7 @@ class CppGenerator {
   /**
    * Generate class member
    */
-  private generateClassMember(member: any, context: CodeGenContext): string {
+  private generateClassMember(member: any, context: CodeGenContext, cls?: IRClassDeclaration): string {
     if (member.kind === IRNodeKind.VariableDeclaration) {
       // Property
       const prop = member as IRPropertyDefinition;
@@ -479,7 +531,23 @@ class CppGenerator {
         return `${className}(${params});`;
       } else {
         const returnType = this.mapType(funcDecl.returnType);
-        return `${returnType} ${methodName}(${params});`;
+        
+        // Check if this method overrides a base class method
+        const isOverride = cls?.superClass && this.isOverriddenMethod(methodName, cls);
+        const isVirtual = funcDecl.isVirtual || isOverride;
+        
+        let methodDecl = "";
+        if (isVirtual && !isOverride) {
+          methodDecl = "virtual ";
+        }
+        methodDecl += `${returnType} ${methodName}(${params})`;
+        
+        if (isOverride) {
+          methodDecl += " override";
+        }
+        
+        methodDecl += ";";
+        return methodDecl;
       }
     }
 
@@ -889,6 +957,15 @@ class CppGenerator {
    * Generate call expression
    */
   private generateCall(expr: IRCallExpression, context: CodeGenContext): string {
+    // Handle super() constructor calls specially
+    if (expr.callee.kind === IRNodeKind.Identifier && 
+        (expr.callee as IRIdentifier).name === "super") {
+      // This is a super constructor call - it will be handled in constructor initialization list
+      // Return a placeholder that will be removed
+      const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
+      return `js::null(${args.join(", ")})`; // Placeholder
+    }
+    
     const callee = this.generateExpression(expr.callee, context);
     const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
 
@@ -907,6 +984,13 @@ class CppGenerator {
     } else {
       const property = this.generateExpression(expr.property, context);
 
+      // Handle super property/method access
+      if (object === "super") {
+        // Use the tracked base class name from context
+        const baseClass = context.currentBaseClass || "BaseClass";
+        return `${baseClass}::${property}`;
+      }
+      
       // Handle special cases for our runtime types
       if (object === "this") {
         return `${object}->${property}`;
@@ -1263,6 +1347,34 @@ class CppGenerator {
       stmt.kind === IRNodeKind.FunctionDeclaration &&
       (stmt as IRFunctionDeclaration).id?.name === "main"
     );
+  }
+
+  /**
+   * Find super constructor call in a block statement
+   */
+  private findSuperConstructorCall(body: IRBlockStatement): IRCallExpression | null {
+    for (const stmt of body.body) {
+      if (stmt.kind === IRNodeKind.ExpressionStatement) {
+        const expr = (stmt as IRExpressionStatement).expression;
+        if (expr.kind === IRNodeKind.CallExpression) {
+          const call = expr as IRCallExpression;
+          if (call.callee.kind === IRNodeKind.Identifier &&
+              (call.callee as IRIdentifier).name === "super") {
+            return call;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Check if a method overrides a base class method
+   */
+  private isOverriddenMethod(methodName: string, cls: IRClassDeclaration): boolean {
+    // For now, we'll mark all non-constructor methods as potentially virtual
+    // In a complete implementation, we'd check the base class definition
+    return methodName !== "constructor" && methodName !== "destructor";
   }
 
   private collectForwardDeclarations(stmt: IRStatement, context: CodeGenContext): void {
