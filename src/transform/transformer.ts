@@ -1052,34 +1052,41 @@ class ASTTransformer {
    * Transform template literal
    */
   private transformTemplateLiteral(node: any): IRExpression {
-    // Handle template literals with expressions
-    if (!node.expressions || node.expressions.length === 0) {
-      // Simple template literal without expressions
-      const value = (node.quasis || []).map((quasi: any) => quasi.cooked || "").join("");
-      return this.createLiteral(value);
-    }
-
-    // Template literal with expressions - create a template literal IR node
-    const parts: Array<IRExpression | IRLiteral> = [];
-
-    // Interleave quasis (literal parts) and expressions
-    for (let i = 0; i < node.quasis.length; i++) {
-      const quasi = node.quasis[i];
-      // Add literal part if it's not empty
-      if (quasi.cooked && quasi.cooked !== "") {
-        parts.push(this.createLiteral(quasi.cooked));
+    // TypeScript template expressions
+    if (node.kind === ts.SyntaxKind.TemplateExpression) {
+      const parts: Array<IRExpression | IRLiteral> = [];
+      
+      // Add the head literal
+      if (node.head && node.head.text) {
+        parts.push(this.createLiteral(node.head.text));
       }
-
-      // Add expression if it exists
-      if (i < node.expressions.length) {
-        parts.push(this.transformExpression(node.expressions[i]));
+      
+      // Add template spans (expression + literal)
+      if (node.templateSpans) {
+        for (const span of node.templateSpans) {
+          // Add the expression
+          parts.push(this.transformExpression(span.expression));
+          
+          // Add the literal part after the expression
+          if (span.literal && span.literal.text) {
+            parts.push(this.createLiteral(span.literal.text));
+          }
+        }
       }
+      
+      return {
+        kind: IRNodeKind.TemplateLiteral,
+        parts,
+      } as IRTemplateLiteral;
     }
-
-    return {
-      kind: IRNodeKind.TemplateLiteral,
-      parts,
-    } as IRTemplateLiteral;
+    
+    // No substitution template literal (simple template string)
+    if (node.kind === ts.SyntaxKind.NoSubstitutionTemplateLiteral) {
+      return this.createLiteral(node.text || "");
+    }
+    
+    // Fallback for other cases
+    return this.createLiteral("");
   }
 
   /**

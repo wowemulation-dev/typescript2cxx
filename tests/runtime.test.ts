@@ -153,21 +153,21 @@ describe("Runtime Library v0.3.0", () => {
 
   describe("Error Types", () => {
     it("should map Error to js::Error", async () => {
-      const code = `throw new Error("Failed");`;
+      const code = `const err = new Error("Failed");`;
       const result = await transpile(code);
 
       assertStringIncludes(result.source, "js::Error");
     });
 
     it("should map TypeError to js::TypeError", async () => {
-      const code = `throw new TypeError("Type error");`;
+      const code = `const err = new TypeError("Type error");`;
       const result = await transpile(code);
 
       assertStringIncludes(result.source, "js::TypeError");
     });
 
     it("should map ReferenceError to js::ReferenceError", async () => {
-      const code = `throw new ReferenceError("Reference error");`;
+      const code = `const err = new ReferenceError("Reference error");`;
       const result = await transpile(code);
 
       assertStringIncludes(result.source, "js::ReferenceError");

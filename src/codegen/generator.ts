@@ -507,6 +507,8 @@ class CppGenerator {
           // For auto types with new expressions, infer the type
           cppType = this.inferTypeFromInitializer(decl.init, context);
         }
+        // Use the mapped type
+        cppType = this.mapType(cppType);
         const code = `extern ${isConst ? "const " : ""}${cppType} ${name};`;
         lines.push(code);
       } else {
@@ -516,6 +518,8 @@ class CppGenerator {
           // Use the same inferred type as in header
           cppType = this.inferTypeFromInitializer(decl.init, context);
         }
+        // Use the mapped type (this will convert js::string to js::string properly)
+        cppType = this.mapType(cppType);
         let code = `${isConst ? "const " : ""}${cppType} ${name}`;
         if (decl.init) {
           code += ` = ${this.generateExpression(decl.init, context)}`;
@@ -721,6 +725,8 @@ class CppGenerator {
       "console": "js::console",
       "undefined": "js::undefined",
       "null": "js::null",
+      "NaN": "js::number::NaN",
+      "Infinity": "js::number::POSITIVE_INFINITY",
       "Math": "js::Math",
       "Date": "js::Date",
       "RegExp": "js::RegExp",
@@ -1051,6 +1057,11 @@ class CppGenerator {
    * Map TypeScript type to C++ type
    */
   private mapType(tsType: string): string {
+    // If it's already a js:: type, return as-is
+    if (tsType.startsWith("js::")) {
+      return tsType;
+    }
+    
     const typeMap: Record<string, string> = {
       "string": "js::string",
       "number": "js::number",
