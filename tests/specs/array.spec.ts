@@ -169,4 +169,3 @@ describe("Array Type Transpilation", () => {
     assertEquals(result.success, true);
   });
 });
-
