@@ -12,8 +12,8 @@ import type {
   IRCatchClause,
   IRClassDeclaration,
   IRConditionalExpression,
-  IRDecorator,
-  IRDecoratorMetadata,
+  IRDecorator as _IRDecorator,
+  IRDecoratorMetadata as _IRDecoratorMetadata,
   IRExpression,
   IRExpressionStatement,
   IRForStatement,
@@ -322,7 +322,7 @@ class CppGenerator {
     const name = func.id?.name || "anonymous";
     const params = this.generateParameters(func.params, context);
     let returnType = this.mapType(func.returnType);
-    
+
     // Handle async functions
     if (func.isAsync) {
       // Wrap return type in Task for C++20 coroutines
@@ -342,7 +342,7 @@ std::shared_ptr<js::Promise<${innerType}>>
       // Generate implementation
       const prevAsync = context.isAsync;
       context.isAsync = func.isAsync;
-      
+
       const lines: string[] = [];
       lines.push(`${returnType} ${name}(${params}) {`);
 
@@ -371,7 +371,7 @@ std::shared_ptr<js::Promise<${innerType}>>
     const prevClass = context.currentClass;
     const prevBaseClass = context.currentBaseClass;
     context.currentClass = name;
-    
+
     // Track base class for super calls
     if (cls.superClass) {
       context.currentBaseClass = this.generateExpression(cls.superClass, context);
@@ -379,14 +379,14 @@ std::shared_ptr<js::Promise<${innerType}>>
 
     if (context.isHeader) {
       const lines: string[] = [];
-      
+
       // Generate class declaration with inheritance
       let classDecl = `class ${name}`;
       if (cls.superClass) {
         const superName = this.generateExpression(cls.superClass, context);
         classDecl += ` : public ${superName}`;
       }
-      
+
       // Add has_metadata base if class has decorators
       if (cls.decorators) {
         if (cls.superClass) {
@@ -395,7 +395,7 @@ std::shared_ptr<js::Promise<${innerType}>>
           classDecl += ` : public js::has_metadata<${name}>`;
         }
       }
-      
+
       if (cls.implements && cls.implements.length > 0) {
         // Handle interface implementation if needed
         // C++ doesn't have interfaces, so we treat them as additional base classes
@@ -424,20 +424,21 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       // Check if we need a default constructor
       const hasConstructor = cls.members.some(
-        (m) => m.kind === IRNodeKind.FunctionDeclaration && 
-        this.getMethodName((m as IRMethodDefinition).key) === "constructor"
+        (m) =>
+          m.kind === IRNodeKind.FunctionDeclaration &&
+          this.getMethodName((m as IRMethodDefinition).key) === "constructor",
       );
 
       // Generate members by access level
       if (publicMembers.length > 0 || !hasConstructor) {
         lines.push("public:");
         context.indent++;
-        
+
         // Add default constructor if needed
         if (!hasConstructor) {
           lines.push(this.getIndent(context) + `${name}() = default;`);
         }
-        
+
         for (const member of publicMembers) {
           const code = this.generateClassMember(member, context, cls);
           if (code) {
@@ -480,7 +481,7 @@ std::shared_ptr<js::Promise<${innerType}>>
         context.indent--;
       }
 
-      lines.push("};")
+      lines.push("};");
       context.currentClass = prevClass;
       context.currentBaseClass = prevBaseClass;
       return lines.join("\n");
@@ -506,22 +507,24 @@ std::shared_ptr<js::Promise<${innerType}>>
             // Handle constructor specially
             if (methodName === "constructor") {
               let ctorLine = `${name}::${name}(${params})`;
-              
+
               // Add initializer list for base class constructor if needed
               if (cls.superClass) {
                 // Check for super() calls in constructor body
                 const hasSuperCall = this.findSuperConstructorCall(funcDecl.body);
                 if (hasSuperCall) {
                   const superArgs = hasSuperCall.arguments
-                    .map(arg => this.generateExpression(arg, context))
+                    .map((arg) => this.generateExpression(arg, context))
                     .join(", ");
-                  ctorLine += ` : ${this.generateExpression(cls.superClass, context)}(${superArgs})`;
+                  ctorLine += ` : ${
+                    this.generateExpression(cls.superClass, context)
+                  }(${superArgs})`;
                 } else {
                   // Call default constructor of base class
                   ctorLine += ` : ${this.generateExpression(cls.superClass, context)}()`;
                 }
               }
-              
+
               ctorLine += " {";
               lines.push(ctorLine);
             } else {
@@ -553,7 +556,11 @@ std::shared_ptr<js::Promise<${innerType}>>
   /**
    * Generate class member
    */
-  private generateClassMember(member: any, context: CodeGenContext, cls?: IRClassDeclaration): string {
+  private generateClassMember(
+    member: any,
+    context: CodeGenContext,
+    cls?: IRClassDeclaration,
+  ): string {
     if (member.kind === IRNodeKind.VariableDeclaration) {
       // Property
       const prop = member as IRPropertyDefinition;
@@ -578,21 +585,21 @@ std::shared_ptr<js::Promise<${innerType}>>
         return `${className}(${params});`;
       } else {
         const returnType = this.mapType(funcDecl.returnType);
-        
+
         // Check if this method overrides a base class method
         const isOverride = cls?.superClass && this.isOverriddenMethod(methodName, cls);
         const isVirtual = funcDecl.isVirtual || isOverride;
-        
+
         let methodDecl = "";
         if (isVirtual && !isOverride) {
           methodDecl = "virtual ";
         }
         methodDecl += `${returnType} ${methodName}(${params})`;
-        
+
         if (isOverride) {
           methodDecl += " override";
         }
-        
+
         methodDecl += ";";
         return methodDecl;
       }
@@ -772,7 +779,7 @@ std::shared_ptr<js::Promise<${innerType}>>
   private generateReturn(returnStmt: IRReturnStatement, context: CodeGenContext): string {
     if (returnStmt.argument) {
       const value = this.generateExpression(returnStmt.argument, context);
-      
+
       // Use co_return for async functions (need to track in context)
       if (context.isAsync) {
         return `
@@ -782,10 +789,10 @@ std::shared_ptr<js::Promise<${innerType}>>
     return js::Promise::resolve(${value});
 #endif`;
       }
-      
+
       return `return ${value};`;
     }
-    
+
     // Empty return for async functions
     if (context.isAsync) {
       return `
@@ -795,7 +802,7 @@ std::shared_ptr<js::Promise<${innerType}>>
     return js::Promise::resolve(js::any());
 #endif`;
     }
-    
+
     return "return;";
   }
 
@@ -913,7 +920,7 @@ std::shared_ptr<js::Promise<${innerType}>>
    */
   private generateAwait(expr: IRAwaitExpression, context: CodeGenContext): string {
     const argument = this.generateExpression(expr.argument, context);
-    
+
     // Use co_await for C++20, or .get() for fallback
     return `
 #if __cplusplus >= 202002L
@@ -1045,14 +1052,16 @@ std::shared_ptr<js::Promise<${innerType}>>
    */
   private generateCall(expr: IRCallExpression, context: CodeGenContext): string {
     // Handle super() constructor calls specially
-    if (expr.callee.kind === IRNodeKind.Identifier && 
-        (expr.callee as IRIdentifier).name === "super") {
+    if (
+      expr.callee.kind === IRNodeKind.Identifier &&
+      (expr.callee as IRIdentifier).name === "super"
+    ) {
       // This is a super constructor call - it will be handled in constructor initialization list
       // Return a placeholder that will be removed
       const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
       return `js::null(${args.join(", ")})`; // Placeholder
     }
-    
+
     const callee = this.generateExpression(expr.callee, context);
     const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
 
@@ -1077,7 +1086,7 @@ std::shared_ptr<js::Promise<${innerType}>>
         const baseClass = context.currentBaseClass || "BaseClass";
         return `${baseClass}::${property}`;
       }
-      
+
       // Handle special cases for our runtime types
       if (object === "this") {
         return `${object}->${property}`;
@@ -1445,8 +1454,10 @@ std::shared_ptr<js::Promise<${innerType}>>
         const expr = (stmt as IRExpressionStatement).expression;
         if (expr.kind === IRNodeKind.CallExpression) {
           const call = expr as IRCallExpression;
-          if (call.callee.kind === IRNodeKind.Identifier &&
-              (call.callee as IRIdentifier).name === "super") {
+          if (
+            call.callee.kind === IRNodeKind.Identifier &&
+            (call.callee as IRIdentifier).name === "super"
+          ) {
             return call;
           }
         }
@@ -1458,7 +1469,7 @@ std::shared_ptr<js::Promise<${innerType}>>
   /**
    * Check if a method overrides a base class method
    */
-  private isOverriddenMethod(methodName: string, cls: IRClassDeclaration): boolean {
+  private isOverriddenMethod(methodName: string, _cls: IRClassDeclaration): boolean {
     // For now, we'll mark all non-constructor methods as potentially virtual
     // In a complete implementation, we'd check the base class definition
     return methodName !== "constructor" && methodName !== "destructor";
@@ -1574,16 +1585,16 @@ std::shared_ptr<js::Promise<${innerType}>>
   private generateMetadataInitialization(cls: IRClassDeclaration, context: CodeGenContext): string {
     const lines: string[] = [];
     const className = cls.id.name;
-    
+
     lines.push(`// Initialize metadata for ${className}`);
     lines.push(`js::metadata_t ${className}::_metadata = {`);
     context.indent++;
-    
+
     const metadataEntries: string[] = [];
-    
+
     // Add class decorators
     if (cls.decorators?.classDecorators) {
-      const decoratorNames = cls.decorators.classDecorators.map(d => {
+      const decoratorNames = cls.decorators.classDecorators.map((d) => {
         if (d.expression.kind === IRNodeKind.Identifier) {
           return `js::string("${(d.expression as IRIdentifier).name}")`;
         } else if (d.expression.kind === IRNodeKind.CallExpression) {
@@ -1594,70 +1605,77 @@ std::shared_ptr<js::Promise<${innerType}>>
         }
         return `js::string("unknown")`;
       });
-      
+
       metadataEntries.push(
         `{"__class_decorators__", js::any(js::array<js::string>({${decoratorNames.join(", ")}}))}`,
       );
     }
-    
+
     // Add member decorators
     if (cls.decorators?.memberDecorators) {
       for (const [memberName, decorators] of cls.decorators.memberDecorators) {
         metadataEntries.push(`{"${memberName}", js::boolean(true)}`);
-        
+
         // Check for validation decorators
-        const validationDecorators = decorators.filter(d => {
+        const validationDecorators = decorators.filter((d) => {
           if (d.expression.kind === IRNodeKind.Identifier) {
             const name = (d.expression as IRIdentifier).name;
             return name === "validate" || name === "required" || name === "email";
           }
           return false;
         });
-        
+
         if (validationDecorators.length > 0) {
-          const rules = validationDecorators.map(d => {
+          const rules = validationDecorators.map((d) => {
             const name = (d.expression as IRIdentifier).name;
             return `js::string("${name}")`;
           });
           metadataEntries.push(
-            `{"__validation_${memberName}__", js::any(js::array<js::string>({${rules.join(", ")}}))}`,
+            `{"__validation_${memberName}__", js::any(js::array<js::string>({${
+              rules.join(", ")
+            }}))}`,
           );
         }
       }
     }
-    
+
     // Add parameter decorators
     if (cls.decorators?.parameterDecorators) {
       for (const [methodName, params] of cls.decorators.parameterDecorators) {
         for (const [index, decorators] of params) {
-          const decoratorNames = decorators.map(d => {
+          const decoratorNames = decorators.map((d) => {
             if (d.expression.kind === IRNodeKind.Identifier) {
               return `js::string("${(d.expression as IRIdentifier).name}")`;
             }
             return `js::string("unknown")`;
           });
-          
+
           metadataEntries.push(
-            `{"__param_decorators__${methodName}_${index}", js::any(js::array<js::string>({${decoratorNames.join(", ")}}))}`,
+            `{"__param_decorators__${methodName}_${index}", js::any(js::array<js::string>({${
+              decoratorNames.join(", ")
+            }}))}`,
           );
         }
       }
     }
-    
+
     // Add static decorators
     if (cls.decorators?.staticDecorators) {
       for (const [memberName, _decorators] of cls.decorators.staticDecorators) {
         metadataEntries.push(`{"${memberName}", js::boolean(true)}`);
       }
     }
-    
+
     for (const entry of metadataEntries) {
-      lines.push(this.getIndent(context) + entry + (metadataEntries.indexOf(entry) < metadataEntries.length - 1 ? "," : ""));
+      lines.push(
+        this.getIndent(context) + entry +
+          (metadataEntries.indexOf(entry) < metadataEntries.length - 1 ? "," : ""),
+      );
     }
-    
+
     context.indent--;
     lines.push("};");
-    
+
     return lines.join("\n");
   }
 }

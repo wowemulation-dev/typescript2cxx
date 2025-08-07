@@ -303,9 +303,10 @@ class ASTTransformer {
     const name = node.name?.text || "anonymous";
     const params = this.transformParameters(node.parameters || []);
     const returnType = this.resolveType(node.type);
-    
+
     // Check if function is async
-    const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) || false;
+    const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) ||
+      false;
 
     const func: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
@@ -762,6 +763,14 @@ class ASTTransformer {
    * Transform any statement
    */
   private transformStatement(node: ts.Statement): IRStatement {
+    if (!node) {
+      // Return an empty block statement for undefined nodes
+      const emptyBlock: IRBlockStatement = {
+        kind: IRNodeKind.BlockStatement,
+        body: [],
+      };
+      return emptyBlock;
+    }
     switch (node.kind) {
       case ts.SyntaxKind.Block:
         return this.transformBlockStatement(node as ts.Block);
@@ -1629,7 +1638,7 @@ class ASTTransformer {
     if (ts.canHaveDecorators(node)) {
       const decorators = ts.getDecorators(node);
       if (decorators && decorators.length > 0) {
-        metadata.classDecorators = decorators.map(d => this.transformDecorator(d, "class"));
+        metadata.classDecorators = decorators.map((d) => this.transformDecorator(d, "class"));
         hasDecorators = true;
       }
     }
@@ -1647,10 +1656,12 @@ class ASTTransformer {
       if (ts.canHaveDecorators(member)) {
         const decorators = ts.getDecorators(member);
         if (decorators && decorators.length > 0) {
-          const isStatic = member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword);
+          const isStatic = member.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword);
           const targetType = this.getDecoratorTargetType(member);
-          const irDecorators = decorators.map(d => this.transformDecorator(d, targetType, memberName));
-          
+          const irDecorators = decorators.map((d) =>
+            this.transformDecorator(d, targetType, memberName)
+          );
+
           if (isStatic) {
             metadata.staticDecorators!.set(memberName, irDecorators);
           } else {
@@ -1671,7 +1682,7 @@ class ASTTransformer {
               if (!metadata.parameterDecorators!.has(methodName)) {
                 metadata.parameterDecorators!.set(methodName, new Map());
               }
-              const irDecorators = decorators.map(d => 
+              const irDecorators = decorators.map((d) =>
                 this.transformDecorator(d, "parameter", methodName, index)
               );
               metadata.parameterDecorators!.get(methodName)!.set(index, irDecorators);
@@ -1692,7 +1703,7 @@ class ASTTransformer {
     decorator: ts.Decorator,
     targetType: "class" | "method" | "property" | "parameter" | "accessor",
     targetName?: string,
-    parameterIndex?: number
+    parameterIndex?: number,
   ): IRDecorator {
     return {
       kind: IRNodeKind.Decorator,
@@ -1721,8 +1732,10 @@ class ASTTransformer {
    * Get member name from class element
    */
   private getMemberName(member: ts.ClassElement): string | undefined {
-    if (ts.isMethodDeclaration(member) || ts.isPropertyDeclaration(member) || 
-        ts.isGetAccessor(member) || ts.isSetAccessor(member)) {
+    if (
+      ts.isMethodDeclaration(member) || ts.isPropertyDeclaration(member) ||
+      ts.isGetAccessor(member) || ts.isSetAccessor(member)
+    ) {
       if (member.name) {
         if (ts.isIdentifier(member.name)) {
           return member.name.text;

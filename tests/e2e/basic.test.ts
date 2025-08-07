@@ -5,9 +5,9 @@ import { assertEquals } from "@std/assert";
 import { CrossPlatformTestRunner } from "../../src/test-runner.ts";
 
 // Skip these tests if no C++ compiler is available
-const hasCompiler = await (async () => {
+const hasCompiler = await (() => {
   try {
-    const runner = new CrossPlatformTestRunner();
+    const _runner = new CrossPlatformTestRunner();
     return true;
   } catch {
     return false;
