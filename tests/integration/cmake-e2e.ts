@@ -79,10 +79,10 @@ async function processTestFile(testPath: string): Promise<TestResult> {
           generate: true,
           projectName: testName.charAt(0).toUpperCase() + testName.slice(1),
           findPackages: [], // Override to remove external dependencies for testing
-        }
-      }
+        },
+      },
     };
-    
+
     const cmakeContent = generateCMakeFromConfig(
       testConfig,
       [`${testName}.cpp`],

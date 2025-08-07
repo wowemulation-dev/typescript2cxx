@@ -438,9 +438,10 @@ deno task compile           # Build CLI executable
 ```
 
 **Output Organization**: All generated files are organized in the `.output/` directory:
+
 - `.output/coverage/` - Test coverage data
 - `.output/dist/` - Compiled CLI executable
-- `.output/docs/` - Generated API documentation  
+- `.output/docs/` - Generated API documentation
 - `.output/cmake-tests/` - CMake integration test results
 - `.output/reports/` - Test reports and analysis
 

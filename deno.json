@@ -14,7 +14,7 @@
     "test:coverage": "deno test --coverage=.output/coverage --allow-read --allow-write --allow-env --allow-net --allow-run",
     "test:cmake": "deno run --allow-all tests/integration/cmake-e2e.ts",
     "coverage": "deno coverage .output/coverage",
-    "spec": "deno test tests/specs/ --allow-read --allow-write --allow-env --allow-net --allow-run --no-check",
+    "spec": "deno test tests/specs/*.spec.ts --allow-read --allow-write --allow-env --allow-net --allow-run --no-check",
     "spec:watch": "deno test tests/specs/ --watch --allow-read --allow-write --allow-env --allow-net --allow-run --no-check",
     "lint": "deno lint",
     "fmt": "deno fmt",
@@ -52,7 +52,7 @@
   "nodeModulesDir": "auto",
   "compilerOptions": {
     "strict": true,
-    "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable", "esnext"]
+    "lib": ["deno.ns", "deno.worker", "esnext"]
   },
   "test": {
     "include": ["tests/", "src/**/*.test.ts"],

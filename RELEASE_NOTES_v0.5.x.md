@@ -15,7 +15,7 @@ Version 0.5.0 focuses on project organization, developer experience, and compreh
 - **Unified output structure**: All generated files now organized under `.output/` directory
   - **Before**: 8+ scattered directories (`cmake-test-output/`, `cov_profile/`, `coverage.lcov`, `e2e-cmake-test/`, etc.)
   - **After**: Single consolidated structure with logical subdirectories
-  
+
   ```
   .output/
   ├── coverage/         # Test coverage data  
@@ -26,7 +26,7 @@ Version 0.5.0 focuses on project organization, developer experience, and compreh
   └── README.md         # Self-documenting structure
   ```
 
-- **Configuration simplification**: 
+- **Configuration simplification**:
   - **gitignore**: Single `/.output/` entry instead of 8+ scattered patterns
   - **deno.json**: All task outputs consolidated to `.output/` subdirectories
   - **Lint/format exclusions**: Single `.output/` exclusion
@@ -44,7 +44,7 @@ Version 0.5.0 focuses on project organization, developer experience, and compreh
   - Removed deprecated `outputDir` options
   - All 55 spec tests now use current API
 
-- **E2E compilation validation**: Enhanced test runner capabilities  
+- **E2E compilation validation**: Enhanced test runner capabilities
   - Full TypeScript → C++ → Binary pipeline testing
   - Cross-platform compiler detection (clang++, g++, MSVC)
   - Real C++ compilation and execution validation
@@ -104,7 +104,8 @@ Version 0.5.0 focuses on project organization, developer experience, and compreh
 
 ### Breaking Changes
 
-⚠️  **Output directory locations changed**:
+⚠️ **Output directory locations changed**:
+
 - Coverage files: `cov_profile/` → `.output/coverage/`
 - Compiled binaries: `./dist/` → `.output/dist/`
 - Documentation: `./docs/` → `.output/docs/`
@@ -130,7 +131,7 @@ Version 0.5.0 focuses on project organization, developer experience, and compreh
 Version 0.6.0 will focus on:
 
 - Async/await with C++20 coroutines (completing the features from v0.4.0 scope)
-- Advanced TypeScript features (conditional types, mapped types)  
+- Advanced TypeScript features (conditional types, mapped types)
 - Performance optimizations for large codebases
 - Module system improvements
 - Enhanced error reporting and debugging

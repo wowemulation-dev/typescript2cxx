@@ -17,7 +17,7 @@ describe("Basic TypeScript Transpilation", () => {
     const result = await testTranspilation(code);
     assertEquals(typeof result.header, "string");
     assertEquals(typeof result.source, "string");
-    
+
     // Then test the full E2E pipeline (if compiler is available)
     try {
       await runEndToEndTest(code, expectedOutput, "./runtime");
@@ -32,25 +32,34 @@ describe("Basic TypeScript Transpilation", () => {
   }
 
   it("should transpile Hello World as string const", async () => {
-    await testE2E(`
+    await testE2E(
+      `
             console.log("Hello World!");
-        `, "Hello World!");
+        `,
+      "Hello World!",
+    );
   });
 
   it("should transpile Hello World as variable", async () => {
-    await testE2E(`
+    await testE2E(
+      `
             var x: string = "Hello World!";
             console.log(x);
-        `, "Hello World!");
+        `,
+      "Hello World!",
+    );
   });
 
   it("should transpile Hello World as function", async () => {
-    await testE2E(`
+    await testE2E(
+      `
             function x() {
                 console.log("Hello World!");
             }
             x();
-        `, "Hello World!");
+        `,
+      "Hello World!",
+    );
   });
 
   it("should transpile Hello World as function declaration", async () => {

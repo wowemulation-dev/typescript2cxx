@@ -35,7 +35,7 @@ _Note: Features merged into v0.5.0 release_
 - **Output consolidation**: Unified all generated files under `.output/` directory
   - Replaced 8+ scattered output directories with organized structure
   - `.output/coverage/` - Test coverage data
-  - `.output/dist/` - Compiled CLI executable  
+  - `.output/dist/` - Compiled CLI executable
   - `.output/docs/` - Generated API documentation
   - `.output/cmake-tests/` - CMake integration test results
   - `.output/reports/` - Test reports and analysis
@@ -53,7 +53,7 @@ _Note: Features merged into v0.5.0 release_
 ### Developer Experience
 
 - **Error messages**: More descriptive C++ compilation errors
-- **Test execution**: Reliable E2E test runs with actual compilation  
+- **Test execution**: Reliable E2E test runs with actual compilation
 - **Documentation**: Started comprehensive release notes for all versions
 - **Repository cleanliness**: Professional project organization with logical file structure
 
