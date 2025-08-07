@@ -2,13 +2,12 @@ import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { transpile } from "../../src/transpiler.ts";
 import { existsSync } from "@std/fs";
-import * as path from "@std/path";
 
 describe("Basic TypeScript Transpilation", () => {
   const testOutputDir = "./test-output";
 
   // Helper to transpile and compile test code
-  async function testTranspilation(code: string, expectedOutput?: string) {
+  async function testTranspilation(code: string) {
     const filename = "test_" + Math.random().toString(36).substring(7);
     const inputFile = `${testOutputDir}/${filename}.ts`;
     const outputDir = `${testOutputDir}/${filename}`;
