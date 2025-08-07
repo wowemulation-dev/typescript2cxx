@@ -859,16 +859,17 @@ Based on analysis of both reference implementations:
 
 ### 🛠️ Tooling
 
-- [x] **CMake Build System Integration** ✅ PARTIAL (v0.4.1)
+- [x] **CMake Build System Integration** ✅ COMPLETED (v0.5.2)
   - ✅ Generate CMakeLists.txt files for C++ projects (implemented)
-  - [ ] CLI option: `--cmake` or `--build-system cmake`
+  - ✅ CLI option: `--cmake` integrated with transpiler workflow
   - ✅ Support for executable and library targets (working)
   - ✅ Automatic dependency management (basic)
   - ✅ Cross-platform build configuration (Windows/Linux/macOS)
-  - [ ] Integration with vcpkg/Conan package managers
-  - [ ] Debug/Release build configurations
+  - ✅ Integration with vcpkg/Conan package managers (config support)
+  - ✅ Debug/Release build configurations (full cmake preset support)
   - [ ] Custom CMake module detection
   - ✅ Automatic runtime library linking (working)
+  - ✅ End-to-end tested workflow (TypeScript → CMake → Executable)
 
 - [ ] **Additional Build Systems**
   - Makefile generation

@@ -4,6 +4,8 @@
 
 import { transpileFile } from "./transpiler.ts";
 import type { TranspileOptions } from "./types.ts";
+import { generateCMakeLists } from "./cmake/generator.ts";
+import { basename, join } from "jsr:@std/path@1";
 
 /**
  * Compile options
@@ -17,6 +19,9 @@ export interface CompileOptions extends TranspileOptions {
 
   /** Compile to executable */
   buildExecutable?: boolean;
+
+  /** Generate CMakeLists.txt */
+  generateCMake?: boolean;
 
   /** C++ compiler to use */
   compiler?: "clang++" | "g++" | "msvc" | "auto";
@@ -52,6 +57,9 @@ export interface CompileResult {
 
   /** Generated source path */
   sourcePath: string;
+
+  /** Generated CMakeLists.txt path (if generated) */
+  cmakeListsPath?: string;
 
   /** Executable path (if built) */
   executablePath?: string;
@@ -98,6 +106,22 @@ export async function compile(
     console.log(`Generated ${sourcePath}`);
   }
 
+  // Generate CMakeLists.txt if requested
+  let cmakeListsPath: string | undefined;
+  if (options.generateCMake && !options.dryRun) {
+    cmakeListsPath = await generateCMakeListsFile(
+      outputDir,
+      baseName,
+      [basename(sourcePath)],
+      [basename(headerPath)],
+      options,
+    );
+
+    if (options.verbose) {
+      console.log(`Generated ${cmakeListsPath}`);
+    }
+  }
+
   // Optionally compile to executable
   if (options.buildExecutable && !options.dryRun) {
     const compileResult = await compileCpp(sourcePath, {
@@ -110,6 +134,7 @@ export async function compile(
     return {
       headerPath,
       sourcePath,
+      cmakeListsPath,
       executablePath: compileResult.executablePath,
       command: compileResult.command,
       output: compileResult.output,
@@ -120,6 +145,7 @@ export async function compile(
   return {
     headerPath,
     sourcePath,
+    cmakeListsPath,
     success: true,
   };
 }
@@ -351,4 +377,79 @@ function getExecutableExtension(): string {
 function getBaseName(filePath: string): string {
   const fileName = filePath.split("/").pop() ?? "output";
   return fileName.replace(/\.[^.]+$/, "");
+}
+
+/**
+ * Generate CMakeLists.txt file for the project
+ */
+async function generateCMakeListsFile(
+  outputDir: string,
+  projectName: string,
+  sourceFiles: string[],
+  headerFiles: string[],
+  options: CompileOptions,
+): Promise<string> {
+  const cmakeListsPath = join(outputDir, "CMakeLists.txt");
+
+  // Build CMake options from compile options
+  const cmakeOptions = {
+    projectName: projectName.replace(/[^a-zA-Z0-9_]/g, "_"), // Make project name safe
+    cppStandard: extractCppStandard(options.standard ?? "c++20"),
+    sourceFiles,
+    headerFiles,
+    includeDirs: [
+      ".", // Current directory
+      ...(options.includePaths ?? []),
+      getRuntimeIncludePath(options.runtimePath),
+    ].filter((path): path is string => path !== undefined),
+    libraries: [
+      ...(options.libraries ?? []),
+      "m", // Math library
+    ],
+    executable: true, // Always generate executable for now
+    outputName: projectName.toLowerCase(),
+  };
+
+  // Generate debug/release configurations
+  const cmakeContent = generateCMakeLists(
+    cmakeOptions.projectName,
+    cmakeOptions.sourceFiles,
+    cmakeOptions.headerFiles,
+    cmakeOptions,
+  );
+
+  // Add debug/release build configurations
+  const enhancedContent = cmakeContent + `
+
+# Build configurations
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Debug configuration
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+
+# Release configuration  
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
+# RelWithDebInfo configuration
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -DNDEBUG")
+
+# MinSizeRel configuration
+set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -DNDEBUG")
+
+# Print build type
+message(STATUS "Build type: \${CMAKE_BUILD_TYPE}")
+`;
+
+  await Deno.writeTextFile(cmakeListsPath, enhancedContent);
+  return cmakeListsPath;
+}
+
+/**
+ * Extract C++ standard number from string like "c++20"
+ */
+function extractCppStandard(standard: string): string {
+  const match = standard.match(/(\d+)/);
+  return match ? match[1] : "20";
 }

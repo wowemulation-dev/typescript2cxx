@@ -238,13 +238,39 @@ deno run --allow-net --allow-read --allow-write src/cli.ts --runtime "my/runtime
 - `--memory <strategy>` - Memory management strategy
 - `--runtime <path>` - Custom runtime include path
 - `--plugin <name>` - Load transpiler plugins
+- `--cmake` - Generate CMakeLists.txt build files ✅ **NEW in v0.5.2**
 
-### Planned Options (v0.2.0)
+### Build System Integration (v0.5.2)
 
-- `--cmake` - Generate CMakeLists.txt build files
-- `--build-system <type>` - Select build system (cmake, make, meson)
+```bash
+# Generate CMakeLists.txt with your transpiled C++ code
+deno run --allow-all src/cli.ts --cmake -o build/ input.ts
+
+# Build with CMake
+cd build/
+mkdir cmake-build && cd cmake-build
+cmake ..
+make
+
+# Run executable
+./input
+```
+
+**CMake Features:**
+
+- ✅ Automatic C++20 standard configuration
+- ✅ Cross-platform compiler support (GCC, Clang, MSVC)
+- ✅ Debug/Release build configurations
+- ✅ Runtime library integration
+- ✅ Include path management
+- ✅ Installation targets
+
+### Planned Options (Future)
+
+- `--build-system <type>` - Select build system (make, meson, ninja)
 - `--target <type>` - Build target type (executable, library)
-- `--package-manager <pm>` - Package manager integration (vcpkg, conan)
+- `--vcpkg` - Generate vcpkg.json manifest _(Config ready)_
+- `--conan` - Generate conanfile.txt _(Config ready)_
 
 ## Documentation
 

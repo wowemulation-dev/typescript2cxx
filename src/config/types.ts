@@ -170,6 +170,7 @@ export interface ProjectConfig {
 
 export interface IntegrationConfig {
   cmake?: CMakeConfig;
+  vcpkg?: VcpkgConfig;
   conan?: ConanConfig;
   ide?: IDEConfig;
 }
@@ -180,6 +181,13 @@ export interface CMakeConfig {
   minimumVersion: string;
   findPackages: string[];
   customCommands?: string[];
+}
+
+export interface VcpkgConfig {
+  generate: boolean;
+  requires: string[];
+  triplet?: string;
+  features?: Record<string, boolean>;
 }
 
 export interface ConanConfig {

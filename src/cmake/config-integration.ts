@@ -38,6 +38,12 @@ export function generateCMakeFromConfig(
   const generator = new CMakeGenerator(options);
   let content = generator.generate();
 
+  // Add package manager integration
+  const packageManagerIntegration = generatePackageManagerIntegration(config);
+  if (packageManagerIntegration) {
+    content += "\n" + packageManagerIntegration;
+  }
+
   // Add custom commands if specified
   if (cmakeConfig.customCommands && cmakeConfig.customCommands.length > 0) {
     content += "\n\n# Custom commands\n";
@@ -205,4 +211,71 @@ export function generateCompilerSettings(config: TranspilerConfig): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Generate package manager integration for CMake
+ */
+function generatePackageManagerIntegration(config: TranspilerConfig): string {
+  const sections: string[] = [];
+
+  // vcpkg integration
+  if (config.integration?.vcpkg?.generate) {
+    const vcpkgConfig = config.integration.vcpkg;
+    sections.push("# vcpkg package management");
+
+    if (vcpkgConfig.triplet) {
+      sections.push(`set(VCPKG_TARGET_TRIPLET ${vcpkgConfig.triplet})`);
+    }
+
+    sections.push(`# Find vcpkg packages`);
+    for (const pkg of vcpkgConfig.requires) {
+      sections.push(`find_package(${pkg} CONFIG REQUIRED)`);
+    }
+
+    if (vcpkgConfig.requires.length > 0) {
+      sections.push("");
+      sections.push(`# Link vcpkg libraries`);
+      sections.push(`target_link_libraries(\${PROJECT_NAME}`);
+      for (const pkg of vcpkgConfig.requires) {
+        // Convert package name to typical CMake target format
+        const target = pkg.includes("::") ? pkg : `${pkg}::${pkg}`;
+        sections.push(`    ${target}`);
+      }
+      sections.push(`)`);
+    }
+  }
+
+  // Conan integration
+  if (config.integration?.conan?.generate) {
+    const conanConfig = config.integration.conan;
+    sections.push("# Conan package management");
+
+    // Add conan generators
+    const generators = conanConfig.generators || ["cmake_find_package"];
+    sections.push(`# Add Conan generators: ${generators.join(", ")}`);
+    sections.push(`list(APPEND CMAKE_MODULE_PATH \${CMAKE_BINARY_DIR})`);
+    sections.push(`list(APPEND CMAKE_PREFIX_PATH \${CMAKE_BINARY_DIR})`);
+
+    sections.push("");
+    sections.push(`# Find Conan packages`);
+    for (const pkg of conanConfig.requires) {
+      // Extract package name from conan reference (e.g., "boost/1.75.0" -> "boost")
+      const packageName = pkg.split("/")[0];
+      sections.push(`find_package(${packageName} REQUIRED)`);
+    }
+
+    if (conanConfig.requires.length > 0) {
+      sections.push("");
+      sections.push(`# Link Conan libraries`);
+      sections.push(`target_link_libraries(\${PROJECT_NAME}`);
+      for (const pkg of conanConfig.requires) {
+        const packageName = pkg.split("/")[0];
+        sections.push(`    ${packageName}::${packageName}`);
+      }
+      sections.push(`)`);
+    }
+  }
+
+  return sections.join("\n");
 }

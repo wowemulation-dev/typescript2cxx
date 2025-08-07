@@ -49,6 +49,7 @@ interface CliArgs {
   debug?: boolean;
   verbose?: boolean;
   "dry-run"?: boolean;
+  cmake?: boolean;
   std?: string;
   readable?: string;
   optimization?: string;
@@ -74,6 +75,7 @@ Options:
   -w, --watch         Watch mode for automatic recompilation
   -b, --build         Build executable after transpilation
   -g, --debug         Generate debug information
+  --cmake             Generate CMakeLists.txt for CMake build system
   --verbose           Verbose output
   --dry-run           Show what would be done without doing it
 
@@ -95,6 +97,7 @@ Examples:
   typescript2cxx -o build/ -b input.ts
   typescript2cxx --std=c++23 --memory=unique input.ts
   typescript2cxx --plugin=game-engine -b game.ts
+  typescript2cxx --cmake -o build/ input.ts
 `);
 }
 
@@ -104,7 +107,7 @@ function printVersion() {
 
 async function main() {
   const args = parseArgs(Deno.args, {
-    boolean: ["help", "version", "watch", "build", "debug", "verbose", "dry-run"],
+    boolean: ["help", "version", "watch", "build", "debug", "verbose", "dry-run", "cmake"],
     string: [
       "output",
       "std",
@@ -150,6 +153,7 @@ async function main() {
   const options = {
     outputDir: args.output ?? ".",
     buildExecutable: args.build ?? false,
+    generateCMake: args.cmake ?? false,
     debug: args.debug ?? false,
     verbose: args.verbose ?? false,
     dryRun: args["dry-run"] ?? false,
@@ -204,6 +208,10 @@ async function compileFile(filePath: string, options: any): Promise<void> {
     if (result.success) {
       console.log(`✓ Generated ${result.headerPath}`);
       console.log(`✓ Generated ${result.sourcePath}`);
+
+      if (result.cmakeListsPath) {
+        console.log(`✓ Generated ${result.cmakeListsPath}`);
+      }
 
       if (result.executablePath) {
         console.log(`✓ Built ${result.executablePath}`);
