@@ -4,7 +4,7 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.4.1**
+**Current Version: v0.5.2**
 
 ### Overall Progress
 
