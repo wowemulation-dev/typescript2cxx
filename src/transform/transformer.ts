@@ -8,6 +8,7 @@ import type { SimpleTypeChecker } from "../type-checker/simple-checker.ts";
 import type {
   IRArrayExpression,
   IRAssignmentExpression,
+  IRAwaitExpression,
   IRBinaryExpression,
   IRBlockStatement,
   IRCallExpression,
@@ -297,9 +298,12 @@ class ASTTransformer {
    * Transform function declaration
    */
   private transformFunctionDeclaration(node: any): IRFunctionDeclaration {
-    const name = node.identifier?.value || "anonymous";
-    const params = this.transformParameters(node.params || []);
-    const returnType = this.resolveType(node.returnType);
+    const name = node.name?.text || "anonymous";
+    const params = this.transformParameters(node.parameters || []);
+    const returnType = this.resolveType(node.type);
+    
+    // Check if function is async
+    const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) || false;
 
     const func: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
@@ -307,8 +311,8 @@ class ASTTransformer {
       params,
       returnType,
       body: null as any,
-      isAsync: node.async || false,
-      isGenerator: node.generator || false,
+      isAsync,
+      isGenerator: false,
     };
 
     // Transform body with function context
@@ -845,6 +849,9 @@ class ASTTransformer {
       case ts.SyntaxKind.NewExpression:
         return this.transformNewExpression(node as ts.NewExpression);
 
+      case ts.SyntaxKind.AwaitExpression:
+        return this.transformAwaitExpression(node as ts.AwaitExpression);
+
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
         return this.createLiteral(null);
@@ -1182,6 +1189,16 @@ class ASTTransformer {
   }
 
   /**
+   * Transform await expression
+   */
+  private transformAwaitExpression(node: ts.AwaitExpression): IRAwaitExpression {
+    return {
+      kind: IRNodeKind.AwaitExpression,
+      argument: this.transformExpression(node.expression),
+    };
+  }
+
+  /**
    * Transform new expression
    */
   private transformNewExpression(node: ts.NewExpression): IRNewExpression {
@@ -1220,7 +1237,18 @@ class ASTTransformer {
     const result: IRParameter[] = [];
 
     for (const param of params) {
-      if (param.type === "Identifier") {
+      // Handle TypeScript AST parameter nodes
+      if (ts.isParameter(param)) {
+        const name = param.name && ts.isIdentifier(param.name) ? param.name.text : "param";
+        result.push({
+          name,
+          type: this.resolveType(param.type),
+          isOptional: !!param.questionToken,
+          isRest: !!param.dotDotDotToken,
+          memory: MemoryManagement.Auto,
+        });
+      } else if (param.type === "Identifier") {
+        // Fallback for old format
         result.push({
           name: param.value,
           type: this.resolveType(param.typeAnnotation),

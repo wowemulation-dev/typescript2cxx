@@ -5,6 +5,7 @@
 import type {
   IRArrayExpression,
   IRAssignmentExpression,
+  IRAwaitExpression,
   IRBinaryExpression,
   IRBlockStatement,
   IRCallExpression,
@@ -103,6 +104,9 @@ interface CodeGenContext {
 
   /** Current base class name */
   currentBaseClass?: string;
+
+  /** Whether we're in an async function */
+  isAsync?: boolean;
 
   /** Options */
   options: TranspileOptions;
@@ -315,13 +319,28 @@ class CppGenerator {
   private generateFunction(func: IRFunctionDeclaration, context: CodeGenContext): string {
     const name = func.id?.name || "anonymous";
     const params = this.generateParameters(func.params, context);
-    const returnType = this.mapType(func.returnType);
+    let returnType = this.mapType(func.returnType);
+    
+    // Handle async functions
+    if (func.isAsync) {
+      // Wrap return type in Task for C++20 coroutines
+      const innerType = returnType === "void" ? "js::any" : returnType;
+      returnType = `
+#if __cplusplus >= 202002L
+js::Task<${innerType}>
+#else
+std::shared_ptr<js::Promise<${innerType}>>
+#endif`;
+    }
 
     if (context.isHeader) {
       // Generate declaration
       return `${returnType} ${name}(${params});`;
     } else {
       // Generate implementation
+      const prevAsync = context.isAsync;
+      context.isAsync = func.isAsync;
+      
       const lines: string[] = [];
       lines.push(`${returnType} ${name}(${params}) {`);
 
@@ -337,6 +356,7 @@ class CppGenerator {
       }
 
       lines.push("}");
+      context.isAsync = prevAsync;
       return lines.join("\n");
     }
   }
@@ -725,8 +745,30 @@ class CppGenerator {
   private generateReturn(returnStmt: IRReturnStatement, context: CodeGenContext): string {
     if (returnStmt.argument) {
       const value = this.generateExpression(returnStmt.argument, context);
+      
+      // Use co_return for async functions (need to track in context)
+      if (context.isAsync) {
+        return `
+#if __cplusplus >= 202002L
+    co_return ${value};
+#else
+    return js::Promise::resolve(${value});
+#endif`;
+      }
+      
       return `return ${value};`;
     }
+    
+    // Empty return for async functions
+    if (context.isAsync) {
+      return `
+#if __cplusplus >= 202002L
+    co_return;
+#else
+    return js::Promise::resolve(js::any());
+#endif`;
+    }
+    
     return "return;";
   }
 
@@ -831,9 +873,27 @@ class CppGenerator {
       case IRNodeKind.TemplateLiteral:
         return this.generateTemplateLiteral(expr as IRTemplateLiteral, context);
 
+      case IRNodeKind.AwaitExpression:
+        return this.generateAwait(expr as IRAwaitExpression, context);
+
       default:
         return `/* TODO: ${expr.kind} */`;
     }
+  }
+
+  /**
+   * Generate await expression
+   */
+  private generateAwait(expr: IRAwaitExpression, context: CodeGenContext): string {
+    const argument = this.generateExpression(expr.argument, context);
+    
+    // Use co_await for C++20, or .get() for fallback
+    return `
+#if __cplusplus >= 202002L
+    co_await ${argument}
+#else
+    ${argument}->get()
+#endif`;
   }
 
   /**

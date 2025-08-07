@@ -875,6 +875,16 @@ export interface IRThrowStatement extends IRStatement {
 }
 
 /**
+ * Await expression
+ */
+export interface IRAwaitExpression extends IRExpression {
+  kind: IRNodeKind.AwaitExpression;
+
+  /** Expression to await */
+  argument: IRExpression;
+}
+
+/**
  * Smart pointer expression (C++ specific)
  */
 export interface IRSmartPointerExpression extends IRExpression {
