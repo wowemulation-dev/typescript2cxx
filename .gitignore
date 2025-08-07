@@ -17,7 +17,8 @@ Thumbs.db
 
 # Generated stuff
 /compiled_tests/
-/output/
-/node_modules/
 /cov_profile/
 /coverage.lcov
+/node_modules/
+/output/
+/test_output/
