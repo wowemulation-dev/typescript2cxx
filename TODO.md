@@ -4,13 +4,13 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.5.3-dev**
+**Current Version: v0.5.4-dev**
 
 ### Overall Progress
 
-- **Core TypeScript Features**: ~65% complete
+- **Core TypeScript Features**: ~70% complete
 - **JavaScript Runtime**: ~85% complete
-- **Advanced Features**: ~45% complete
+- **Advanced Features**: ~50% complete
 - **Build & Tooling**: ~40% complete
 
 ### Key Achievements
@@ -250,7 +250,7 @@ Based on analysis of both reference implementations:
 - [x] **Functions and Parameters** ✅ PARTIAL (v0.2.0, v0.5.3-dev)
   - ✅ Default parameters (v0.5.3-dev)
   - ✅ Optional parameters (v0.5.3-dev)
-  - [ ] Rest parameters (...)
+  - ✅ Rest parameters (...) (v0.5.3-dev)
   - [ ] Function overloading
   - [ ] Generic functions
   - ✅ Function types (v0.1.1)
@@ -258,19 +258,19 @@ Based on analysis of both reference implementations:
   - ✅ Arrow functions with proper `this` binding (v0.2.0)
   - [ ] IIFE (Immediately Invoked Function Expressions)
 
-- [x] **Modern JavaScript Operators** ✅ PARTIAL (v0.1.0-v0.2.0)
-  - [ ] Nullish coalescing (??)
+- [x] **Modern JavaScript Operators** ✅ PARTIAL (v0.1.0-v0.5.4)
+  - ✅ Nullish coalescing (??) (v0.5.4-dev)
   - ✅ Optional chaining (?.) (v0.1.0)
   - [ ] Logical assignment operators (&&=, ||=, ??=)
   - [ ] Numeric separators (1_000_000)
   - [ ] Exponentiation operator (**)
   - [ ] BigInt literals (123n)
 
-- [x] **Object and Array Features** ✅ PARTIAL (v0.2.0-v0.3.0)
-  - [ ] Object/Array destructuring
-  - [ ] Spread operator (...)
-  - [ ] Rest parameters
-  - [ ] Default parameters
+- [x] **Object and Array Features** ✅ PARTIAL (v0.2.0-v0.5.4)
+  - ✅ Object/Array destructuring (v0.5.4-dev)
+  - ✅ Spread operator (...) (v0.5.4-dev)
+  - ✅ Rest parameters (...) (v0.5.3-dev)
+  - ✅ Default parameters (v0.5.3-dev)
   - ✅ Dynamic property access (v0.2.0)
   - [ ] Computed property names
   - ✅ Object.assign/Object.create (v0.3.0)
