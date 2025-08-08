@@ -674,69 +674,107 @@ std::shared_ptr<js::Promise<${innerType}>>
   private generateEnum(enumDecl: IREnumDeclaration, context: CodeGenContext): string {
     const name = enumDecl.id.name;
 
-    if (enumDecl.isConst) {
-      // Const enums are inlined at compile time - generate as constants
-      let code = `// Const enum ${name}\n`;
-      let currentValue = 0;
+    if (context.isHeader) {
+      // Header: Generate enum declaration
+      if (enumDecl.isConst) {
+        // Const enums - generate as namespace with constexpr values
+        let code = `// Const enum ${name}\nnamespace ${name} {\n`;
+        let currentValue = 0;
 
-      for (const member of enumDecl.members) {
-        const memberName = member.id.name;
-        let value: string;
+        for (const member of enumDecl.members) {
+          const memberName = member.id.name;
+          let value: string;
 
-        if (member.initializer) {
-          // Use the initializer value
-          if (member.initializer.kind === IRNodeKind.Literal) {
-            const literal = member.initializer as IRLiteral;
-            value = literal.raw || (literal.value !== null ? literal.value.toString() : "0");
-            // Track numeric value for auto-increment
-            if (typeof literal.value === "number") {
-              currentValue = literal.value + 1;
+          if (member.initializer) {
+            if (member.initializer.kind === IRNodeKind.Literal) {
+              const literal = member.initializer as IRLiteral;
+              value = literal.raw || (literal.value !== null ? literal.value.toString() : "0");
+              if (typeof literal.value === "number") {
+                currentValue = literal.value + 1;
+              }
+            } else {
+              value = this.generateExpression(member.initializer, context);
             }
           } else {
-            // Complex expression - generate it
-            value = this.generateExpression(member.initializer, context);
+            value = currentValue.toString();
+            currentValue++;
           }
-        } else {
-          // Auto-increment for numeric enums
-          value = currentValue.toString();
-          currentValue++;
+
+          code += `    constexpr int ${memberName} = ${value};\n`;
         }
 
-        code += `constexpr auto ${name}_${memberName} = ${value};\n`;
+        code += `}\n`;
+        return code;
+      } else {
+        // Regular enums - generate namespace declaration
+        let code = `// Enum ${name}\nnamespace ${name} {\n`;
+
+        for (const member of enumDecl.members) {
+          const memberName = member.id.name;
+          let isString = false;
+
+          if (member.initializer && member.initializer.kind === IRNodeKind.Literal) {
+            const literal = member.initializer as IRLiteral;
+            isString = typeof literal.value === "string";
+          }
+
+          if (isString) {
+            code += `    extern const js::string ${memberName};\n`;
+          } else {
+            code += `    extern const js::number ${memberName};\n`;
+          }
+        }
+
+        // Add reverse mapping function declaration (only for numeric enums)
+        const hasNumericMembers = enumDecl.members.some((member) => {
+          if (!member.initializer) return true; // Auto-increment is numeric
+          if (member.initializer.kind === IRNodeKind.Literal) {
+            const literal = member.initializer as IRLiteral;
+            return typeof literal.value !== "string";
+          }
+          return true; // Assume numeric for complex expressions
+        });
+
+        if (hasNumericMembers) {
+          code += `    js::string getName(js::number key);\n`;
+        }
+
+        code += `}\n`;
+        return code;
+      }
+    } else {
+      // Source: Generate enum implementation
+      if (enumDecl.isConst) {
+        // Const enums don't need source implementation (inlined)
+        return "";
       }
 
-      return code;
-    } else {
-      // Regular enums - generate as namespace with reverse mapping support
-      let code = `// Enum ${name}\nnamespace ${name} {\n`;
+      let code = `// Enum ${name} implementation\n`;
       let currentValue = 0;
       const members: { name: string; value: string; isString: boolean }[] = [];
 
+      // Generate member definitions
       for (const member of enumDecl.members) {
         const memberName = member.id.name;
         let value: string;
         let isString = false;
 
         if (member.initializer) {
-          // Use the initializer value
           if (member.initializer.kind === IRNodeKind.Literal) {
             const literal = member.initializer as IRLiteral;
             if (typeof literal.value === "string") {
               value = `"${literal.value}"_S`;
               isString = true;
             } else {
-              value = literal.raw || (literal.value !== null ? literal.value.toString() : "0");
-              // Track numeric value for auto-increment
+              value = `js::number(${literal.value || 0})`;
               if (typeof literal.value === "number") {
                 currentValue = literal.value + 1;
               }
             }
           } else {
-            // Complex expression - generate it
             value = this.generateExpression(member.initializer, context);
           }
         } else {
-          // Auto-increment for numeric enums
           value = `js::number(${currentValue})`;
           currentValue++;
         }
@@ -744,28 +782,25 @@ std::shared_ptr<js::Promise<${innerType}>>
         members.push({ name: memberName, value, isString });
 
         if (isString) {
-          code += `    inline const js::string ${memberName} = ${value};\n`;
+          code += `const js::string ${name}::${memberName} = ${value};\n`;
         } else {
-          code += `    inline const js::number ${memberName} = ${value};\n`;
+          code += `const js::number ${name}::${memberName} = ${value};\n`;
         }
       }
 
-      // Add reverse mapping for numeric enums (TypeScript feature)
+      // Add reverse mapping implementation for numeric enums
       const hasNumericMembers = members.some((m) => !m.isString);
       if (hasNumericMembers) {
-        code += `\n    // Reverse mapping\n`;
-        code += `    inline js::string operator[](js::number key) {\n`;
+        code += `\njs::string ${name}::getName(js::number key) {\n`;
         for (const member of members) {
           if (!member.isString) {
-            code +=
-              `        if (key.value() == ${member.value}.value()) return "${member.name}"_S;\n`;
+            code += `    if (key.value() == ${member.value}.value()) return "${member.name}"_S;\n`;
           }
         }
-        code += `        return js::undefined.toString();\n`;
-        code += `    }\n`;
+        code += `    return "undefined"_S;\n`;
+        code += `}\n`;
       }
 
-      code += `}\n`;
       return code;
     }
   }
@@ -1413,6 +1448,19 @@ std::shared_ptr<js::Promise<${innerType}>>
 
     if (expr.computed) {
       const property = this.generateExpression(expr.property, context);
+
+      // Check if this is enum reverse mapping (e.g., Color[0])
+      // If object is a simple identifier starting with uppercase (enum convention)
+      // and not a known runtime type, treat it as enum reverse mapping
+      if (
+        /^[A-Z][a-zA-Z0-9]*$/.test(object) &&
+        !object.startsWith("js::") &&
+        !this.isKnownStaticType(object)
+      ) {
+        // Generate enum reverse mapping: Color[0] -> Color::getName(0)
+        return `${object}::getName(${property})`;
+      }
+
       return `${object}[${property}]`;
     } else {
       const property = this.generateExpression(expr.property, context);
@@ -1908,6 +1956,7 @@ std::shared_ptr<js::Promise<${innerType}>>
       IRNodeKind.FunctionDeclaration,
       IRNodeKind.ClassDeclaration,
       IRNodeKind.InterfaceDeclaration,
+      IRNodeKind.EnumDeclaration,
       IRNodeKind.VariableDeclaration,
     ].includes(stmt.kind);
   }

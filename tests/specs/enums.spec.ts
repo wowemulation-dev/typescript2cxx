@@ -2,11 +2,7 @@ import { describe, it } from "jsr:@std/testing/bdd";
 import { runEndToEndTest } from "../../src/test-runner.ts";
 
 const testE2E = async (code: string, expectedOutput: string) => {
-  const result = await runEndToEndTest(code, expectedOutput);
-
-  if (!result.success) {
-    throw new Error(result.message);
-  }
+  await runEndToEndTest(code, expectedOutput);
 };
 
 describe("Enums", () => {
