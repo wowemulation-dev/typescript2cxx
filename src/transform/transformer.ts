@@ -7,6 +7,7 @@ import { MemoryAnnotation, MemoryAnnotationParser } from "../memory/annotations.
 import type { SimpleTypeChecker } from "../type-checker/simple-checker.ts";
 import type {
   IRArrayExpression,
+  IRArrayPattern,
   IRAssignmentExpression,
   IRAwaitExpression,
   IRBinaryExpression,
@@ -21,6 +22,8 @@ import type {
   IRDeclaration as _IRDeclaration,
   IRDecorator,
   IRDecoratorMetadata,
+  IREnumDeclaration,
+  IREnumMember,
   IRExpression,
   IRExpressionStatement,
   IRForInStatement,
@@ -37,13 +40,17 @@ import type {
   IRNewExpression,
   IRNode,
   IRObjectExpression,
+  IRObjectPattern,
+  IRObjectPatternProperty,
   IRObjectProperty,
   IROptionalChainingExpression,
   IRParameter,
   IRPattern,
   IRProgram,
   IRPropertyDefinition,
+  IRRestElement,
   IRReturnStatement,
+  IRSpreadElement,
   IRStatement,
   IRSwitchCase,
   IRSwitchStatement,
@@ -487,8 +494,9 @@ class ASTTransformer {
       isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
     };
 
-    // Transform body
-    if (node.body) {
+    // Transform body (skip for abstract methods)
+    const isAbstract = !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword);
+    if (node.body && !isAbstract) {
       const prevFunc = this.context.currentFunction;
       this.context.currentFunction = funcDecl;
       this.pushScope();
@@ -506,6 +514,12 @@ class ASTTransformer {
 
       this.popScope();
       this.context.currentFunction = prevFunc;
+    } else if (!node.body && !isAbstract) {
+      // Non-abstract methods without a body should have an empty body
+      funcDecl.body = {
+        kind: IRNodeKind.BlockStatement,
+        body: []
+      };
     }
 
     const method: IRMethodDefinition = {
@@ -514,6 +528,7 @@ class ASTTransformer {
       value: funcDecl,
       accessibility: this.getAccessModifierFromNode(node),
       isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
+      isAbstract: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
     };
 
     return method;
@@ -523,7 +538,7 @@ class ASTTransformer {
    * Transform constructor
    */
   private transformConstructor(node: any): IRMethodDefinition {
-    const params = this.transformParameters(node.params || []);
+    const params = this.transformParameters(node.parameters || []);
 
     const funcDecl: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
@@ -569,10 +584,26 @@ class ASTTransformer {
     const declarations: IRVariableDeclarator[] = [];
 
     for (const decl of node.declarationList.declarations) {
-      const id: IRIdentifier = {
-        kind: IRNodeKind.Identifier,
-        name: ts.isIdentifier(decl.name) ? decl.name.text : "unknown",
-      };
+      // Handle both simple identifiers and destructuring patterns
+      let id: IRIdentifier | IRPattern;
+
+      if (ts.isIdentifier(decl.name)) {
+        id = {
+          kind: IRNodeKind.Identifier,
+          name: decl.name.text,
+        };
+        this.addToScope(decl.name.text, id as IRIdentifier);
+      } else if (ts.isObjectBindingPattern(decl.name)) {
+        id = this.transformObjectBindingPattern(decl.name);
+      } else if (ts.isArrayBindingPattern(decl.name)) {
+        id = this.transformArrayBindingPattern(decl.name);
+      } else {
+        // Fallback for unknown patterns
+        id = {
+          kind: IRNodeKind.Identifier,
+          name: "unknown",
+        };
+      }
 
       const declarator: IRVariableDeclarator = {
         id,
@@ -582,7 +613,6 @@ class ASTTransformer {
       };
 
       declarations.push(declarator);
-      this.addToScope(id.name, id);
     }
 
     const flags = node.declarationList.flags;
@@ -628,12 +658,35 @@ class ASTTransformer {
   /**
    * Transform enum declaration
    */
-  private transformEnumDeclaration(_node: any): IRExpressionStatement {
-    // TODO: Implement enum transformation
-    // Return a placeholder statement
+  private transformEnumDeclaration(node: ts.EnumDeclaration): IREnumDeclaration {
+    const members: IREnumMember[] = [];
+
+    for (const member of node.members) {
+      const memberNode: IREnumMember = {
+        kind: IRNodeKind.EnumDeclaration, // Enum members don't have their own kind, use parent's
+        id: {
+          kind: IRNodeKind.Identifier,
+          name: member.name?.getText() || "",
+        },
+      };
+
+      if (member.initializer) {
+        memberNode.initializer = this.transformExpression(member.initializer);
+      }
+
+      members.push(memberNode);
+    }
+
     return {
-      kind: IRNodeKind.ExpressionStatement,
-      expression: this.createLiteral(null),
+      kind: IRNodeKind.EnumDeclaration,
+      id: {
+        kind: IRNodeKind.Identifier,
+        name: node.name?.text || "",
+      },
+      members,
+      isConst: node.modifiers?.some(
+        (mod) => mod.kind === ts.SyntaxKind.ConstKeyword,
+      ) || false,
     };
   }
 
@@ -1021,6 +1074,13 @@ class ASTTransformer {
       case ts.SyntaxKind.TypeOfExpression:
         return this.transformTypeOfExpression(node as ts.TypeOfExpression);
 
+      case ts.SyntaxKind.SpreadElement:
+        return this.transformSpreadElement(node as ts.SpreadElement);
+
+      case ts.SyntaxKind.ParenthesizedExpression:
+        // Parenthesized expressions just pass through the inner expression
+        return this.transformExpression((node as ts.ParenthesizedExpression).expression);
+
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
         return this.createLiteral(null);
@@ -1105,12 +1165,19 @@ class ASTTransformer {
    * Transform array expression
    */
   private transformArrayExpression(node: ts.ArrayLiteralExpression): IRArrayExpression {
-    const elements: IRExpression[] = [];
+    const elements: (IRExpression | null)[] = [];
 
     for (const elem of node.elements) {
       if (ts.isSpreadElement(elem)) {
-        // Handle spread elements later
-        this.warn("Spread elements in arrays not yet supported");
+        // Transform spread element
+        const spreadElem: IRSpreadElement = {
+          kind: IRNodeKind.SpreadElement,
+          argument: this.transformExpression(elem.expression),
+        };
+        elements.push(spreadElem);
+      } else if (ts.isOmittedExpression(elem)) {
+        // Handle array holes
+        elements.push(null);
       } else {
         elements.push(this.transformExpression(elem));
       }
@@ -1275,6 +1342,16 @@ class ASTTransformer {
       operator: "typeof",
       operand: this.transformExpression(node.expression),
       prefix: true,
+    };
+  }
+
+  /**
+   * Transform spread element (...expr)
+   */
+  private transformSpreadElement(node: ts.SpreadElement): IRSpreadElement {
+    return {
+      kind: IRNodeKind.SpreadElement,
+      argument: this.transformExpression(node.expression),
     };
   }
 
@@ -1519,20 +1596,47 @@ class ASTTransformer {
     return { kind: IRNodeKind.Identifier, name: "unknown" };
   }
 
-  private getPropertyKeyAsExpression(key: any): IRIdentifier | IRLiteral | IRExpression {
-    if (key.type === "Identifier") {
-      return { kind: IRNodeKind.Identifier, name: key.value };
+  private getPropertyKeyAsExpression(
+    key: ts.PropertyName,
+  ): IRIdentifier | IRLiteral | IRExpression {
+    // Handle computed property names: [expression]
+    if (ts.isComputedPropertyName(key)) {
+      return this.transformExpression(key.expression);
     }
-    if (key.type === "StringLiteral") {
+
+    // Handle regular identifiers: prop
+    if (ts.isIdentifier(key)) {
+      return {
+        kind: IRNodeKind.Identifier,
+        name: key.text,
+      };
+    }
+
+    // Handle string literals: "prop"
+    if (ts.isStringLiteral(key)) {
       return {
         kind: IRNodeKind.Literal,
-        value: key.value,
+        value: key.text,
         cppType: "string",
-        raw: `"${key.value}"`,
+        raw: `"${key.text}"`,
         literalType: "string",
       };
     }
-    return this.transformExpression(key);
+
+    // Handle numeric literals: 123
+    if (ts.isNumericLiteral(key)) {
+      const numValue = parseFloat(key.text);
+      return {
+        kind: IRNodeKind.Literal,
+        value: numValue,
+        cppType: "number",
+        raw: key.text,
+        literalType: "number",
+      };
+    }
+
+    // Fallback for other cases
+    return this.transformExpression(key as any);
   }
 
   private getAccessibility(node: any): "public" | "private" | "protected" | undefined {
@@ -1543,6 +1647,107 @@ class ASTTransformer {
     if (node.accessibility === "private") return AccessModifier.Private;
     if (node.accessibility === "protected") return AccessModifier.Protected;
     return AccessModifier.Public;
+  }
+
+  /**
+   * Transform object binding pattern (destructuring)
+   */
+  private transformObjectBindingPattern(node: ts.ObjectBindingPattern): IRObjectPattern {
+    const properties: IRObjectPatternProperty[] = [];
+
+    for (const element of node.elements) {
+      if (ts.isBindingElement(element)) {
+        const key = element.propertyName
+          ? (ts.isIdentifier(element.propertyName)
+            ? { kind: IRNodeKind.Identifier as const, name: element.propertyName.text }
+            : {
+              kind: IRNodeKind.Literal as const,
+              value: (element.propertyName as ts.StringLiteral).text,
+              cppType: "string",
+              raw: `"${(element.propertyName as ts.StringLiteral).text}"`,
+              literalType: "string" as const,
+            })
+          : (ts.isIdentifier(element.name)
+            ? { kind: IRNodeKind.Identifier as const, name: element.name.text }
+            : { kind: IRNodeKind.Identifier as const, name: "unknown" });
+
+        let value: IRIdentifier | IRPattern;
+        if (ts.isIdentifier(element.name)) {
+          value = { kind: IRNodeKind.Identifier, name: element.name.text };
+          this.addToScope(element.name.text, value as IRIdentifier);
+        } else if (ts.isObjectBindingPattern(element.name)) {
+          value = this.transformObjectBindingPattern(element.name);
+        } else if (ts.isArrayBindingPattern(element.name)) {
+          value = this.transformArrayBindingPattern(element.name);
+        } else {
+          value = { kind: IRNodeKind.Identifier, name: "unknown" };
+        }
+
+        properties.push({
+          key,
+          value,
+          shorthand: !element.propertyName && ts.isIdentifier(element.name),
+          rest: element.dotDotDotToken !== undefined,
+        });
+      }
+    }
+
+    return {
+      kind: IRNodeKind.ObjectPattern,
+      properties,
+    };
+  }
+
+  /**
+   * Transform array binding pattern (destructuring)
+   */
+  private transformArrayBindingPattern(node: ts.ArrayBindingPattern): IRArrayPattern {
+    const elements: (IRIdentifier | IRPattern | IRRestElement | null)[] = [];
+
+    for (const element of node.elements) {
+      if (ts.isOmittedExpression(element)) {
+        elements.push(null);
+      } else if (ts.isBindingElement(element)) {
+        if (element.dotDotDotToken) {
+          // Rest element
+          let argument: IRIdentifier | IRPattern;
+          if (ts.isIdentifier(element.name)) {
+            argument = { kind: IRNodeKind.Identifier, name: element.name.text };
+            this.addToScope(element.name.text, argument as IRIdentifier);
+          } else if (ts.isObjectBindingPattern(element.name)) {
+            argument = this.transformObjectBindingPattern(element.name);
+          } else if (ts.isArrayBindingPattern(element.name)) {
+            argument = this.transformArrayBindingPattern(element.name);
+          } else {
+            argument = { kind: IRNodeKind.Identifier, name: "unknown" };
+          }
+
+          elements.push({
+            kind: IRNodeKind.RestElement,
+            argument,
+            cppType: "auto",
+          });
+        } else {
+          // Regular element
+          if (ts.isIdentifier(element.name)) {
+            const id = { kind: IRNodeKind.Identifier as const, name: element.name.text };
+            this.addToScope(element.name.text, id);
+            elements.push(id);
+          } else if (ts.isObjectBindingPattern(element.name)) {
+            elements.push(this.transformObjectBindingPattern(element.name));
+          } else if (ts.isArrayBindingPattern(element.name)) {
+            elements.push(this.transformArrayBindingPattern(element.name));
+          } else {
+            elements.push({ kind: IRNodeKind.Identifier, name: "unknown" });
+          }
+        }
+      }
+    }
+
+    return {
+      kind: IRNodeKind.ArrayPattern,
+      elements,
+    };
   }
 
   private getAccessModifierFromNode(

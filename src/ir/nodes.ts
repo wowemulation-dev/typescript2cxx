@@ -86,6 +86,13 @@ export enum IRNodeKind {
   TaggedTemplateExpression = "TaggedTemplateExpression",
   YieldExpression = "YieldExpression",
   AwaitExpression = "AwaitExpression",
+  SpreadElement = "SpreadElement",
+
+  // Patterns
+  ObjectPattern = "ObjectPattern",
+  ArrayPattern = "ArrayPattern",
+  RestElement = "RestElement",
+  AssignmentPattern = "AssignmentPattern",
 
   // Types
   TypeAnnotation = "TypeAnnotation",
@@ -394,6 +401,9 @@ export interface IRMethodDefinition extends IRNode {
 
   /** Is static */
   isStatic: boolean;
+
+  /** Is abstract method */
+  isAbstract?: boolean;
 }
 
 /**
@@ -980,6 +990,33 @@ export interface IRIndexSignature extends IRNode {
 }
 
 /**
+ * Enum declaration
+ */
+export interface IREnumDeclaration extends IRDeclaration {
+  kind: IRNodeKind.EnumDeclaration;
+
+  /** Enum name */
+  id: IRIdentifier;
+
+  /** Enum members */
+  members: IREnumMember[];
+
+  /** Is const enum */
+  isConst: boolean;
+}
+
+/**
+ * Enum member
+ */
+export interface IREnumMember extends IRNode {
+  /** Member name */
+  id: IRIdentifier;
+
+  /** Member value (optional - auto-incremented if not provided) */
+  initializer?: IRExpression;
+}
+
+/**
  * Try statement
  */
 export interface IRTryStatement extends IRStatement {
@@ -1087,4 +1124,83 @@ export interface IRTypeGuard extends IRExpression {
 
   /** Guard expression (typeof param === "string") */
   expression: IRExpression;
+}
+
+/**
+ * Object destructuring pattern
+ */
+export interface IRObjectPattern extends IRPattern {
+  kind: IRNodeKind.ObjectPattern;
+
+  /** Properties to destructure */
+  properties: IRObjectPatternProperty[];
+
+  /** C++ type (if known) */
+  cppType?: string;
+}
+
+/**
+ * Object pattern property
+ */
+export interface IRObjectPatternProperty {
+  /** Property key */
+  key: IRIdentifier | IRLiteral;
+
+  /** Variable binding or nested pattern */
+  value: IRIdentifier | IRPattern;
+
+  /** Is shorthand (e.g., {x} instead of {x: x}) */
+  shorthand: boolean;
+
+  /** Is rest property (...rest) */
+  rest?: boolean;
+}
+
+/**
+ * Array destructuring pattern
+ */
+export interface IRArrayPattern extends IRPattern {
+  kind: IRNodeKind.ArrayPattern;
+
+  /** Array elements to destructure */
+  elements: (IRIdentifier | IRPattern | IRRestElement | null)[];
+
+  /** C++ type (if known) */
+  cppType?: string;
+}
+
+/**
+ * Rest element in destructuring (...rest)
+ */
+export interface IRRestElement extends IRPattern {
+  kind: IRNodeKind.RestElement;
+
+  /** Variable to bind rest elements to */
+  argument: IRIdentifier | IRPattern;
+
+  /** C++ type */
+  cppType?: string;
+}
+
+/**
+ * Assignment pattern (default value in destructuring)
+ */
+export interface IRAssignmentPattern extends IRPattern {
+  kind: IRNodeKind.AssignmentPattern;
+
+  /** Variable or pattern */
+  left: IRIdentifier | IRPattern;
+
+  /** Default value */
+  right: IRExpression;
+}
+
+/**
+ * Spread element in arrays/calls (...expr)
+ */
+export interface IRSpreadElement extends IRExpression {
+  kind: IRNodeKind.SpreadElement;
+
+  /** Expression to spread */
+  argument: IRExpression;
 }

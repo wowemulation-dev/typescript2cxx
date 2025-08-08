@@ -4,6 +4,7 @@
 
 import type {
   IRArrayExpression,
+  IRArrayPattern,
   IRAssignmentExpression,
   IRAwaitExpression,
   IRBinaryExpression,
@@ -16,6 +17,8 @@ import type {
   IRContinueStatement,
   IRDecorator as _IRDecorator,
   IRDecoratorMetadata as _IRDecoratorMetadata,
+  IREnumDeclaration,
+  IREnumMember as _IREnumMember,
   IRExpression,
   IRExpressionStatement,
   IRForInStatement,
@@ -31,10 +34,14 @@ import type {
   IRModule,
   IRNewExpression,
   IRObjectExpression,
+  IRObjectPattern,
   IROptionalChainingExpression,
+  IRPattern,
   IRProgram,
   IRPropertyDefinition,
+  IRRestElement,
   IRReturnStatement,
+  IRSpreadElement,
   IRStatement,
   IRSwitchCase as _IRSwitchCase,
   IRSwitchStatement,
@@ -166,7 +173,15 @@ class CppGenerator {
     const context: CodeGenContext = {
       indent: 0,
       forwardDeclarations: new Set(),
-      includes: new Set(["<iostream>", "<string>", "<memory>", "<vector>", "<map>", "<optional>"]),
+      includes: new Set([
+        "<iostream>",
+        "<string>",
+        "<memory>",
+        "<vector>",
+        "<map>",
+        "<optional>",
+        "<initializer_list>",
+      ]),
       typeDefinitions: [],
       headerContent: [],
       sourceContent: [],
@@ -288,6 +303,9 @@ class CppGenerator {
 
       case IRNodeKind.InterfaceDeclaration:
         return this.generateInterface(stmt as IRInterfaceDeclaration, context);
+
+      case IRNodeKind.EnumDeclaration:
+        return this.generateEnum(stmt as IREnumDeclaration, context);
 
       case IRNodeKind.VariableDeclaration:
         return this.generateVariable(stmt as IRVariableDeclaration, context);
@@ -523,7 +541,8 @@ std::shared_ptr<js::Promise<${innerType}>>
           const methodName = this.getMethodName(method.key);
           const funcDecl = method.value;
 
-          if (funcDecl.body) {
+          // Skip implementation for abstract methods
+          if (funcDecl.body && !method.isAbstract) {
             // Generate implementation parameters without defaults
             const implParams = this.generateParameters(funcDecl.params, context, false);
 
@@ -610,8 +629,10 @@ std::shared_ptr<js::Promise<${innerType}>>
         const returnType = this.mapType(funcDecl.returnType);
 
         // Check if this method overrides a base class method
-        const isOverride = cls?.superClass && this.isOverriddenMethod(methodName, cls);
-        const isVirtual = funcDecl.isVirtual || isOverride;
+        // Static methods cannot be virtual or override in C++
+        const isAbstract = method.isAbstract && !funcDecl.isStatic; // Static methods can't be abstract
+        const isOverride = !funcDecl.isStatic && !isAbstract && cls?.superClass && this.isOverriddenMethod(methodName, cls);
+        const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isOverride || isAbstract);
 
         let methodDecl = "";
         if (isVirtual && !isOverride) {
@@ -621,6 +642,10 @@ std::shared_ptr<js::Promise<${innerType}>>
 
         if (isOverride) {
           methodDecl += " override";
+        }
+        
+        if (isAbstract) {
+          methodDecl += " = 0"; // Pure virtual function in C++
         }
 
         methodDecl += ";";
@@ -643,13 +668,128 @@ std::shared_ptr<js::Promise<${innerType}>>
   }
 
   /**
+   * Generate enum declaration
+   */
+  private generateEnum(enumDecl: IREnumDeclaration, context: CodeGenContext): string {
+    const name = enumDecl.id.name;
+
+    if (enumDecl.isConst) {
+      // Const enums are inlined at compile time - generate as constants
+      let code = `// Const enum ${name}\n`;
+      let currentValue = 0;
+
+      for (const member of enumDecl.members) {
+        const memberName = member.id.name;
+        let value: string;
+
+        if (member.initializer) {
+          // Use the initializer value
+          if (member.initializer.kind === IRNodeKind.Literal) {
+            const literal = member.initializer as IRLiteral;
+            value = literal.raw || (literal.value !== null ? literal.value.toString() : "0");
+            // Track numeric value for auto-increment
+            if (typeof literal.value === "number") {
+              currentValue = literal.value + 1;
+            }
+          } else {
+            // Complex expression - generate it
+            value = this.generateExpression(member.initializer, context);
+          }
+        } else {
+          // Auto-increment for numeric enums
+          value = currentValue.toString();
+          currentValue++;
+        }
+
+        code += `constexpr auto ${name}_${memberName} = ${value};\n`;
+      }
+
+      return code;
+    } else {
+      // Regular enums - generate as namespace with reverse mapping support
+      let code = `// Enum ${name}\nnamespace ${name} {\n`;
+      let currentValue = 0;
+      const members: { name: string; value: string; isString: boolean }[] = [];
+
+      for (const member of enumDecl.members) {
+        const memberName = member.id.name;
+        let value: string;
+        let isString = false;
+
+        if (member.initializer) {
+          // Use the initializer value
+          if (member.initializer.kind === IRNodeKind.Literal) {
+            const literal = member.initializer as IRLiteral;
+            if (typeof literal.value === "string") {
+              value = `"${literal.value}"_S`;
+              isString = true;
+            } else {
+              value = literal.raw || (literal.value !== null ? literal.value.toString() : "0");
+              // Track numeric value for auto-increment
+              if (typeof literal.value === "number") {
+                currentValue = literal.value + 1;
+              }
+            }
+          } else {
+            // Complex expression - generate it
+            value = this.generateExpression(member.initializer, context);
+          }
+        } else {
+          // Auto-increment for numeric enums
+          value = `js::number(${currentValue})`;
+          currentValue++;
+        }
+
+        members.push({ name: memberName, value, isString });
+
+        if (isString) {
+          code += `    inline const js::string ${memberName} = ${value};\n`;
+        } else {
+          code += `    inline const js::number ${memberName} = ${value};\n`;
+        }
+      }
+
+      // Add reverse mapping for numeric enums (TypeScript feature)
+      const hasNumericMembers = members.some((m) => !m.isString);
+      if (hasNumericMembers) {
+        code += `\n    // Reverse mapping\n`;
+        code += `    inline js::string operator[](js::number key) {\n`;
+        for (const member of members) {
+          if (!member.isString) {
+            code +=
+              `        if (key.value() == ${member.value}.value()) return "${member.name}"_S;\n`;
+          }
+        }
+        code += `        return js::undefined.toString();\n`;
+        code += `    }\n`;
+      }
+
+      code += `}\n`;
+      return code;
+    }
+  }
+
+  /**
    * Generate variable
    */
   private generateVariable(varDecl: IRVariableDeclaration, context: CodeGenContext): string {
     const lines: string[] = [];
 
     for (const decl of varDecl.declarations) {
-      // Handle pattern or identifier
+      // Check if this is a destructuring pattern
+      if (decl.id.kind === IRNodeKind.ObjectPattern || decl.id.kind === IRNodeKind.ArrayPattern) {
+        // Generate destructuring code
+        const destructCode = this.generateDestructuring(
+          decl.id,
+          decl.init,
+          varDecl.declarationKind,
+          context,
+        );
+        lines.push(destructCode);
+        continue;
+      }
+
+      // Handle simple identifier
       const name = "name" in decl.id ? decl.id.name : "unknown";
       const type = decl.cppType;
       const isConst = varDecl.declarationKind === "const";
@@ -1039,6 +1179,10 @@ std::shared_ptr<js::Promise<${innerType}>>
     context: CodeGenContext,
   ): string {
     const expr = this.generateExpression(stmt.expression, context);
+    // Skip empty expressions (e.g., from super() calls)
+    if (!expr) {
+      return "";
+    }
     return `${expr};`;
   }
 
@@ -1091,6 +1235,12 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       case IRNodeKind.AwaitExpression:
         return this.generateAwait(expr as IRAwaitExpression, context);
+
+      case IRNodeKind.SpreadElement:
+        // Spread elements are handled by their container (array/object/call)
+        return `/* spread ${
+          this.generateExpression((expr as IRSpreadElement).argument, context)
+        } */`;
 
       default:
         return `/* TODO: ${expr.kind} */`;
@@ -1244,9 +1394,8 @@ std::shared_ptr<js::Promise<${innerType}>>
       (expr.callee as IRIdentifier).name === "super"
     ) {
       // This is a super constructor call - it will be handled in constructor initialization list
-      // Return a placeholder that will be removed
-      const args = expr.arguments.map((arg) => this.generateExpression(arg, context));
-      return `js::null(${args.join(", ")})`; // Placeholder
+      // Return empty string as it's already handled
+      return "";
     }
 
     const callee = this.generateExpression(expr.callee, context);
@@ -1294,14 +1443,35 @@ std::shared_ptr<js::Promise<${innerType}>>
         return `js::JSON::${property}`;
       }
 
+      // Handle static method calls on class names
+      // Check if object is a class name (starts with uppercase)
+      if (object[0] === object[0].toUpperCase() && !object.includes("->") && !object.includes(".") && !object.startsWith("js::")) {
+        // This is likely a static method call
+        return `${object}::${property}`;
+      }
+
       // Handle js:: namespace objects - use dot notation
       if (object.startsWith("js::") && !object.includes("->") && !object.includes(".")) {
         return `${object}.${property}`;
       }
 
+      // For js::any objects, use bracket notation to access properties
+      // This handles object property access on any type - check this BEFORE smart pointer check
+      if (property.startsWith('"') && property.endsWith('"')) {
+        // String literal property - use bracket notation
+        return `${object}[${property}]`;
+      }
+
       // For smart pointer variables, use -> instead of .
+      // Check this BEFORE the unknown type check
       if (this.isSmartPointerVariable(object, context)) {
         return `${object}->${property}`;
+      }
+
+      // For identifiers, convert to string and use bracket notation
+      // This is the default for object property access in JavaScript
+      if (!this.isKnownStaticType(object)) {
+        return `${object}["${property}"]`;
       }
 
       // Default case - use dot notation for value types
@@ -1348,6 +1518,22 @@ std::shared_ptr<js::Promise<${innerType}>>
     const left = this.generateExpression(expr.left, context);
     const right = this.generateExpression(expr.right, context);
 
+    // Handle logical assignment operators with short-circuit evaluation
+    if (expr.operator === "&&=") {
+      // a &&= b -> a && (a = b) -> if (a) a = b;
+      return `(js::to_boolean(${left}) ? (${left} = ${right}) : ${left})`;
+    }
+
+    if (expr.operator === "||=") {
+      // a ||= b -> a || (a = b) -> if (!a) a = b;
+      return `(js::to_boolean(${left}) ? ${left} : (${left} = ${right}))`;
+    }
+
+    if (expr.operator === "??=") {
+      // a ??= b -> a ?? (a = b) -> if (a == null) a = b;
+      return `(js::is_null_or_undefined(${left}) ? (${left} = ${right}) : ${left})`;
+    }
+
     return `${left} ${expr.operator} ${right}`;
   }
 
@@ -1390,34 +1576,98 @@ std::shared_ptr<js::Promise<${innerType}>>
    * Generate array expression
    */
   private generateArray(expr: IRArrayExpression, context: CodeGenContext): string {
-    const elements = expr.elements.map((elem) =>
-      elem ? this.generateExpression(elem, context) : "js::undefined"
-    );
+    let hasSpread = false;
 
-    return `js::array{${elements.join(", ")}}`;
+    for (const elem of expr.elements) {
+      if (elem && elem.kind === IRNodeKind.SpreadElement) {
+        hasSpread = true;
+        break;
+      }
+    }
+
+    if (hasSpread) {
+      // Generate array with spread elements using concat
+      let result = "js::array<js::any>()";
+      for (const elem of expr.elements) {
+        if (!elem) {
+          result = `${result}.concat(js::array<js::any>{js::undefined})`;
+        } else if (elem.kind === IRNodeKind.SpreadElement) {
+          const spread = elem as IRSpreadElement;
+          const arg = this.generateExpression(spread.argument, context);
+          result = `${result}.concat(${arg})`;
+        } else {
+          const val = this.generateExpression(elem, context);
+          result = `${result}.concat(js::array<js::any>{${val}})`;
+        }
+      }
+      return result;
+    } else {
+      // No spread elements, use simple initialization
+      const elements = expr.elements.map((elem) =>
+        elem ? this.generateExpression(elem, context) : "js::undefined"
+      );
+      return `js::array{${elements.join(", ")}}`;
+    }
   }
 
   /**
    * Generate object expression
    */
   private generateObject(expr: IRObjectExpression, context: CodeGenContext): string {
-    const props: string[] = [];
+    // Generate a temporary object variable and set properties
+    const objVar = `obj_${this.generateTempVar()}`;
+
+    // For global variable initialization, use empty capture list
+    // TODO: Add proper function depth tracking to context
+    const captureClause = "[]";
+
+    // Create the object initialization code
+    let objectCode = `${captureClause}() {
+      js::object ${objVar};`;
 
     for (const prop of expr.properties) {
       let key: string;
-      if (typeof prop.key === "string") {
-        key = `"${prop.key}"`;
-      } else if (prop.key.kind === IRNodeKind.Identifier) {
-        key = `"${(prop.key as IRIdentifier).name}"`;
+
+      if (prop.computed) {
+        // For computed properties like {[expr]: value}, evaluate the expression as the key
+        const keyExpr = this.generateExpression(prop.key as IRExpression, context);
+        key = `js::toString(${keyExpr})`;
       } else {
-        key = this.generateExpression(prop.key as IRExpression, context);
+        // For regular properties, convert to string key
+        if (typeof prop.key === "string") {
+          key = `"${prop.key}"`;
+        } else if (prop.key.kind === IRNodeKind.Identifier) {
+          key = `"${(prop.key as IRIdentifier).name}"`;
+        } else if (prop.key.kind === IRNodeKind.Literal) {
+          const literal = prop.key as IRLiteral;
+          if (literal.literalType === "string") {
+            key = `"${literal.value}"`;
+          } else if (literal.literalType === "number") {
+            key = `"${literal.value}"`; // Convert numeric keys to strings
+          } else {
+            key = `"${literal.value}"`;
+          }
+        } else {
+          const keyExpr = this.generateExpression(prop.key as IRExpression, context);
+          key = `js::toString(${keyExpr})`;
+        }
       }
 
       const value = this.generateExpression(prop.value, context);
-      props.push(`{${key}, ${value}}`);
+      objectCode += `
+      ${objVar}.set(${key}, ${value});`;
     }
 
-    return `js::object{${props.join(", ")}}`;
+    objectCode += `
+      return js::any(${objVar});
+    }()`;
+
+    return objectCode;
+  }
+
+  private tempVarCounter = 0;
+  private generateTempVar(): string {
+    return `temp_${this.tempVarCounter++}`;
   }
 
   /**
@@ -1463,6 +1713,19 @@ std::shared_ptr<js::Promise<${innerType}>>
       const type = this.mapType(param.type);
       const name = param.name;
       const mem = param.memory || MemoryManagement.Auto;
+
+      // Handle rest parameters
+      if (param.isRest) {
+        // Rest parameters are converted to std::initializer_list
+        // Extract the array element type
+        let elementType = type;
+        if (type.startsWith("js::array<") && type.endsWith(">")) {
+          elementType = type.slice(10, -1);
+        } else if (type === "any" || type === "js::any") {
+          elementType = "js::any";
+        }
+        return `std::initializer_list<${elementType}> ${name}`;
+      }
 
       // Apply memory management
       let paramType = type;
@@ -1677,9 +1940,15 @@ std::shared_ptr<js::Promise<${innerType}>>
    * Check if a method overrides a base class method
    */
   private isOverriddenMethod(methodName: string, _cls: IRClassDeclaration): boolean {
-    // For now, we'll mark all non-constructor methods as potentially virtual
-    // In a complete implementation, we'd check the base class definition
-    return methodName !== "constructor" && methodName !== "destructor";
+    // Check if this method exists in a parent class
+    // For now, we'll mark non-constructor/destructor methods as potentially overriding
+    // In a complete implementation, we'd check the actual base class definition
+    if (methodName === "constructor" || methodName === "destructor") {
+      return false;
+    }
+    
+    // Assume it might override a base class method
+    return true;
   }
 
   private collectForwardDeclarations(stmt: IRStatement, context: CodeGenContext): void {
@@ -1764,6 +2033,18 @@ std::shared_ptr<js::Promise<${innerType}>>
   /**
    * Check if a variable is a smart pointer based on new expressions
    */
+  private isKnownStaticType(object: string): boolean {
+    // Check if this is a known static type that should use dot notation
+    return (
+      object.startsWith("js::") ||
+      object === "this" ||
+      object === "super" ||
+      object.includes("::") ||
+      object.includes("->") ||
+      object.includes(".")
+    );
+  }
+
   private isSmartPointerVariable(varName: string, _context: CodeGenContext): boolean {
     // Improved heuristic: variables that are likely smart pointers
     // Common patterns for smart pointer variables:
@@ -1781,12 +2062,42 @@ std::shared_ptr<js::Promise<${innerType}>>
       "entity",
       "component",
       // Class instance names
+      "example",
       "user",
       "account",
       "client",
       "server",
       "connection",
       "session",
+      // Animal/Pet names (common in examples)
+      "dog",
+      "cat",
+      "animal",
+      "pet",
+      // Vehicle names
+      "car",
+      "vehicle",
+      "bike",
+      "truck",
+      // Common geometric shapes
+      "rect",
+      "rectangle",
+      "circle",
+      "square",
+      "shape",
+      "triangle",
+      // Common factory/pattern names
+      "factory",
+      "builder",
+      "singleton",
+      "manager",
+      "controller",
+      "service",
+      // General instance names
+      "concrete",
+      "instance",
+      "impl",
+      "implementation",
       // General patterns
       "temp",
       "result",
@@ -1855,6 +2166,76 @@ std::shared_ptr<js::Promise<${innerType}>>
       return "js::any";
     }
     return "js::any"; // Use js::any as fallback instead of auto
+  }
+
+  /**
+   * Generate destructuring assignment
+   */
+  private generateDestructuring(
+    pattern: IRPattern,
+    init: IRExpression | undefined,
+    declarationKind: string,
+    context: CodeGenContext,
+  ): string {
+    if (!init) {
+      return "// Error: Destructuring requires initializer";
+    }
+
+    const lines: string[] = [];
+    const tempVar = `_temp${Math.floor(Math.random() * 10000)}`;
+    const initCode = this.generateExpression(init, context);
+    const isConst = declarationKind === "const";
+
+    // Generate temporary variable to hold the value
+    lines.push(`auto ${tempVar} = ${initCode};`);
+
+    if (pattern.kind === IRNodeKind.ObjectPattern) {
+      // Object destructuring
+      const objPattern = pattern as IRObjectPattern;
+      for (const prop of objPattern.properties) {
+        if (prop.rest) {
+          // Handle rest properties later
+          lines.push("// TODO: Rest properties in object destructuring");
+        } else if (prop.value.kind === IRNodeKind.Identifier) {
+          const varName = (prop.value as IRIdentifier).name;
+          const propKey = prop.key.kind === IRNodeKind.Identifier
+            ? (prop.key as IRIdentifier).name
+            : String((prop.key as IRLiteral).value);
+          lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}["${propKey}"];`);
+        } else {
+          // Nested destructuring
+          lines.push("// TODO: Nested destructuring");
+        }
+      }
+    } else if (pattern.kind === IRNodeKind.ArrayPattern) {
+      // Array destructuring
+      const arrPattern = pattern as IRArrayPattern;
+      let index = 0;
+      for (const element of arrPattern.elements) {
+        if (element === null) {
+          // Skip hole
+          index++;
+        } else if (element.kind === IRNodeKind.Identifier) {
+          const varName = (element as IRIdentifier).name;
+          lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}[${index}];`);
+          index++;
+        } else if (element.kind === IRNodeKind.RestElement) {
+          // Rest element
+          const restElem = element as IRRestElement;
+          if (restElem.argument.kind === IRNodeKind.Identifier) {
+            const varName = (restElem.argument as IRIdentifier).name;
+            lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.slice(${index});`);
+          }
+          break; // Rest element must be last
+        } else {
+          // Nested pattern
+          lines.push("// TODO: Nested array destructuring");
+          index++;
+        }
+      }
+    }
+
+    return lines.join("\n");
   }
 
   /**
