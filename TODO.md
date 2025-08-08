@@ -4,13 +4,13 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.5.2**
+**Current Version: v0.5.3-dev**
 
 ### Overall Progress
 
-- **Core TypeScript Features**: ~60% complete
+- **Core TypeScript Features**: ~65% complete
 - **JavaScript Runtime**: ~85% complete
-- **Advanced Features**: ~40% complete
+- **Advanced Features**: ~45% complete
 - **Build & Tooling**: ~40% complete
 
 ### Key Achievements
@@ -28,8 +28,8 @@ This document tracks planned features and known issues for typescript2cxx.
 
 - ❌ **Async/Await** - C++20 coroutines not implemented
 - ❌ **Module System** - No ES module support
-- ❌ **Advanced Control Flow** - No switch statements, for...of/in loops
-- ❌ **Function Features** - No default/optional/rest parameters
+- ✅ **Advanced Control Flow** - Switch statements, for...of/in loops implemented (v0.5.3-dev)
+- ⚠️ **Function Features** - Default/optional parameters done, rest parameters pending
 - ❌ **Destructuring** - No object/array destructuring
 - ❌ **Modern Operators** - No nullish coalescing, spread operator
 
@@ -247,9 +247,9 @@ Based on analysis of both reference implementations:
   - This type
   - Unique symbol types
 
-- [x] **Functions and Parameters** ✅ PARTIAL (v0.2.0)
-  - [ ] Default parameters
-  - [ ] Optional parameters
+- [x] **Functions and Parameters** ✅ PARTIAL (v0.2.0, v0.5.3-dev)
+  - ✅ Default parameters (v0.5.3-dev)
+  - ✅ Optional parameters (v0.5.3-dev)
   - [ ] Rest parameters (...)
   - [ ] Function overloading
   - [ ] Generic functions
@@ -276,8 +276,8 @@ Based on analysis of both reference implementations:
   - ✅ Object.assign/Object.create (v0.3.0)
   - ✅ Object.keys/values/entries (v0.3.0)
   - ✅ Array.from/Array.of (v0.3.0)
-  - [ ] for...of loops
-  - [ ] for...in loops
+  - ✅ for...of loops (v0.5.3-dev)
+  - ✅ for...in loops (v0.5.3-dev)
 
 - [ ] **String and RegExp Features**
   - Template literals with tag functions
@@ -301,7 +301,7 @@ Based on analysis of both reference implementations:
   - Symbol.toStringTag
   - using declarations (resource management)
   - await using declarations
-  - [ ] switch statements with fall-through
+  - ✅ switch statements with fall-through (v0.5.3-dev)
   - [ ] with statement (if supported)
   - [ ] debugger statement
   - [ ] labeled statements
@@ -618,6 +618,34 @@ Based on analysis of both reference implementations:
 3. **Option 3**: Vendor SWC WASM build
    - Bundle WASM with package
    - Increases package size significantly
+
+## ✅ Completed (v0.5.3-dev)
+
+### Control Flow and Function Parameters ✅ COMPLETE
+
+- ✅ **Switch Statements**
+  - ✅ Full switch/case/default statement support
+  - ✅ Fall-through behavior correctly implemented
+  - ✅ Break statement handling
+  - ✅ Proper C++ switch generation with case labels
+
+- ✅ **Loop Enhancements**
+  - ✅ for...of loops with C++ range-based for loop generation
+  - ✅ for...in loops for object property enumeration
+  - ✅ Proper iterator pattern implementation
+  - ✅ Compatible with js::array and js::object types
+
+- ✅ **Function Parameters**
+  - ✅ Default parameters with proper C++ syntax (header-only defaults)
+  - ✅ Optional parameters using std::optional<T>
+  - ✅ std::nullopt as default for optional parameters
+  - ✅ Correct separation of declaration vs implementation
+
+- ✅ **Code Generation Improvements**
+  - ✅ Fixed shared_ptr method call dereferencing (-> operator)
+  - ✅ Improved smart pointer detection heuristic
+  - ✅ Added #include <optional> for optional parameters
+  - ✅ Enhanced binary expression handling for undefined comparisons
 
 ## ✅ Completed (v0.5.2)
 
