@@ -8,18 +8,19 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ### Overall Progress
 
-- **Core TypeScript Features**: ~70% complete
+- **Core TypeScript Features**: ~75% complete
 - **JavaScript Runtime**: ~85% complete
-- **Advanced Features**: ~50% complete
+- **Advanced Features**: ~55% complete
 - **Build & Tooling**: ~40% complete
 
 ### Key Achievements
 
 - ✅ **TypeScript Compiler API Integration** - Full type checking and analysis
 - ✅ **Complete JavaScript Runtime** - String, Number, Array, Object, Math, Date, RegExp, JSON, Console
-- ✅ **Class System** - Inheritance, constructors, methods, properties, decorators
+- ✅ **Class System** - Inheritance, constructors, methods, properties, decorators, abstract classes
 - ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
 - ✅ **Advanced Types** - Unions, intersections, type guards, decorators
+- ✅ **Enum Support** - Numeric, string, mixed, const enums with reverse mapping
 - ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline
 - ✅ **CMake Build System** - Complete CMake integration with CLI support
 - ✅ **JSR.io Publishing** - Package available on JSR registry
@@ -309,15 +310,17 @@ Based on analysis of both reference implementations:
   - ✅ Conditional (ternary) operator (v0.2.0)
   - ✅ Compound assignment operators (+=, -=, etc.) (v0.2.0)
 
-- [ ] **Enums**
-  - Numeric enums
-  - String enums
-  - Heterogeneous enums (mixed string/number)
-  - Const enums
-  - Computed enum values
-  - Enum reverse mappings
-  - Enum as types
-  - Enum to string conversion
+- [x] **Enums** ✅ COMPLETED (v0.5.3)
+  - ✅ Numeric enums with auto-increment (0, 1, 2...)
+  - ✅ String enums with explicit values ("UP", "DOWN", etc.)
+  - ✅ Heterogeneous enums (mixed string/number)
+  - ✅ Const enums with inline value substitution
+  - ✅ Computed enum values
+  - ✅ Enum reverse mappings (Color[0] → "Red")
+  - ✅ Enum as types in function parameters
+  - ✅ Enum to string conversion via getName() function
+  - ✅ Proper C++ namespace generation
+  - ✅ Header/source separation with extern const declarations
 
 - [ ] **Namespaces and Modules**
   - Namespace declarations
@@ -671,6 +674,28 @@ Based on analysis of both reference implementations:
   - ✅ Improved smart pointer detection heuristic
   - ✅ Added #include <optional> for optional parameters
   - ✅ Enhanced binary expression handling for undefined comparisons
+
+### Enum Functionality ✅ COMPLETE
+
+- ✅ **Complete Enum Support**
+  - ✅ Numeric enums with auto-increment (Direction.Up → 0, Direction.Down → 1)
+  - ✅ String enums with explicit values (LogLevel.Error → "ERROR")
+  - ✅ Mixed enums combining numeric and string values
+  - ✅ Const enums with inline value substitution
+  - ✅ Proper C++ namespace generation (namespace Direction { ... })
+
+- ✅ **Advanced Enum Features**
+  - ✅ Reverse mapping support (Color[0] → "Red", Color[1] → "Green")
+  - ✅ Enum values as function parameters and return types
+  - ✅ Enum comparison operations (status === Status.Active)
+  - ✅ Header/source file separation with extern const declarations
+
+- ✅ **C++ Code Generation**
+  - ✅ Proper scope placement (global scope, not inside functions)
+  - ✅ Type-safe member access with :: operator (Direction::Up)
+  - ✅ getName() function for reverse mapping instead of invalid operator[]
+  - ✅ Correct undefined handling ("undefined" string return)
+  - ✅ Full compilation and execution testing
 
 ## ✅ Completed (v0.5.2)
 
