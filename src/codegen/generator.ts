@@ -1272,6 +1272,10 @@ std::shared_ptr<js::Promise<${innerType}>>
       case IRNodeKind.AwaitExpression:
         return this.generateAwait(expr as IRAwaitExpression, context);
 
+      case IRNodeKind.FunctionExpression:
+      case IRNodeKind.ArrowFunctionExpression:
+        return this.generateLambda(expr as any, context);
+
       case IRNodeKind.SpreadElement:
         // Spread elements are handled by their container (array/object/call)
         return `/* spread ${
@@ -1520,6 +1524,13 @@ std::shared_ptr<js::Promise<${innerType}>>
         return `${object}->${property}`;
       }
 
+      // Check if this is a known array method
+      const arrayMethods = ["map", "filter", "reduce", "push", "pop", "length", "empty"];
+      if (arrayMethods.includes(property)) {
+        // Generate direct method call for array methods
+        return `${object}.${property}`;
+      }
+
       // For identifiers, convert to string and use bracket notation
       // This is the default for object property access in JavaScript
       if (!this.isKnownStaticType(object)) {
@@ -1587,6 +1598,52 @@ std::shared_ptr<js::Promise<${innerType}>>
     }
 
     return `${left} ${expr.operator} ${right}`;
+  }
+
+  /**
+   * Generate lambda/arrow function expression
+   */
+  private generateLambda(expr: any, context: CodeGenContext): string {
+    // C++11 lambda syntax: [capture](params) -> return_type { body }
+    // For arrow functions, we need to consider the scope:
+    // - At global scope, we cannot use capture by reference
+    // - Inside functions/methods, we can use [&] for lexical this
+    const isGlobalScope = !context.currentClass;
+    const capture = isGlobalScope ? "[]" : (expr.isArrow ? "[&]" : "[=]");
+
+    // Generate parameter list
+    const params = expr.params.map((p: any) => {
+      const type = p.type || "js::any";
+      const defaultValue = p.defaultValue
+        ? ` = ${this.generateExpression(p.defaultValue, context)}`
+        : "";
+      return `${this.mapType(type)} ${p.name}${defaultValue}`;
+    }).join(", ");
+
+    // Generate return type (use auto for type inference if not specified)
+    const returnType = expr.returnType && expr.returnType !== "any"
+      ? ` -> ${this.mapType(expr.returnType)}`
+      : "";
+
+    // Generate body
+    const bodyLines: string[] = [];
+    for (const stmt of expr.body.body) {
+      bodyLines.push(this.generateStatement(stmt, context));
+    }
+    const body = bodyLines.join("\n");
+
+    // Format the lambda
+    if (bodyLines.length === 1 && expr.body.body[0].kind === IRNodeKind.ReturnStatement) {
+      // Simple single-expression lambda
+      const returnStmt = expr.body.body[0] as any;
+      if (returnStmt.argument) {
+        const value = this.generateExpression(returnStmt.argument, context);
+        return `${capture}(${params})${returnType} { return ${value}; }`;
+      }
+    }
+
+    // Multi-line lambda
+    return `${capture}(${params})${returnType} {\n${body}\n}`;
   }
 
   /**

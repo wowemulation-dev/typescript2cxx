@@ -1423,9 +1423,44 @@ class ASTTransformer {
   /**
    * Transform arrow function
    */
-  private transformArrowFunction(_node: any): IRExpression {
-    // TODO: Implement arrow function transformation
-    return this.createLiteral("() => {}");
+  private transformArrowFunction(node: ts.ArrowFunction): IRExpression {
+    // Arrow functions are essentially function expressions with lexical this binding
+    // We'll transform them as lambda functions in C++
+
+    const params = this.transformParameters(Array.from(node.parameters || []));
+    const returnType = this.resolveType(node.type);
+
+    // Check if it's a simple expression body (implicit return)
+    const isExpressionBody = node.body.kind !== ts.SyntaxKind.Block;
+
+    let body: IRBlockStatement;
+    if (isExpressionBody) {
+      // For expression bodies like: x => x * 2
+      // We need to wrap in a return statement
+      const expr = this.transformExpression(node.body);
+      body = {
+        kind: IRNodeKind.BlockStatement,
+        body: [{
+          kind: IRNodeKind.ReturnStatement,
+          argument: expr,
+        } as IRReturnStatement],
+      };
+    } else {
+      // Block body like: x => { return x * 2; }
+      body = this.transformBlockStatement(node.body as ts.Block);
+    }
+
+    // Return as a function expression that will be generated as a lambda
+    return {
+      kind: IRNodeKind.FunctionExpression,
+      id: null, // Arrow functions are anonymous
+      params,
+      returnType,
+      body,
+      isAsync: false,
+      isGenerator: false,
+      isArrow: true, // Mark as arrow function for proper this binding
+    } as any;
   }
 
   /**

@@ -160,6 +160,37 @@ public:
     typename std::vector<T>::iterator end() { return elements_.end(); }
     typename std::vector<T>::const_iterator begin() const { return elements_.begin(); }
     typename std::vector<T>::const_iterator end() const { return elements_.end(); }
+    
+    // Higher-order functions
+    template<typename Func>
+    auto map(Func&& func) const -> array<decltype(func(std::declval<T>()))> {
+        using ResultType = decltype(func(std::declval<T>()));
+        array<ResultType> result;
+        for (const auto& elem : elements_) {
+            result.push(func(elem));
+        }
+        return result;
+    }
+    
+    template<typename Func>
+    array<T> filter(Func&& func) const {
+        array<T> result;
+        for (const auto& elem : elements_) {
+            if (func(elem)) {
+                result.push(elem);
+            }
+        }
+        return result;
+    }
+    
+    template<typename Func, typename Init>
+    auto reduce(Func&& func, Init&& init) const -> decltype(func(std::declval<Init>(), std::declval<T>())) {
+        auto result = init;
+        for (const auto& elem : elements_) {
+            result = func(result, elem);
+        }
+        return result;
+    }
 };
 
 // Object class for JavaScript objects
