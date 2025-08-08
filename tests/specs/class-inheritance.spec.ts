@@ -398,4 +398,173 @@ describe("Class Inheritance", () => {
       assertStringIncludes(result.header, "class Cat : public Animal");
     });
   });
+
+  // === COMPREHENSIVE CLASS TESTS PORTED FROM PROTOTYPE ===
+  // These tests are ported from the proven ASDAlexander77/TypeScript2Cxx test suite
+  // to ensure comprehensive class functionality coverage
+
+  describe("Class static members (from prototype)", () => {
+    it("should handle static method calls", async () => {
+      const code = `
+        class Class1 {
+          public static show() {
+            console.log("Hello");
+          }
+        }
+        Class1.show();
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "static");
+      assertStringIncludes(result.header, "show()");
+      assertStringIncludes(result.source, "Class1::show()");
+    });
+
+    it("should handle static methods with parameters", async () => {
+      const code = `
+        class Class1 {
+          public static show(s: string) {
+            console.log(s);
+          }
+        }
+        Class1.show("Hello");
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "static");
+      assertStringIncludes(result.header, "show(");
+      assertStringIncludes(result.source, "Class1::show");
+    });
+  });
+
+  describe("Class instance members (from prototype)", () => {
+    it("should handle new instance with method call", async () => {
+      const code = `
+        class Class1 {
+          public show(s: string) {
+            console.log(s);
+          }
+        }
+        new Class1().show("Hello");
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "class Class1");
+      assertStringIncludes(result.header, "show(");
+      assertStringIncludes(result.source, "new Class1()");
+    });
+
+    it("should handle instance stored in variable", async () => {
+      const code = `
+        class Class1 {
+          public show(s: string) {
+            console.log(s);
+          }
+        }
+        let c = new Class1();
+        c.show("Hello");
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "class Class1");
+      assertStringIncludes(result.source, "Class1 c");
+      assertStringIncludes(result.source, "c.show");
+    });
+
+    it("should handle private fields and this pointer", async () => {
+      const code = `
+        class Class1 {
+          private val: string;
+          
+          public set(s: string): Class1 {
+            this.val = s;
+            return this;
+          }
+          
+          public show() {
+            console.log(this.val);
+          }
+        }
+        new Class1().set("Hello").show();
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "private:");
+      assertStringIncludes(result.header, "val");
+      assertStringIncludes(result.source, "this->val");
+      assertStringIncludes(result.source, "return *this");
+    });
+  });
+
+  describe("Class constructors (from prototype)", () => {
+    it("should handle constructor with parameters", async () => {
+      const code = `
+        class Point {
+          x: number;
+          y: number;
+          
+          constructor(x: number, y: number) {
+            this.x = x;
+            this.y = y;
+          }
+          
+          display() {
+            console.log("Point: " + this.x + ", " + this.y);
+          }
+        }
+        
+        let p = new Point(10, 20);
+        p.display();
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "Point(");
+      assertStringIncludes(result.source, "this->x");
+      assertStringIncludes(result.source, "this->y");
+    });
+
+    it("should handle default constructor", async () => {
+      const code = `
+        class SimpleClass {
+          value: number = 42;
+          
+          getValue(): number {
+            return this.value;
+          }
+        }
+        
+        let obj = new SimpleClass();
+        console.log(obj.getValue());
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "class SimpleClass");
+      assertStringIncludes(result.source, "new SimpleClass()");
+    });
+  });
+
+  describe("Class access modifiers (from prototype)", () => {
+    it("should handle public, private, and protected members", async () => {
+      const code = `
+        class AccessTest {
+          public publicField: number = 1;
+          private privateField: number = 2;
+          protected protectedField: number = 3;
+          
+          public getPrivate(): number {
+            return this.privateField;
+          }
+          
+          protected getProtected(): number {
+            return this.protectedField;
+          }
+        }
+      `;
+      const result = await transpile(code);
+
+      assertStringIncludes(result.header, "public:");
+      assertStringIncludes(result.header, "private:");
+      assertStringIncludes(result.header, "protected:");
+    });
+  });
 });
