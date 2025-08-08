@@ -174,8 +174,18 @@ async function findTestFiles(): Promise<string[]> {
   }
 
   // Look for TypeScript files in examples directory
+  const examplesPath = join(Deno.cwd(), "examples");
+  
+  // Check if examples directory exists
+  try {
+    await Deno.stat(examplesPath);
+  } catch {
+    console.log("No examples directory found, skipping example tests");
+    return files;
+  }
+  
   for await (
-    const entry of walk("../../examples", {
+    const entry of walk(examplesPath, {
       exts: [".ts"],
       skip: [/node_modules/, /\.test\.ts$/, /\.spec\.ts$/],
     })
@@ -288,14 +298,18 @@ async function main() {
 try {
   const checkCmd = new Deno.Command("cmake", {
     args: ["--version"],
-    stdout: "null",
-    stderr: "null",
+    stdout: "piped",
+    stderr: "piped",
   });
-  await checkCmd.output();
+  const result = await checkCmd.output();
+  if (!result.success) {
+    throw new Error("cmake check failed");
+  }
 
   // Run tests
   await main();
-} catch {
+} catch (error) {
+  console.error("CMake check failed:", error);
   console.error("CMake is not installed or not in PATH");
   console.error("Please install CMake to run this test suite");
 }
