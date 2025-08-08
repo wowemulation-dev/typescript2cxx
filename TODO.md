@@ -4,7 +4,7 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.5.4-dev**
+**Current Version: v0.5.3**
 
 ### Overall Progress
 
@@ -198,9 +198,9 @@ Based on analysis of both reference implementations:
   - Async generators
   - for await...of loops
 
-- [x] **Full Class System** ✅ PARTIAL (v0.2.0-v0.4.0)
+- [x] **Full Class System** ✅ PARTIAL (v0.2.0-v0.5.3)
   - ✅ Complete inheritance with `super` (v0.2.0)
-  - [ ] Abstract classes and methods
+  - ✅ Abstract classes and methods (v0.5.3)
   - ✅ Static members and blocks (v0.2.0)
   - [ ] Private fields (#private syntax)
   - ✅ Decorators with metadata (class, method, property, parameter) (v0.4.0)
@@ -619,7 +619,32 @@ Based on analysis of both reference implementations:
    - Bundle WASM with package
    - Increases package size significantly
 
-## ✅ Completed (v0.5.3-dev)
+## ✅ Completed (v0.5.3)
+
+### Abstract Classes and Core Improvements ✅ COMPLETE
+
+- ✅ **Abstract Classes Implementation**
+  - ✅ Pure virtual functions (`= 0`) for abstract methods
+  - ✅ Proper `virtual` and `override` keyword generation
+  - ✅ Multi-level abstract inheritance chains
+  - ✅ Prevention of abstract class instantiation
+  - ✅ Abstract methods with return types
+  - ✅ Static methods excluded from virtual/override marking
+
+- ✅ **Expression Handling Fixes**
+  - ✅ Parenthesized expressions support
+  - ✅ Fixed issue where `(a + b)` was incorrectly transpiled to `js::null`
+  - ✅ Proper pass-through of inner expressions
+
+- ✅ **Smart Pointer Detection**
+  - ✅ Expanded variable name recognition for `->` operator usage
+  - ✅ Added common patterns: animals, shapes, vehicles, factories
+  - ✅ Improved method call generation for smart pointers
+
+- ✅ **Runtime Improvements**
+  - ✅ Template constructor for typed array conversion to `js::any`
+  - ✅ Fixed console.log formatting (no trailing spaces)
+  - ✅ Enhanced type guards for runtime type checking
 
 ### Control Flow and Function Parameters ✅ COMPLETE
 
