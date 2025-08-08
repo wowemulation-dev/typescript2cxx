@@ -360,12 +360,13 @@ std::shared_ptr<js::Promise<${innerType}>>
       // Generate declaration
       return `${returnType} ${name}(${params});`;
     } else {
-      // Generate implementation
+      // Generate implementation (no default parameters in implementation)
+      const implParams = this.generateParameters(func.params, context, false);
       const prevAsync = context.isAsync;
       context.isAsync = func.isAsync;
 
       const lines: string[] = [];
-      lines.push(`${returnType} ${name}(${params}) {`);
+      lines.push(`${returnType} ${name}(${implParams}) {`);
 
       if (func.body) {
         context.indent++;
@@ -523,11 +524,12 @@ std::shared_ptr<js::Promise<${innerType}>>
           const funcDecl = method.value;
 
           if (funcDecl.body) {
-            const params = this.generateParameters(funcDecl.params, context);
+            // Generate implementation parameters without defaults
+            const implParams = this.generateParameters(funcDecl.params, context, false);
 
             // Handle constructor specially
             if (methodName === "constructor") {
-              let ctorLine = `${name}::${name}(${params})`;
+              let ctorLine = `${name}::${name}(${implParams})`;
 
               // Add initializer list for base class constructor if needed
               if (cls.superClass) {
@@ -550,7 +552,7 @@ std::shared_ptr<js::Promise<${innerType}>>
               lines.push(ctorLine);
             } else {
               const returnType = this.mapType(funcDecl.returnType);
-              lines.push(`${returnType} ${name}::${methodName}(${params}) {`);
+              lines.push(`${returnType} ${name}::${methodName}(${implParams}) {`);
             }
 
             context.indent++;
@@ -1447,7 +1449,11 @@ std::shared_ptr<js::Promise<${innerType}>>
   /**
    * Generate parameters
    */
-  private generateParameters(params: any[], _context: CodeGenContext): string {
+  private generateParameters(
+    params: any[],
+    context: CodeGenContext,
+    includeDefaults: boolean = true,
+  ): string {
     return params.map((param) => {
       const type = this.mapType(param.type);
       const name = param.name;
@@ -1461,7 +1467,14 @@ std::shared_ptr<js::Promise<${innerType}>>
         paramType = `std::unique_ptr<${type}>`;
       }
 
-      return `${paramType} ${name}`;
+      // Add default value if present and allowed
+      let paramDecl = `${paramType} ${name}`;
+      if (param.defaultValue && includeDefaults && context.isHeader) {
+        const defaultExpr = this.generateExpression(param.defaultValue, context);
+        paramDecl += ` = ${defaultExpr}`;
+      }
+
+      return paramDecl;
     }).join(", ");
   }
 
@@ -1738,9 +1751,55 @@ std::shared_ptr<js::Promise<${innerType}>>
    * Check if a variable is a smart pointer based on new expressions
    */
   private isSmartPointerVariable(varName: string, _context: CodeGenContext): boolean {
-    // Simple heuristic: variables created with new expressions are smart pointers
-    // In a more complete implementation, we'd track variable types
-    return ["p", "obj", "instance"].includes(varName); // Common smart pointer variable names
+    // Improved heuristic: variables that are likely smart pointers
+    // Common patterns for smart pointer variables:
+    const smartPointerPatterns = [
+      // Common smart pointer variable names
+      "p",
+      "obj",
+      "instance",
+      "ptr",
+      // Object-like names
+      "item",
+      "element",
+      "node",
+      "object",
+      "entity",
+      "component",
+      // Class instance names
+      "user",
+      "account",
+      "client",
+      "server",
+      "connection",
+      "session",
+      // General patterns
+      "temp",
+      "result",
+      "target",
+      "source",
+      "data",
+    ];
+
+    // Check if variable name matches any pattern
+    if (smartPointerPatterns.includes(varName.toLowerCase())) {
+      return true;
+    }
+
+    // Check if variable name looks like it holds an object (camelCase starting with lowercase)
+    // This catches names like "testInstance", "myObject", etc.
+    if (/^[a-z][a-zA-Z0-9]*[A-Z]/.test(varName)) {
+      return true;
+    }
+
+    // Variables ending with common object suffixes
+    const objectSuffixes = ["Instance", "Object", "Obj", "Ptr", "Ref"];
+    if (objectSuffixes.some((suffix) => varName.endsWith(suffix))) {
+      return true;
+    }
+
+    // TODO: In the future, track actual variable types in context
+    return false;
   }
 
   /**

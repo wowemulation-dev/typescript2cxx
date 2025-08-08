@@ -1424,6 +1424,7 @@ class ASTTransformer {
         result.push({
           name,
           type: this.resolveType(param.type),
+          defaultValue: param.initializer ? this.transformExpression(param.initializer) : undefined,
           isOptional: !!param.questionToken,
           isRest: !!param.dotDotDotToken,
           memory: MemoryManagement.Auto,
