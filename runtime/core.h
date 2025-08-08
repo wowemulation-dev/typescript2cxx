@@ -187,6 +187,9 @@ public:
         throw std::runtime_error("Property not found: " + key);
     }
     
+    // Declaration only - implementation will be after 'any' class is defined
+    any get_as_js_any(const std::string& key) const;
+    
     bool has(const std::string& key) const {
         return properties_.find(key) != properties_.end();
     }
@@ -197,7 +200,11 @@ class Console {
 public:
     template<typename... Args>
     void log(Args&&... args) {
-        ((std::cout << args << " "), ...);
+        if constexpr (sizeof...(args) == 1) {
+            ((std::cout << args), ...);
+        } else {
+            ((std::cout << args << " "), ...);
+        }
         std::cout << std::endl;
     }
     
@@ -237,6 +244,16 @@ public:
     any(const char* val) : value_(string(val)) {}
     any(const array<any>& val) : value_(val) {}
     any(const object& val) : value_(val) {}
+    
+    // Support for typed arrays (converts array<T> to array<any>)
+    template<typename T>
+    any(const array<T>& val) {
+        array<any> converted;
+        for (size_t i = 0; i < val.length(); i++) {
+            converted.push(any(val[i]));
+        }
+        value_ = converted;
+    }
     
     // Copy and move constructors
     any(const any& other) = default;
@@ -283,6 +300,84 @@ public:
     // Get variant for direct access when needed
     const auto& variant() const { return value_; }
     auto& variant() { return value_; }
+    
+    // Property access for objects
+    any operator[](const string& key) const {
+        if (is<object>()) {
+            const auto& obj = get<object>();
+            const std::string keyStr = key.value(); 
+            if (obj.has(keyStr)) {
+                return obj.get_as_js_any(keyStr);
+            }
+        }
+        return undefined;
+    }
+    
+    // Property access for objects with numeric keys
+    any operator[](const number& key) const {
+        if (is<object>()) {
+            const auto& obj = get<object>();
+            // Convert number to JavaScript-style string (integers without decimals)
+            double val = key.value();
+            std::string keyStr;
+            if (val == std::floor(val) && std::isfinite(val)) {
+                // Integer value - convert without decimal
+                keyStr = std::to_string(static_cast<long long>(val));
+            } else {
+                // Floating point value - use standard conversion
+                keyStr = std::to_string(val);
+            }
+            if (obj.has(keyStr)) {
+                return obj.get_as_js_any(keyStr);
+            }
+        }
+        return undefined;
+    }
+    
+    // Property access for objects with integer keys (common case)
+    any operator[](int key) const {
+        return (*this)[number(key)];
+    }
+    
+    // Arithmetic operators for JavaScript-like operations
+    any operator+(const any& other) const {
+        // Number + Number -> Number
+        if (is<number>() && other.is<number>()) {
+            return any(number(get<number>().value() + other.get<number>().value()));
+        }
+        // String + any -> String (concatenation)
+        if (is<string>()) {
+            return any(get<string>() + other.toString());
+        }
+        // any + String -> String (concatenation)
+        if (other.is<string>()) {
+            return any(toString() + other.get<string>());
+        }
+        // Convert both to numbers and add
+        if (is<number>() || other.is<number>()) {
+            double leftVal = is<number>() ? get<number>().value() : 0.0;
+            double rightVal = other.is<number>() ? other.get<number>().value() : 0.0;
+            return any(number(leftVal + rightVal));
+        }
+        return undefined;
+    }
+    
+    any operator+(const number& other) const {
+        if (is<number>()) {
+            return any(number(get<number>().value() + other.value()));
+        }
+        if (is<string>()) {
+            return any(get<string>() + string(std::to_string(other.value())));
+        }
+        return undefined;
+    }
+    
+    any operator+(const string& other) const {
+        return any(toString() + other);
+    }
+    
+    // Property assignment for objects - this method should not be used directly
+    // Use explicit assignment through the object reference instead
 };
 
 // Typedef for array<any> 
@@ -295,7 +390,16 @@ inline string string::operator+(const any& other) const {
 
 // Global toString function for template literals
 inline string toString(const string& s) { return s; }
-inline string toString(const number& n) { return string(std::to_string(n.value_)); }
+inline string toString(const number& n) { 
+    double val = n.value();
+    if (val == std::floor(val) && std::isfinite(val)) {
+        // Integer value - convert without decimal
+        return string(std::to_string(static_cast<long long>(val)));
+    } else {
+        // Floating point value - use standard conversion
+        return string(std::to_string(val));
+    }
+}
 inline string toString(const any& a) { return a.toString(); }
 inline string toString(bool b) { return string(b ? "true" : "false"); }
 inline string toString(const char* s) { return string(s); }
@@ -303,6 +407,11 @@ template<typename T>
 inline string toString(const T& value) {
     // Fallback for other types
     return string("[object]");
+}
+
+// Stream operator for console.log support with js::any
+inline std::ostream& operator<<(std::ostream& os, const js::any& value) {
+    return os << value.toString();
 }
 
 // Error types
@@ -315,6 +424,47 @@ public:
     const string& message() const { return message_; }
 };
 
+// Implementation of object::get_as_js_any (after any class is defined)
+inline any object::get_as_js_any(const std::string& key) const {
+    auto it = properties_.find(key);
+    if (it != properties_.end()) {
+        const std::any& stored_value = it->second;
+        
+        // Try to cast to various js types and convert to js::any
+        try {
+            if (const auto* val = std::any_cast<string>(&stored_value)) {
+                return any(*val);
+            }
+            if (const auto* val = std::any_cast<number>(&stored_value)) {
+                return any(*val);
+            }
+            if (const auto* val = std::any_cast<bool>(&stored_value)) {
+                return any(*val);
+            }
+            if (const auto* val = std::any_cast<any>(&stored_value)) {
+                return *val;
+            }
+            if (const auto* val = std::any_cast<object>(&stored_value)) {
+                return any(*val);
+            }
+            if (const auto* val = std::any_cast<undefined_t>(&stored_value)) {
+                return any(*val);
+            }
+            if (const auto* val = std::any_cast<null_t>(&stored_value)) {
+                return any(*val);
+            }
+            // Add more type conversions as needed
+            return undefined;
+        } catch (...) {
+            return undefined;
+        }
+    }
+    return undefined;
+}
+
 } // namespace js
+
+// Include type guards for logical operators and runtime checks
+#include "type_guards.h"
 
 #endif // TYPESCRIPT2CXX_RUNTIME_CORE_H
