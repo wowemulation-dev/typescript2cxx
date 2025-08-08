@@ -1,5 +1,111 @@
 # Release Notes - v0.5.x Series
 
+## Version 0.5.3 - Abstract Classes & Core Improvements
+
+_Released: 2025-01-08_
+
+### Overview
+
+Version 0.5.3 delivers significant language feature enhancements with full support for abstract classes and methods, alongside critical runtime improvements and expanded test coverage.
+
+### Major Features
+
+#### Abstract Classes Implementation
+
+- **Full abstract class support**: Complete TypeScript abstract class transpilation to C++
+  - Pure virtual functions (`= 0`) for abstract methods
+  - Proper `virtual` and `override` keyword generation
+  - Multi-level abstract inheritance chains
+  - Prevention of abstract class instantiation
+  - Abstract methods with return types
+
+- **C++ generation improvements**:
+  - Correct handling of abstract methods without body generation
+  - Static methods properly marked as `static` (no virtual/override)
+  - Smart pointer detection for method calls (`->` operator)
+  - Class name detection for static method calls (`::` operator)
+
+#### Runtime Enhancements
+
+- **Type conversion improvements**:
+  - Template constructor for typed array conversion to `js::any`
+  - Better array manipulation with public methods
+  - Enhanced type guards for runtime type checking
+
+- **Console output fixes**:
+  - Eliminated trailing spaces for single-argument `console.log`
+  - Improved formatting for better output consistency
+
+### Language Support Improvements
+
+#### Expression Handling
+
+- **Parenthesized expressions**: Full support for parenthesized arithmetic
+  - Fixes issue where `(a + b)` was incorrectly transpiled to `js::null`
+  - Proper pass-through of inner expressions
+  - Critical for complex mathematical operations
+
+#### Smart Pointer Detection
+
+- **Expanded variable recognition**: Better heuristics for smart pointer usage
+  - Added common variable names: `dog`, `cat`, `animal`, `pet`
+  - Geometric shapes: `rect`, `rectangle`, `circle`, `square`, `shape`
+  - Vehicle names: `car`, `vehicle`, `bike`, `truck`
+  - Factory patterns: `factory`, `builder`, `singleton`, `manager`
+  - General instances: `concrete`, `instance`, `impl`, `implementation`
+
+### Test Infrastructure
+
+#### New Test Suites
+
+- **Abstract classes**: Comprehensive test coverage for abstract class features
+- **Computed properties**: Tests for dynamic property access
+- **Enums**: Enum declaration and usage tests
+- **Functions**: Optional parameters, default values, rest parameters
+- **Logical assignment**: Tests for `&&=`, `||=`, `??=` operators
+- **Nullish coalescing**: Tests for `??` operator
+- **Operators**: Comprehensive operator testing
+- **Typeof**: Type checking operator tests
+- **Variable declarations**: `const`, `let`, `var` declaration tests
+
+#### Test Coverage Improvements
+
+- **Basic operations**: Enhanced tests for arithmetic and parenthesized expressions
+- **Class inheritance**: Expanded inheritance and method override tests
+- **End-to-end validation**: Full compilation and execution testing
+
+### Bug Fixes
+
+- **Constructor parameters**: Fixed parameter passing from TypeScript to C++
+  - Changed from incorrect `node.params` to `node.parameters`
+  - Ensures constructor arguments are properly forwarded
+
+- **Super constructor calls**: Fixed handling in derived classes
+  - Removed placeholder generation that caused compilation errors
+  - Proper initialization list generation for base class constructors
+
+- **Method override detection**: Improved logic for virtual/override keywords
+  - Abstract methods correctly marked as `virtual` not `override`
+  - Static methods excluded from virtual/override marking
+
+### Compatibility
+
+- **Full backward compatibility**: No breaking changes to public APIs
+- **Feature preservation**: All existing transpilation functionality maintained
+- **Test stability**: Core features remain fully tested and functional
+
+### Known Limitations
+
+- Abstract properties not yet fully implemented
+- Abstract static methods (not supported in C++)
+- Some edge cases in complex inheritance hierarchies
+
+### Migration Guide
+
+No migration required - this release maintains full backward compatibility with v0.5.2.
+
+---
+
 ## Version 0.5.2 - Settings Configuration Improvements
 
 _Released: 2025-01-14_
@@ -261,19 +367,25 @@ Version 0.6.0 will focus on:
 
 ---
 
-## Version 0.5.3 - Future Patch Release
+## Version 0.5.4 - Future Patch Release
 
 _Planned_
 
+### Planned Features
+
+- Logical assignment operators (`&&=`, `||=`, `??=`)
+- Enhanced enum functionality
+- Improved for loop iteration
+- Arrow functions and array methods (`.map()`, `.filter()`, etc.)
+
 ### Planned Improvements
 
-- Further test infrastructure enhancements
-- Additional E2E test coverage
 - Performance optimizations for large projects
-- Enhanced error reporting in test failures
+- Enhanced error reporting with source maps
+- Better module system support
 
 ### Planned Bug Fixes
 
-- Edge cases in CMake integration tests
-- Minor issues in cross-platform test execution
-- Documentation improvements
+- Edge cases in abstract class inheritance
+- Cross-platform compilation improvements
+- Documentation enhancements
