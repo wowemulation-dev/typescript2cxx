@@ -240,38 +240,42 @@ clang++ -std=c++20 -I. hello-world.cpp -o hello-world
 
 **Note**: The generated code currently has compilation issues that are being addressed.
 
-## Current Implementation Status (v0.4.1)
+## Current Implementation Status (v0.5.3)
 
 ### ✅ Fully Implemented Features
 
 1. **TypeScript Compiler API** - Complete type checking and analysis
 2. **Basic Language Constructs** - Variables, functions, classes, interfaces
-3. **Control Flow** - If/else, for, while, do-while, break, continue
+3. **Control Flow** - If/else, for, while, do-while, break, continue, switch/case
 4. **Operators** - All arithmetic, logical, comparison, assignment operators
 5. **Template Literals** - Full interpolation support
 6. **Optional Chaining** - Safe property access with null checks
-7. **Class System** - Inheritance, constructors, methods, static members
+7. **Class System** - Inheritance, constructors, methods, static members, abstract classes
 8. **Exception Handling** - Try/catch/finally/throw
 9. **Decorators** - Class, method, property, accessor decorators
 10. **Advanced Types** - Unions, intersections, type guards
+11. **Abstract Classes** - Pure virtual functions, multi-level inheritance (v0.5.3)
+12. **Switch Statements** - Full support with fall-through (v0.5.3-dev)
+13. **For...of/in Loops** - Iterator and enumeration support (v0.5.3-dev)
+14. **Function Parameters** - Default and optional parameters (v0.5.3-dev)
+15. **Expression Handling** - Parenthesized expressions (v0.5.3)
+16. **Build System Generation** - CMake integration with --cmake flag (v0.5.2)
 
 ### 🔧 Partially Implemented
 
-1. **Functions** - Basic support, missing default/optional/rest parameters
+1. **Functions** - Default/optional parameters done, rest parameters pending
 2. **Generics** - Basic type parameters, no constraints or variance
 3. **Type System** - Most types work, missing conditional/mapped types
-4. **Objects/Arrays** - Literals work, missing destructuring/spread
+4. **Objects/Arrays** - Literals work, destructuring partially supported
 
 ### ❌ Not Implemented
 
 1. **Async/Await** - Requires C++20 coroutine implementation
 2. **Modules** - No ES module import/export support
-3. **Switch Statements** - Not implemented
-4. **For...of/in Loops** - Not implemented
-5. **Destructuring** - Object/array destructuring not supported
-6. **Spread Operator** - Not implemented
-7. **Nullish Coalescing** - ?? operator not supported
-8. **Build System Generation** - No CMake/Makefile generation
+3. **Spread Operator** - Not fully implemented
+4. **Nullish Coalescing** - ?? operator not fully supported
+5. **Logical Assignment** - &&=, ||=, ??= operators not implemented
+6. **Arrow Functions** - Not fully implemented with array methods
 
 ## Contributing
 
@@ -299,6 +303,34 @@ Add `console.log(JSON.stringify(ir, null, 2))` in transpiler.ts
 Create minimal test cases in test files
 
 ## Release History
+
+### v0.5.3 - 2025-01-08
+
+- ✅ Abstract classes and methods implementation
+- ✅ Pure virtual functions for C++ generation
+- ✅ Parenthesized expressions support
+- ✅ Enhanced smart pointer detection
+- ✅ Runtime type conversion improvements
+- ✅ Constructor parameter fixes
+- ✅ 8 new comprehensive test suites
+
+### v0.5.2 - 2025-01-14
+
+- ✅ Configuration improvements
+- ✅ Development workflow enhancements
+- ✅ Hook configuration cleanup
+
+### v0.5.1 - 2025-01-14
+
+- ✅ QA pipeline improvements
+- ✅ TypeScript configuration fixes
+- ✅ Test infrastructure enhancements
+
+### v0.5.0 - 2025-08-07
+
+- ✅ Project organization (.output directory)
+- ✅ E2E testing framework
+- ✅ CMake build system integration
 
 ### v0.4.1 - 2025-01-07
 
@@ -345,34 +377,38 @@ Create minimal test cases in test files
 
 ## Roadmap
 
-### Next: Async/Await & Modules
+### Next: v0.5.4 - Modern Operators & Functions
+
+- [ ] Logical assignment operators (&&=, ||=, ??=)
+- [ ] Rest parameters for functions
+- [ ] Arrow functions with proper this binding
+- [ ] Array methods (map, filter, reduce improvements)
+- [ ] Enum functionality fixes
+
+### Future: v0.6.0 - Async/Await & Modules
 
 - [ ] Async/await with C++20 coroutines
 - [ ] ES module import/export
 - [ ] Dynamic imports
 - [ ] Promise implementation
+- [ ] Module resolution and bundling
 
-### Future: Advanced Control Flow
+### Future: Modern JavaScript Features
 
-- [ ] Switch statements
-- [ ] For...of and for...in loops
-- [ ] Labeled statements
-- [ ] Advanced break/continue
+- [ ] Full destructuring (objects and arrays)
+- [ ] Complete spread operator implementation
+- [ ] Nullish coalescing operator completion
+- [ ] Numeric separators
+- [ ] BigInt support
+- [ ] Symbol implementation
 
-### Future: Modern JavaScript
+### Future: Advanced Type System
 
-- [ ] Destructuring (objects and arrays)
-- [ ] Spread operator
-- [ ] Rest parameters
-- [ ] Default parameters
-- [ ] Nullish coalescing
-
-### Future: Build System Integration
-
-- [ ] CMake generation (basic prototype exists)
-- [ ] Makefile generation
-- [ ] Package manager integration
-- [ ] Cross-compilation support
+- [ ] Conditional types
+- [ ] Mapped types
+- [ ] Template literal types
+- [ ] Const assertions
+- [ ] Satisfies operator
 
 ### Future: Production Features
 
