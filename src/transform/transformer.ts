@@ -518,7 +518,7 @@ class ASTTransformer {
       // Non-abstract methods without a body should have an empty body
       funcDecl.body = {
         kind: IRNodeKind.BlockStatement,
-        body: []
+        body: [],
       };
     }
 

@@ -631,7 +631,8 @@ std::shared_ptr<js::Promise<${innerType}>>
         // Check if this method overrides a base class method
         // Static methods cannot be virtual or override in C++
         const isAbstract = method.isAbstract && !funcDecl.isStatic; // Static methods can't be abstract
-        const isOverride = !funcDecl.isStatic && !isAbstract && cls?.superClass && this.isOverriddenMethod(methodName, cls);
+        const isOverride = !funcDecl.isStatic && !isAbstract && cls?.superClass &&
+          this.isOverriddenMethod(methodName, cls);
         const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isOverride || isAbstract);
 
         let methodDecl = "";
@@ -643,7 +644,7 @@ std::shared_ptr<js::Promise<${innerType}>>
         if (isOverride) {
           methodDecl += " override";
         }
-        
+
         if (isAbstract) {
           methodDecl += " = 0"; // Pure virtual function in C++
         }
@@ -1445,7 +1446,10 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       // Handle static method calls on class names
       // Check if object is a class name (starts with uppercase)
-      if (object[0] === object[0].toUpperCase() && !object.includes("->") && !object.includes(".") && !object.startsWith("js::")) {
+      if (
+        object[0] === object[0].toUpperCase() && !object.includes("->") && !object.includes(".") &&
+        !object.startsWith("js::")
+      ) {
         // This is likely a static method call
         return `${object}::${property}`;
       }
@@ -1946,7 +1950,7 @@ std::shared_ptr<js::Promise<${innerType}>>
     if (methodName === "constructor" || methodName === "destructor") {
       return false;
     }
-    
+
     // Assume it might override a base class method
     return true;
   }
