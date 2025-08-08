@@ -181,6 +181,7 @@ export interface CMakeConfig {
   minimumVersion: string;
   findPackages: string[];
   customCommands?: string[];
+  outputName?: string;
 }
 
 export interface VcpkgConfig {

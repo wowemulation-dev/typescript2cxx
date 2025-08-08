@@ -155,6 +155,22 @@ public:
         return result; 
     }
     
+    // Concat method for spread operations
+    array<T> concat(const array<T>& other) const {
+        array<T> result = *this;
+        for (const auto& elem : other.elements_) {
+            result.push(elem);
+        }
+        return result;
+    }
+    
+    // Concat with single element (for [1, ...arr, 2] patterns)
+    array<T> concat(const T& elem) const {
+        array<T> result = *this;
+        result.push(elem);
+        return result;
+    }
+    
     // Iterators
     typename std::vector<T>::iterator begin() { return elements_.begin(); }
     typename std::vector<T>::iterator end() { return elements_.end(); }
@@ -190,6 +206,27 @@ public:
             result = func(result, elem);
         }
         return result;
+    }
+    
+    // Slice method for array destructuring rest elements
+    array<T> slice(size_t start = 0) const {
+        if (start >= elements_.size()) {
+            return array<T>();
+        }
+        std::vector<T> sliced(elements_.begin() + start, elements_.end());
+        return array<T>(sliced);
+    }
+    
+    array<T> slice(size_t start, size_t end) const {
+        if (start >= elements_.size()) {
+            return array<T>();
+        }
+        size_t actualEnd = std::min(end, elements_.size());
+        if (start >= actualEnd) {
+            return array<T>();
+        }
+        std::vector<T> sliced(elements_.begin() + start, elements_.begin() + actualEnd);
+        return array<T>(sliced);
     }
 };
 
@@ -368,6 +405,28 @@ public:
     // Property access for objects with integer keys (common case)
     any operator[](int key) const {
         return (*this)[number(key)];
+    }
+    
+    // Slice method for array destructuring rest elements
+    any slice(int start = 0) const {
+        // If this contains an array, delegate to its slice method
+        if (is<array<any>>()) {
+            return any(get<array<any>>().slice(static_cast<size_t>(std::max(0, start))));
+        }
+        // Return empty array for non-arrays
+        return any(array<any>());
+    }
+    
+    any slice(int start, int end) const {
+        // If this contains an array, delegate to its slice method
+        if (is<array<any>>()) {
+            return any(get<array<any>>().slice(
+                static_cast<size_t>(std::max(0, start)),
+                static_cast<size_t>(std::max(0, end))
+            ));
+        }
+        // Return empty array for non-arrays
+        return any(array<any>());
     }
     
     // Arithmetic operators for JavaScript-like operations

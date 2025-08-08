@@ -814,14 +814,16 @@ std::shared_ptr<js::Promise<${innerType}>>
     for (const decl of varDecl.declarations) {
       // Check if this is a destructuring pattern
       if (decl.id.kind === IRNodeKind.ObjectPattern || decl.id.kind === IRNodeKind.ArrayPattern) {
-        // Generate destructuring code
-        const destructCode = this.generateDestructuring(
-          decl.id,
-          decl.init,
-          varDecl.declarationKind,
-          context,
-        );
-        lines.push(destructCode);
+        // Destructuring should only be generated in source files, not headers
+        if (!context.isHeader) {
+          const destructCode = this.generateDestructuring(
+            decl.id,
+            decl.init,
+            varDecl.declarationKind,
+            context,
+          );
+          lines.push(destructCode);
+        }
         continue;
       }
 
@@ -1397,6 +1399,11 @@ std::shared_ptr<js::Promise<${innerType}>>
     if (expr.operator === "??") {
       return `(${left}.has_value() ? ${left} : ${right})`;
     }
+    if (expr.operator === "**") {
+      // Add cmath include for std::pow
+      context.includes.add("<cmath>");
+      return `js::number(std::pow(${left}.value(), ${right}.value()))`;
+    }
 
     return `(${left} ${expr.operator} ${right})`;
   }
@@ -1715,6 +1722,12 @@ std::shared_ptr<js::Promise<${innerType}>>
       const elements = expr.elements.map((elem) =>
         elem ? this.generateExpression(elem, context) : "js::undefined"
       );
+
+      // Handle empty arrays by specifying the type explicitly
+      if (elements.length === 0) {
+        return `js::array<js::any>{}`;
+      }
+
       return `js::array{${elements.join(", ")}}`;
     }
   }

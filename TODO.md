@@ -32,7 +32,7 @@ This document tracks planned features and known issues for typescript2cxx.
 - ✅ **Advanced Control Flow** - Switch statements, for...of/in loops implemented (v0.5.3-dev)
 - ⚠️ **Function Features** - Default/optional parameters done, rest parameters pending
 - ❌ **Destructuring** - No object/array destructuring
-- ❌ **Modern Operators** - No nullish coalescing, spread operator
+- ✅ **Modern Operators** - Nullish coalescing, logical assignments implemented (v0.6.0-dev)
 
 ## 🚨 Critical Path to Feature Parity with Prototypes
 
@@ -262,9 +262,9 @@ Based on analysis of both reference implementations:
 - [x] **Modern JavaScript Operators** ✅ PARTIAL (v0.1.0-v0.5.4)
   - ✅ Nullish coalescing (??) (v0.5.4-dev)
   - ✅ Optional chaining (?.) (v0.1.0)
-  - [ ] Logical assignment operators (&&=, ||=, ??=)
-  - [ ] Numeric separators (1_000_000)
-  - [ ] Exponentiation operator (**)
+  - ✅ Logical assignment operators (&&=, ||=, ??=) (v0.6.0-dev)
+  - ✅ Numeric separators (1_000_000) (v0.6.0-dev)
+  - ✅ Exponentiation operator (**) (v0.6.0-dev)
   - [ ] BigInt literals (123n)
 
 - [x] **Object and Array Features** ✅ PARTIAL (v0.2.0-v0.5.4)

@@ -63,7 +63,7 @@ async function processTestFile(testPath: string): Promise<TestResult> {
     // Copy runtime
     const runtimeDir = join(outputDir, "runtime");
     await ensureDir(runtimeDir);
-    
+
     // Copy all runtime files
     const runtimeFiles = ["core.h", "core.cpp", "type_guards.h"];
     for (const file of runtimeFiles) {
@@ -109,7 +109,7 @@ async function processTestFile(testPath: string): Promise<TestResult> {
 
     // Set the output name to match the test name
     testConfig.integration.cmake.outputName = testName.replace(/-/g, "_");
-    
+
     const cmakeContent = generateCMakeFromConfig(
       testConfig,
       [`${testName}.cpp`, "runtime/core.cpp"],
@@ -202,7 +202,7 @@ async function findTestFiles(): Promise<string[]> {
 
   // Look for TypeScript files in examples directory
   const examplesPath = join(Deno.cwd(), "examples");
-  
+
   // Check if examples directory exists
   try {
     await Deno.stat(examplesPath);
@@ -210,7 +210,7 @@ async function findTestFiles(): Promise<string[]> {
     console.log("No examples directory found, skipping example tests");
     return files;
   }
-  
+
   for await (
     const entry of walk(examplesPath, {
       exts: [".ts"],

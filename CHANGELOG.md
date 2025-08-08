@@ -7,9 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-01-08
+
+### Added
+
+- feat: Implement exponentiation operator (**) with std::pow and automatic cmath inclusion
+- feat: Add numeric separators support (1_000_000, 3.14_159, 0xFF_EC, 0b1010_0001)
+- feat: Enhanced destructuring assignment with fixed duplicate declarations
+- feat: Advanced spread operator support with array concatenation
+- feat: Add slice() methods to js::array and js::any for rest element support
+- feat: Comprehensive test suites for modern JavaScript operators
+- feat: Automatic empty array type deduction (js::array<js::any>{})
+
 ### Fixed
 
+- fix: Destructuring code generation now only in source files (no duplicates in headers)
+- fix: Empty array template deduction issues resolved
+- fix: Spread operator fallback to addition (now uses proper ** mapping)
 - fix: Add coverage files to .gitignore (cov_profile/, coverage.lcov)
+
+### Enhanced
+
+- enhance: Runtime library with concat() methods for array spreading
+- enhance: BinaryOp type system to include exponentiation operator
+- enhance: Pre-release QA process with comprehensive checks
+- enhance: Code formatting and linting compliance
 
 ## [0.5.0] - 2025-08-07
 

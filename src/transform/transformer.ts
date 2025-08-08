@@ -159,7 +159,8 @@ type BinaryOp =
   | "<<"
   | ">>"
   | ">>>"
-  | "??";
+  | "??"
+  | "**";
 
 /**
  * Unary operator type (matching IR)
@@ -1231,8 +1232,8 @@ class ASTTransformer {
 
     for (const arg of node.arguments) {
       if (ts.isSpreadElement(arg)) {
-        // Handle spread arguments later
-        this.warn("Spread arguments not yet supported");
+        // Transform spread argument
+        args.push(this.transformSpreadElement(arg));
       } else {
         args.push(this.transformExpression(arg));
       }
@@ -1836,6 +1837,7 @@ class ASTTransformer {
       ">>": ">>",
       ">>>": ">>>",
       "??": "??",
+      "**": "**",
     };
 
     return mapping[op] || "+";
