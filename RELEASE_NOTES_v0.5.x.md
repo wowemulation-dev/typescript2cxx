@@ -60,7 +60,7 @@ Version 0.5.3 delivers significant language feature enhancements with full suppo
 
 - **Abstract classes**: Comprehensive test coverage for abstract class features
 - **Computed properties**: Tests for dynamic property access
-- **Enums**: Enum declaration and usage tests
+- **Enums**: Complete enum functionality test suite (numeric, string, mixed, const, reverse mapping)
 - **Functions**: Optional parameters, default values, rest parameters
 - **Logical assignment**: Tests for `&&=`, `||=`, `??=` operators
 - **Nullish coalescing**: Tests for `??` operator
@@ -93,6 +93,23 @@ Version 0.5.3 delivers significant language feature enhancements with full suppo
 - **Full backward compatibility**: No breaking changes to public APIs
 - **Feature preservation**: All existing transpilation functionality maintained
 - **Test stability**: Core features remain fully tested and functional
+
+#### Enum Support Enhancement
+
+- **Complete enum functionality**: Full TypeScript enum transpilation to C++
+  - Numeric enums with auto-increment (0, 1, 2...)
+  - String enums with explicit values (`"UP"`, `"DOWN"`, etc.)
+  - Mixed enums (numeric and string values combined)
+  - Const enums with inline value substitution
+  - Proper C++ namespace generation for enum values
+  - Reverse mapping support (`Color[0]` → `"Red"`)
+
+- **C++ generation improvements**:
+  - Header/source separation with `extern const` declarations
+  - Proper `getName(key)` function for reverse mapping
+  - Namespace-based organization (`Direction::Up`, `Color::Red`)
+  - Correct scoping (global scope, not inside functions)
+  - Type-safe enum member access with `::` operator
 
 ### Known Limitations
 
@@ -374,9 +391,9 @@ _Planned_
 ### Planned Features
 
 - Logical assignment operators (`&&=`, `||=`, `??=`)
-- Enhanced enum functionality
-- Improved for loop iteration
-- Arrow functions and array methods (`.map()`, `.filter()`, etc.)
+- Rest parameters for functions (`...args`)
+- Arrow functions with proper `this` binding
+- Array methods improvements (`.map()`, `.filter()`, `.reduce()`)
 
 ### Planned Improvements
 
