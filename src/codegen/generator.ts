@@ -166,7 +166,7 @@ class CppGenerator {
     const context: CodeGenContext = {
       indent: 0,
       forwardDeclarations: new Set(),
-      includes: new Set(["<iostream>", "<string>", "<memory>", "<vector>", "<map>"]),
+      includes: new Set(["<iostream>", "<string>", "<memory>", "<vector>", "<map>", "<optional>"]),
       typeDefinitions: [],
       headerContent: [],
       sourceContent: [],
@@ -1197,6 +1197,11 @@ std::shared_ptr<js::Promise<${innerType}>>
       return `(${left} == ${right})`;
     }
     if (expr.operator === "!==") {
+      // Special case: comparing optional parameter with undefined
+      if (right === "js::undefined") {
+        // For optional parameters, use .has_value() to check if they exist
+        return `${left}.has_value()`;
+      }
       return `(${left} != ${right})`;
     }
     if (expr.operator === "??") {
@@ -1467,11 +1472,20 @@ std::shared_ptr<js::Promise<${innerType}>>
         paramType = `std::unique_ptr<${type}>`;
       }
 
+      // Handle optional parameters
+      if (param.isOptional && !param.defaultValue) {
+        // Optional parameters without default values use std::optional
+        paramType = `std::optional<${paramType}>`;
+      }
+
       // Add default value if present and allowed
       let paramDecl = `${paramType} ${name}`;
       if (param.defaultValue && includeDefaults && context.isHeader) {
         const defaultExpr = this.generateExpression(param.defaultValue, context);
         paramDecl += ` = ${defaultExpr}`;
+      } else if (param.isOptional && !param.defaultValue && includeDefaults && context.isHeader) {
+        // Optional parameters without explicit default get std::nullopt
+        paramDecl += ` = std::nullopt`;
       }
 
       return paramDecl;
