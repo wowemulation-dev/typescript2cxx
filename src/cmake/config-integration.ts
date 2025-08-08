@@ -32,7 +32,7 @@ export function generateCMakeFromConfig(
     libraries: buildLibraries(config),
     findPackages: cmakeConfig.findPackages || [],
     executable: determineExecutable(config),
-    outputName: inferOutputName(config, cmakeConfig.projectName),
+    outputName: cmakeConfig.outputName || inferOutputName(config, cmakeConfig.projectName),
   };
 
   const generator = new CMakeGenerator(options);

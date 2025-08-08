@@ -1513,7 +1513,7 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       // For js::any objects, use bracket notation to access properties
       // This handles object property access on any type - check this BEFORE smart pointer check
-      if (property.startsWith('"') && property.endsWith('"')) {
+      if (typeof property === "string" && property.startsWith('"') && property.endsWith('"')) {
         // String literal property - use bracket notation
         return `${object}[${property}]`;
       }
@@ -1526,7 +1526,7 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       // Check if this is a known array method
       const arrayMethods = ["map", "filter", "reduce", "push", "pop", "length", "empty"];
-      if (arrayMethods.includes(property)) {
+      if (typeof property === "string" && arrayMethods.includes(property)) {
         // Generate direct method call for array methods
         return `${object}.${property}`;
       }

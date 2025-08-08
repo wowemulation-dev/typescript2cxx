@@ -44,14 +44,15 @@ async function processTestFile(testPath: string): Promise<TestResult> {
     }
 
     // Create output directory
-    const outputDir = join("../../.output/cmake-tests", testName);
+    const outputDir = join(Deno.cwd(), ".output", "cmake-tests", testName);
     await ensureDir(outputDir);
 
     // Transpile
     console.log(`  Transpiling ${testName}...`);
+    const runtimePath = join(Deno.cwd(), "runtime");
     const transpileResult = await transpile(tsCode, {
       outputName: testName,
-      runtime: "../../runtime",
+      runtime: runtimePath,
     });
     result.transpiled = true;
 
@@ -62,31 +63,57 @@ async function processTestFile(testPath: string): Promise<TestResult> {
     // Copy runtime
     const runtimeDir = join(outputDir, "runtime");
     await ensureDir(runtimeDir);
-    await Deno.copyFile("../../runtime/core.h", join(runtimeDir, "core.h"));
+    
+    // Copy all runtime files
+    const runtimeFiles = ["core.h", "core.cpp", "type_guards.h"];
+    for (const file of runtimeFiles) {
+      try {
+        await Deno.copyFile(join(runtimePath, file), join(runtimeDir, file));
+      } catch (error) {
+        console.warn(`  Warning: Could not copy runtime file ${file}: ${error.message}`);
+      }
+    }
 
     // Load configuration and generate CMakeLists.txt
-    const { default: config } = await import("../../typescript2cxx.config.ts");
+    const configPath = join(Deno.cwd(), "typescript2cxx.config.ts");
+    const { default: config } = await import(configPath);
     const testConfig: TranspilerConfig = {
       ...config,
+      target: {
+        ...config.target,
+        stdlib: "libstdc++", // Use standard libstdc++ which is more commonly available
+      },
       runtime: {
         ...config.runtime,
         library: undefined, // Don't link external runtime library for testing
+        includes: [], // Don't add runtime includes since we copy them locally
+        features: {
+          ...config.runtime?.features,
+          threads: false, // Disable pthread for simple tests
+        },
       },
       integration: {
         ...config.integration,
         cmake: {
-          ...config.integration?.cmake,
           generate: true,
-          projectName: testName.charAt(0).toUpperCase() + testName.slice(1),
+          projectName: testName.replace(/-/g, "_"), // Replace hyphens with underscores
+          minimumVersion: "3.10",
           findPackages: [], // Override to remove external dependencies for testing
+        },
+        conan: {
+          generate: false, // Disable Conan completely for tests
+          requires: [],
         },
       },
     };
 
+    // Set the output name to match the test name
+    testConfig.integration.cmake.outputName = testName.replace(/-/g, "_");
+    
     const cmakeContent = generateCMakeFromConfig(
       testConfig,
-      [`${testName}.cpp`],
-      [`${testName}.h`],
+      [`${testName}.cpp`, "runtime/core.cpp"],
+      [`${testName}.h`, "runtime/core.h"],
     );
     await Deno.writeTextFile(join(outputDir, "CMakeLists.txt"), cmakeContent);
     result.cmakeGenerated = true;
@@ -132,7 +159,7 @@ async function processTestFile(testPath: string): Promise<TestResult> {
 
     // Try to run the executable
     console.log(`  Running ${testName}...`);
-    const exePath = join(buildDir, testName);
+    const exePath = join(buildDir, testName.replace(/-/g, "_"));
     const runCmd = new Deno.Command(exePath, {
       stdout: "piped",
       stderr: "piped",
