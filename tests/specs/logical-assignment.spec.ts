@@ -19,9 +19,8 @@ describe("Logical Assignment Operators", () => {
     assertEquals(typeof result.source, "string");
 
     // Then test compilation and execution
-    const e2eResult = await runEndToEndTest(code, expectedOutput);
-    assertEquals(e2eResult.success, true, e2eResult.error);
-    assertEquals(e2eResult.output, expectedOutput);
+    // runEndToEndTest throws on failure, no need to check result
+    await runEndToEndTest(code, expectedOutput);
   }
 
   it("should handle &&= operator (logical AND assignment)", async () => {
