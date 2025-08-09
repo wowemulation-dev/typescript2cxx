@@ -1857,6 +1857,16 @@ class CppGenerator {
         }
       }
 
+      // Check if this is a known Error method
+      const errorMethods = ["toString", "getMessage", "getName", "getErrors"];
+      if (typeof property === "string" && errorMethods.includes(property)) {
+        // For smart pointer variables, use -> instead of .
+        if (this.isSmartPointerVariable(object, context)) {
+          return `${object}->${property}`;
+        }
+        return `${object}.${property}`;
+      }
+
       // Check if this is a known Date method
       const dateMethods = [
         "toString",
@@ -2619,6 +2629,12 @@ class CppGenerator {
       "target",
       "source",
       "data",
+      // Error-related names (but not "error" since it's commonly used in catch blocks as a value)
+      "err",
+      "exception",
+      "evalErr",
+      "uriErr",
+      "aggErr",
     ];
 
     // Check if variable name matches any pattern

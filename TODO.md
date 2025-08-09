@@ -180,12 +180,14 @@ Based on analysis of both reference implementations:
   - ✅ Global functions:
     - ✅ parseInt, parseFloat
     - ✅ isNaN, isFinite
-    - [ ] encodeURI, decodeURI, encodeURIComponent, decodeURIComponent
+    - ✅ encodeURI, decodeURI, encodeURIComponent, decodeURIComponent
     - [ ] eval (if supported)
   - ✅ `Error` and error subclasses:
     - ✅ Error, TypeError, ReferenceError, SyntaxError, RangeError
-    - [ ] EvalError, URIError, AggregateError
-  - [ ] `Promise` and microtask queue
+    - ✅ EvalError, URIError, AggregateError
+  - ✅ `Promise` implementation with async/await
+    - ✅ Promise.all and Promise.race methods
+    - [ ] Promise.allSettled, Promise.any
   - [ ] `ArrayBuffer` and views
   - [ ] `URL` and `URLSearchParams`
   - [ ] `TextEncoder`/`TextDecoder`

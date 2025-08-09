@@ -1133,6 +1133,32 @@ public:
     }
 };
 
+// EvalError class for JavaScript EvalError support
+class EvalError : public Error {
+public:
+    EvalError() : Error("", "EvalError") {}
+    EvalError(const string& message) : Error(message, "EvalError") {}
+};
+
+// URIError class for JavaScript URIError support
+class URIError : public Error {
+public:
+    URIError() : Error("", "URIError") {}
+    URIError(const string& message) : Error(message, "URIError") {}
+};
+
+// AggregateError class for JavaScript AggregateError support
+class AggregateError : public Error {
+private:
+    std::vector<any> errors_;
+public:
+    AggregateError() : Error("", "AggregateError") {}
+    AggregateError(const std::vector<any>& errors, const string& message = "") 
+        : Error(message, "AggregateError"), errors_(errors) {}
+    
+    const std::vector<any>& getErrors() const { return errors_; }
+};
+
 // Implementation of any constructors that need complete type definitions
 inline any::any(const Date& val) {
     object obj;
@@ -1586,6 +1612,94 @@ std::shared_ptr<function> make_function(F&& f) {
 template<typename F>
 std::shared_ptr<function> lambda(F&& f) {
     return make_function(std::forward<F>(f));
+}
+
+// URL encoding/decoding global functions
+inline string encodeURI(const string& uri) {
+    std::string result;
+    std::string str = uri.toStdString();
+    for (size_t i = 0; i < str.length(); ++i) {
+        unsigned char c = str[i];
+        // Characters that don't need encoding (RFC 3986 unreserved + reserved)
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~' ||
+            c == '!' || c == '#' || c == '$' || c == '&' || c == '\'' || c == '(' ||
+            c == ')' || c == '*' || c == '+' || c == ',' || c == '/' || c == ':' ||
+            c == ';' || c == '=' || c == '?' || c == '@' || c == '[' || c == ']') {
+            result += c;
+        } else {
+            // Encode as %XX
+            char hex[4];
+            snprintf(hex, sizeof(hex), "%%%02X", c);
+            result += hex;
+        }
+    }
+    return string(result);
+}
+
+inline string decodeURI(const string& uri) {
+    std::string result;
+    std::string str = uri.toStdString();
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] == '%' && i + 2 < str.length()) {
+            // Decode %XX
+            char hex[3] = { str[i + 1], str[i + 2], '\0' };
+            char* end;
+            long val = strtol(hex, &end, 16);
+            if (end == hex + 2) {
+                result += static_cast<char>(val);
+                i += 2;
+            } else {
+                // Invalid hex sequence, keep as-is
+                result += str[i];
+            }
+        } else {
+            result += str[i];
+        }
+    }
+    return string(result);
+}
+
+inline string encodeURIComponent(const string& component) {
+    std::string result;
+    std::string str = component.toStdString();
+    for (size_t i = 0; i < str.length(); ++i) {
+        unsigned char c = str[i];
+        // Characters that don't need encoding (RFC 3986 unreserved only)
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+            result += c;
+        } else {
+            // Encode as %XX
+            char hex[4];
+            snprintf(hex, sizeof(hex), "%%%02X", c);
+            result += hex;
+        }
+    }
+    return string(result);
+}
+
+inline string decodeURIComponent(const string& component) {
+    std::string result;
+    std::string str = component.toStdString();
+    for (size_t i = 0; i < str.length(); ++i) {
+        if (str[i] == '%' && i + 2 < str.length()) {
+            // Decode %XX
+            char hex[3] = { str[i + 1], str[i + 2], '\0' };
+            char* end;
+            long val = strtol(hex, &end, 16);
+            if (end == hex + 2) {
+                result += static_cast<char>(val);
+                i += 2;
+            } else {
+                // Invalid hex sequence, keep as-is
+                result += str[i];
+            }
+        } else {
+            result += str[i];
+        }
+    }
+    return string(result);
 }
 
 } // namespace js
