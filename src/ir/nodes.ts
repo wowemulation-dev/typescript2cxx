@@ -1283,7 +1283,7 @@ export interface IRObjectPattern extends IRPattern {
  */
 export interface IRObjectPatternProperty {
   /** Property key */
-  key: IRIdentifier | IRLiteral;
+  key: IRIdentifier | IRLiteral | IRExpression;
 
   /** Variable binding or nested pattern */
   value: IRIdentifier | IRPattern;
@@ -1293,6 +1293,12 @@ export interface IRObjectPatternProperty {
 
   /** Is rest property (...rest) */
   rest?: boolean;
+
+  /** Default value for the property */
+  defaultValue?: IRExpression;
+
+  /** Renamed property name (for { prop: newName } patterns) */
+  renamed?: string;
 }
 
 /**

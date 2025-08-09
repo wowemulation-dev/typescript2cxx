@@ -2002,12 +2002,24 @@ class ASTTransformer {
           value = { kind: IRNodeKind.Identifier, name: "unknown" };
         }
 
-        properties.push({
+        const prop: IRObjectPatternProperty = {
           key,
           value,
           shorthand: !element.propertyName && ts.isIdentifier(element.name),
           rest: element.dotDotDotToken !== undefined,
-        });
+        };
+
+        // Handle default value
+        if (element.initializer) {
+          prop.defaultValue = this.transformExpression(element.initializer);
+        }
+
+        // Handle renamed property (propertyName exists and name is an identifier)
+        if (element.propertyName && ts.isIdentifier(element.name)) {
+          prop.renamed = element.name.text;
+        }
+
+        properties.push(prop);
       }
     }
 

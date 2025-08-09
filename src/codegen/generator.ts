@@ -2555,18 +2555,21 @@ class CppGenerator {
     init: IRExpression | undefined,
     declarationKind: string,
     context: CodeGenContext,
+    tempVarPrefix?: string,
   ): string {
-    if (!init) {
+    if (!init && !tempVarPrefix) {
       return "// Error: Destructuring requires initializer";
     }
 
     const lines: string[] = [];
-    const tempVar = `_temp${Math.floor(Math.random() * 10000)}`;
-    const initCode = this.generateExpression(init, context);
+    const tempVar = tempVarPrefix || `_temp${Math.floor(Math.random() * 10000)}`;
     const isConst = declarationKind === "const";
 
-    // Generate temporary variable to hold the value
-    lines.push(`auto ${tempVar} = ${initCode};`);
+    // Generate temporary variable to hold the value (only if not already provided)
+    if (!tempVarPrefix && init) {
+      const initCode = this.generateExpression(init, context);
+      lines.push(`auto ${tempVar} = ${initCode};`);
+    }
 
     if (pattern.kind === IRNodeKind.ObjectPattern) {
       // Object destructuring
@@ -2578,16 +2581,46 @@ class CppGenerator {
         if (prop.rest) {
           // Handle rest properties - collect all remaining properties
           restVarName = (prop.value as IRIdentifier).name;
-        } else if (prop.value.kind === IRNodeKind.Identifier) {
-          const varName = (prop.value as IRIdentifier).name;
+        } else {
           const propKey = prop.key.kind === IRNodeKind.Identifier
             ? (prop.key as IRIdentifier).name
-            : String((prop.key as IRLiteral).value);
-          lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}["${propKey}"];`);
-          extractedKeys.push(propKey);
-        } else {
-          // Nested destructuring
-          lines.push("// TODO: Nested destructuring");
+            : prop.key.kind === IRNodeKind.Literal
+            ? String((prop.key as IRLiteral).value)
+            : this.generateExpression(prop.key, context); // Computed property
+          
+          // Handle renamed properties (e.g., { name: userName })
+          const targetName = prop.renamed || 
+            (prop.value.kind === IRNodeKind.Identifier ? (prop.value as IRIdentifier).name : null);
+          
+          if (prop.value.kind === IRNodeKind.Identifier && targetName) {
+            // Simple property extraction (possibly with rename)
+            const varName = targetName;
+            
+            // Handle default values
+            if (prop.defaultValue) {
+              const defaultExpr = this.generateExpression(prop.defaultValue, context);
+              lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.has("${propKey}") && !${tempVar}["${propKey}"].is_undefined() ? ${tempVar}["${propKey}"] : ${defaultExpr};`);
+            } else {
+              lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}["${propKey}"];`);
+            }
+            extractedKeys.push(propKey);
+          } else if (prop.value.kind === IRNodeKind.ObjectPattern || prop.value.kind === IRNodeKind.ArrayPattern) {
+            // Nested destructuring
+            const nestedTempVar = `${tempVar}_${propKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            lines.push(`auto ${nestedTempVar} = ${tempVar}["${propKey}"];`);
+            const nestedCode = this.generateDestructuring(
+              prop.value,
+              undefined,
+              declarationKind,
+              context,
+              nestedTempVar
+            );
+            lines.push(nestedCode);
+            extractedKeys.push(propKey);
+          } else {
+            // Other patterns (should not happen in well-formed code)
+            lines.push(`// TODO: Complex pattern for property ${propKey}`);
+          }
         }
       }
 
@@ -2620,7 +2653,14 @@ class CppGenerator {
           index++;
         } else if (element.kind === IRNodeKind.Identifier) {
           const varName = (element as IRIdentifier).name;
-          lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}[${index}];`);
+          
+          // Handle default values for array elements
+          if ((element as any).defaultValue) {
+            const defaultExpr = this.generateExpression((element as any).defaultValue, context);
+            lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.length() > ${index} ? ${tempVar}[${index}] : ${defaultExpr};`);
+          } else {
+            lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}[${index}];`);
+          }
           index++;
         } else if (element.kind === IRNodeKind.RestElement) {
           // Rest element
@@ -2630,9 +2670,22 @@ class CppGenerator {
             lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.slice(${index});`);
           }
           break; // Rest element must be last
+        } else if (element.kind === IRNodeKind.ArrayPattern || element.kind === IRNodeKind.ObjectPattern) {
+          // Nested destructuring
+          const nestedTempVar = `${tempVar}_elem${index}`;
+          lines.push(`auto ${nestedTempVar} = ${tempVar}[${index}];`);
+          const nestedCode = this.generateDestructuring(
+            element,
+            undefined,
+            declarationKind,
+            context,
+            nestedTempVar
+          );
+          lines.push(nestedCode);
+          index++;
         } else {
-          // Nested pattern
-          lines.push("// TODO: Nested array destructuring");
+          // Other patterns
+          lines.push(`// TODO: Complex array element pattern at index ${index}`);
           index++;
         }
       }
