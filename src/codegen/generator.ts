@@ -21,6 +21,10 @@ import type {
   IRDecoratorMetadata as _IRDecoratorMetadata,
   IREnumDeclaration,
   IREnumMember as _IREnumMember,
+  IRExportAllDeclaration,
+  IRExportDeclaration,
+  IRExportDefaultDeclaration,
+  IRExportNamedDeclaration,
   IRExpression,
   IRExpressionStatement,
   IRForInStatement,
@@ -29,11 +33,13 @@ import type {
   IRFunctionDeclaration,
   IRIdentifier,
   IRIfStatement,
+  IRImportDeclaration,
   IRInterfaceDeclaration,
   IRLiteral,
   IRMemberExpression,
   IRMethodDefinition,
   IRModule,
+  IRNamespaceDeclaration,
   IRNewExpression,
   IRObjectExpression,
   IRObjectPattern,
@@ -112,6 +118,12 @@ interface CodeGenContext {
 
   /** Current namespace */
   namespace?: string;
+  
+  /** Namespace imports (import * as ns from ...) */
+  namespaceImports: Map<string, string>;
+  
+  /** User-defined namespaces in current module */
+  userNamespaces: Set<string>;
 
   /** Whether we're generating header or source */
   isHeader: boolean;
@@ -190,6 +202,8 @@ class CppGenerator {
       typeDefinitions: [],
       headerContent: [],
       sourceContent: [],
+      namespaceImports: new Map(),
+      userNamespaces: new Set(),
       isHeader: true,
       options: this.options.options,
     };
@@ -251,6 +265,9 @@ class CppGenerator {
    * Generate module header content
    */
   private generateModuleHeader(module: IRModule, context: CodeGenContext): void {
+    // Generate import includes
+    this.generateImportIncludes(module, context);
+
     // First pass: collect forward declarations
     for (const stmt of module.body) {
       this.collectForwardDeclarations(stmt, context);
@@ -321,6 +338,20 @@ class CppGenerator {
    */
   private generateStatement(stmt: IRStatement, context: CodeGenContext): string {
     switch (stmt.kind) {
+      case IRNodeKind.ImportDeclaration:
+        // Imports are handled in generateImportIncludes
+        return "";
+
+      case IRNodeKind.ExportDeclaration:
+      case IRNodeKind.ExportNamedDeclaration:
+      case IRNodeKind.ExportDefaultDeclaration:
+      case IRNodeKind.ExportAllDeclaration:
+        // Exports don't generate separate code, they just modify declarations
+        return "";
+
+      case IRNodeKind.NamespaceDeclaration:
+        return this.generateNamespace(stmt as IRNamespaceDeclaration, context);
+
       case IRNodeKind.FunctionDeclaration:
         return this.generateFunction(stmt as IRFunctionDeclaration, context);
 
@@ -1492,9 +1523,12 @@ std::shared_ptr<js::Promise<${innerType}>>
       "Array": "js::array",
     };
 
-    const mappedName = identifierMap[id.name];
-    if (mappedName) {
-      return mappedName;
+    // Don't map if it's a user-defined namespace
+    if (!context.userNamespaces.has(id.name)) {
+      const mappedName = identifierMap[id.name];
+      if (mappedName) {
+        return mappedName;
+      }
     }
 
     // Check if this identifier refers to a rest parameter that needs to be mapped to its array
@@ -1654,6 +1688,13 @@ std::shared_ptr<js::Promise<${innerType}>>
    */
   private generateMember(expr: IRMemberExpression, context: CodeGenContext): string {
     const object = this.generateExpression(expr.object, context);
+
+    // Check if this is a namespace import access (e.g., utils.formatString)
+    if (!expr.computed && context.namespaceImports.has(object)) {
+      const property = this.generateExpression(expr.property, context);
+      const namespaceName = context.namespaceImports.get(object);
+      return `${namespaceName}::${property}`;
+    }
 
     if (expr.computed) {
       const property = this.generateExpression(expr.property, context);
@@ -2240,6 +2281,7 @@ std::shared_ptr<js::Promise<${innerType}>>
       IRNodeKind.InterfaceDeclaration,
       IRNodeKind.EnumDeclaration,
       IRNodeKind.VariableDeclaration,
+      IRNodeKind.NamespaceDeclaration,
     ].includes(stmt.kind);
   }
 
@@ -2695,5 +2737,92 @@ std::shared_ptr<js::Promise<${innerType}>>
     lines.push("};");
 
     return lines.join("\n");
+  }
+
+  /**
+   * Generate import includes
+   */
+  private generateImportIncludes(module: IRModule, context: CodeGenContext): void {
+    for (const importInfo of module.imports) {
+      const headerPath = this.resolveImportPath(importInfo.from);
+      context.includes.add(headerPath);
+      
+      // Track namespace imports for member expression generation
+      if (importInfo.isNamespace && importInfo.namespace) {
+        // Extract the module name from the path for C++ namespace
+        const moduleName = importInfo.from.replace(/^\.\//, '').replace(/\.(ts|js)$/, '');
+        context.namespaceImports.set(importInfo.namespace, moduleName);
+      }
+    }
+  }
+
+  /**
+   * Resolve import path to header path
+   */
+  private resolveImportPath(modulePath: string): string {
+    // Handle different types of imports
+    if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
+      // Relative imports - convert to header includes
+      return `"${modulePath.replace(/\.ts$|\.js$/, "")}.h"`;
+    } else if (modulePath.startsWith("/")) {
+      // Absolute imports
+      return `"${modulePath.replace(/\.ts$|\.js$/, "")}.h"`;
+    } else {
+      // Package imports - use angle brackets
+      return `<${modulePath}.h>`;
+    }
+  }
+
+  /**
+   * Generate namespace declaration
+   */
+  private generateNamespace(ns: IRNamespaceDeclaration, context: CodeGenContext): string {
+    const lines: string[] = [];
+    
+    // Handle nested namespaces (e.g., A.B.C -> namespace A { namespace B { namespace C { ... } } })
+    const namespaces = ns.nested || [ns.name];
+    
+    // Track user-defined namespace
+    context.userNamespaces.add(ns.name);
+    
+    // Open namespace declarations
+    for (const name of namespaces) {
+      lines.push(`${this.getIndent(context)}namespace ${name} {`);
+      context.indent++;
+    }
+    
+    lines.push("");
+
+    // Generate namespace body
+    for (const stmt of ns.body) {
+      const stmtCode = this.generateStatement(stmt, context);
+      if (stmtCode) {
+        lines.push(stmtCode);
+        lines.push("");
+      }
+    }
+
+    // Close namespace declarations
+    for (let i = namespaces.length - 1; i >= 0; i--) {
+      context.indent--;
+      lines.push(`${this.getIndent(context)}} // namespace ${namespaces[i]}`);
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Check if statement needs namespace qualified access
+   */
+  private needsNamespaceAccess(stmt: IRStatement, module: IRModule): boolean {
+    // Check if the statement references imported items that need namespace qualification
+    for (const importInfo of module.imports) {
+      if (importInfo.isNamespace && importInfo.namespace) {
+        // This would need more sophisticated analysis to detect usage
+        // For now, assume all namespace imports need qualification
+        return true;
+      }
+    }
+    return false;
   }
 }

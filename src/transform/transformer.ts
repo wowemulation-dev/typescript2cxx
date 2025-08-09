@@ -24,6 +24,11 @@ import type {
   IRDecoratorMetadata,
   IREnumDeclaration,
   IREnumMember,
+  IRExportAllDeclaration,
+  IRExportDeclaration,
+  IRExportDefaultDeclaration,
+  IRExportNamedDeclaration,
+  IRExportSpecifier,
   IRExpression,
   IRExpressionStatement,
   IRForInStatement,
@@ -32,11 +37,17 @@ import type {
   IRFunctionDeclaration,
   IRIdentifier,
   IRIfStatement,
+  IRImportDeclaration,
+  IRImportDefaultSpecifier,
+  IRImportNamespaceSpecifier,
+  IRImportSpecifier,
   IRInterfaceDeclaration,
   IRLiteral,
   IRMemberExpression,
   IRMethodDefinition,
   IRModule,
+  IRNamedImportSpecifier,
+  IRNamespaceDeclaration,
   IRNewExpression,
   IRNode,
   IRObjectExpression,
@@ -231,10 +242,16 @@ class ASTTransformer {
   private transformModuleItem(node: ts.Statement): IRStatement | null {
     switch (node.kind) {
       case ts.SyntaxKind.ImportDeclaration:
-        return this.transformImport(node as ts.ImportDeclaration);
+        return this.transformImportDeclaration(node as ts.ImportDeclaration);
 
       case ts.SyntaxKind.ExportDeclaration:
-        return this.transformExport(node as ts.ExportDeclaration);
+        return this.transformExportDeclaration(node as ts.ExportDeclaration);
+      
+      case ts.SyntaxKind.ExportAssignment:
+        return this.transformExportAssignment(node as ts.ExportAssignment);
+
+      case ts.SyntaxKind.ModuleDeclaration:
+        return this.transformNamespaceDeclaration(node as ts.ModuleDeclaration);
 
       case ts.SyntaxKind.FunctionDeclaration:
         return this.transformFunctionDeclaration(node as ts.FunctionDeclaration);
@@ -296,30 +313,200 @@ class ASTTransformer {
   /**
    * Transform import declaration
    */
-  private transformImport(node: any): null {
-    // Track imports but don't generate IR nodes for them
-    if (node.source?.value) {
-      this.context.currentModule.imports.push(node.source.value);
+  private transformImportDeclaration(node: ts.ImportDeclaration): IRImportDeclaration | null {
+    const source = node.moduleSpecifier;
+    if (!ts.isStringLiteral(source)) {
+      this.warn("Dynamic imports are not supported");
+      return null;
     }
-    return null;
+
+    const specifiers: IRImportSpecifier[] = [];
+    
+    if (node.importClause) {
+      const { name: defaultBinding, namedBindings } = node.importClause;
+      
+      // Handle default import (import Foo from "module")
+      if (defaultBinding) {
+        specifiers.push({
+          type: "default",
+          local: defaultBinding.text,
+        });
+      }
+      
+      // Handle named and namespace imports
+      if (namedBindings) {
+        if (ts.isNamespaceImport(namedBindings)) {
+          // import * as Foo from "module"
+          specifiers.push({
+            type: "namespace",
+            local: namedBindings.name.text,
+          });
+        } else if (ts.isNamedImports(namedBindings)) {
+          // import { Foo, Bar as Baz } from "module"
+          for (const element of namedBindings.elements) {
+            specifiers.push({
+              type: "named",
+              imported: element.propertyName?.text || element.name.text,
+              local: element.name.text,
+            });
+          }
+        }
+      }
+    }
+    
+    // Track import for header generation
+    this.context.currentModule.imports.push({
+      from: source.text,
+      items: specifiers.map(spec => ({
+        imported: spec.type === "named" ? (spec as IRNamedImportSpecifier).imported : spec.local,
+        local: spec.local,
+        isType: false,
+      })),
+      isNamespace: specifiers.some(s => s.type === "namespace"),
+      namespace: specifiers.find(s => s.type === "namespace")?.local,
+    });
+
+    return {
+      kind: IRNodeKind.ImportDeclaration,
+      source: source.text,
+      specifiers,
+      isTypeOnly: false,
+      location: this.getLocation(node),
+    };
   }
 
   /**
    * Transform export declaration
    */
-  private transformExport(node: any): IRStatement | null {
-    if (node.declaration) {
-      const stmt = this.transformModuleItem(node.declaration);
-
-      // Track exported names
-      if (node.declaration.id?.value) {
-        this.context.currentModule.exports.push(node.declaration.id.value);
+  private transformExportDeclaration(node: ts.ExportDeclaration): IRExportNamedDeclaration | IRExportAllDeclaration | null {
+    const source = node.moduleSpecifier;
+    const sourceText = source && ts.isStringLiteral(source) ? source.text : undefined;
+    
+    if (node.exportClause) {
+      if (ts.isNamedExports(node.exportClause)) {
+        // export { Foo, Bar as Baz } from "module" or export { Foo, Bar as Baz }
+        const specifiers: IRExportSpecifier[] = [];
+        
+        for (const element of node.exportClause.elements) {
+          const local = element.propertyName?.text || element.name.text;
+          const exported = element.name.text;
+          
+          specifiers.push({ local, exported });
+          
+          // Track exported name
+          this.context.currentModule.exports.push(exported);
+        }
+        
+        // For re-exports, also track as an import
+        if (sourceText) {
+          this.context.currentModule.imports.push({
+            from: sourceText,
+            items: specifiers.map(spec => ({
+              imported: spec.local,
+              local: spec.exported,
+              isType: false,
+            })),
+            isNamespace: false,
+          });
+        }
+        
+        return {
+          kind: IRNodeKind.ExportNamedDeclaration,
+          specifiers,
+          source: sourceText,
+          location: this.getLocation(node),
+        };
       }
-
-      return stmt;
+    } else if (sourceText) {
+      // export * from "module"
+      // Track as import for header generation
+      this.context.currentModule.imports.push({
+        from: sourceText,
+        items: [],
+        isNamespace: false,
+      });
+      
+      return {
+        kind: IRNodeKind.ExportAllDeclaration,
+        source: sourceText,
+        location: this.getLocation(node),
+      };
     }
-
+    
     return null;
+  }
+
+  /**
+   * Transform export assignment (export = or export default)
+   */
+  private transformExportAssignment(node: ts.ExportAssignment): IRExportDefaultDeclaration | null {
+    if (!node.isExportEquals) {
+      // export default expression
+      const declaration = this.transformExpression(node.expression);
+      
+      this.context.currentModule.exports.push("default");
+      
+      return {
+        kind: IRNodeKind.ExportDefaultDeclaration,
+        declaration,
+        location: this.getLocation(node),
+      };
+    }
+    
+    // export = syntax is not supported in ES modules
+    this.warn("CommonJS export= syntax is not supported");
+    return null;
+  }
+
+  /**
+   * Transform namespace declaration
+   */
+  private transformNamespaceDeclaration(node: ts.ModuleDeclaration): IRNamespaceDeclaration | null {
+    if (!node.name || !node.body) {
+      return null;
+    }
+    
+    const name = ts.isIdentifier(node.name) ? node.name.text : node.name.text;
+    const body: IRStatement[] = [];
+    
+    // Handle dotted namespace names (e.g., A.B.C)
+    const nested: string[] = [];
+    if (ts.isQualifiedName(node.name)) {
+      // Extract nested namespace parts
+      let current: ts.EntityName = node.name;
+      while (ts.isQualifiedName(current)) {
+        nested.unshift(current.right.text);
+        current = current.left;
+      }
+      nested.unshift(ts.isIdentifier(current) ? current.text : (current as ts.StringLiteral).text);
+    }
+    
+    // Process namespace body
+    if (ts.isModuleBlock(node.body)) {
+      for (const statement of node.body.statements) {
+        const stmt = this.transformModuleItem(statement);
+        if (stmt) {
+          body.push(stmt);
+        }
+      }
+    } else if (ts.isModuleDeclaration(node.body)) {
+      // Nested namespace declaration
+      const nestedNs = this.transformNamespaceDeclaration(node.body);
+      if (nestedNs) {
+        body.push(nestedNs);
+      }
+    }
+    
+    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) || false;
+    
+    return {
+      kind: IRNodeKind.NamespaceDeclaration,
+      name,
+      body,
+      isExported,
+      nested: nested.length > 1 ? nested : undefined,
+      location: this.getLocation(node),
+    };
   }
 
   /**
@@ -333,6 +520,15 @@ class ASTTransformer {
     // Check if function is async
     const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) ||
       false;
+    
+    // Check if function is exported
+    const isExported = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.ExportKeyword) ||
+      false;
+    
+    // Track exported function
+    if (isExported) {
+      this.context.currentModule.exports.push(name);
+    }
 
     const func: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
@@ -374,6 +570,15 @@ class ASTTransformer {
    */
   private transformClassDeclaration(node: ts.ClassDeclaration): IRClassDeclaration {
     const name = node.name?.text || "anonymous";
+    
+    // Check if class is exported
+    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ||
+      false;
+    
+    // Track exported class
+    if (isExported) {
+      this.context.currentModule.exports.push(name);
+    }
 
     // Get superclass from heritage clauses
     let superClassExpr: IRExpression | undefined;
@@ -585,6 +790,10 @@ class ASTTransformer {
    */
   private transformVariableStatement(node: ts.VariableStatement): IRVariableDeclaration {
     const declarations: IRVariableDeclarator[] = [];
+    
+    // Check if variables are exported
+    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ||
+      false;
 
     for (const decl of node.declarationList.declarations) {
       // Handle both simple identifiers and destructuring patterns
@@ -596,6 +805,11 @@ class ASTTransformer {
           name: decl.name.text,
         };
         this.addToScope(decl.name.text, id as IRIdentifier);
+        
+        // Track exported variables
+        if (isExported) {
+          this.context.currentModule.exports.push(decl.name.text);
+        }
       } else if (ts.isObjectBindingPattern(decl.name)) {
         id = this.transformObjectBindingPattern(decl.name);
       } else if (ts.isArrayBindingPattern(decl.name)) {
@@ -1236,6 +1450,23 @@ class ASTTransformer {
    * Transform call expression
    */
   private transformCallExpression(node: ts.CallExpression): IRCallExpression {
+    // Check if this is a dynamic import call
+    if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      // Handle dynamic import
+      if (node.arguments.length > 0) {
+        const moduleArg = node.arguments[0];
+        if (ts.isStringLiteral(moduleArg)) {
+          // Track as import for header generation
+          this.context.currentModule.imports.push({
+            from: moduleArg.text,
+            items: [],
+            isNamespace: false,
+          });
+        }
+      }
+      // For now, still generate the call expression (it will be transformed in codegen)
+    }
+
     const args: IRExpression[] = [];
 
     for (const arg of node.arguments) {
@@ -2100,6 +2331,16 @@ class ASTTransformer {
       message,
       severity: "warning",
     });
+  }
+
+  private getLocation(node: ts.Node): any {
+    const sourceFile = node.getSourceFile();
+    const start = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+    const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
+    return {
+      start: { line: start.line + 1, column: start.character },
+      end: { line: end.line + 1, column: end.character },
+    };
   }
 
   /**

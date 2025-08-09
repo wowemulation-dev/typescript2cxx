@@ -33,6 +33,14 @@ export enum IRNodeKind {
   Module = "Module",
   Namespace = "Namespace",
 
+  // Module declarations
+  ImportDeclaration = "ImportDeclaration",
+  ExportDeclaration = "ExportDeclaration",
+  ExportNamedDeclaration = "ExportNamedDeclaration",
+  ExportDefaultDeclaration = "ExportDefaultDeclaration",
+  ExportAllDeclaration = "ExportAllDeclaration",
+  NamespaceDeclaration = "NamespaceDeclaration",
+
   // Declarations
   VariableDeclaration = "VariableDeclaration",
   FunctionDeclaration = "FunctionDeclaration",
@@ -223,6 +231,137 @@ export interface IRImportItem {
 
   /** Is type-only import */
   isType: boolean;
+}
+
+/**
+ * Import declaration node
+ */
+export interface IRImportDeclaration extends IRDeclaration {
+  kind: IRNodeKind.ImportDeclaration;
+
+  /** Module specifier */
+  source: string;
+
+  /** Imported items */
+  specifiers: IRImportSpecifier[];
+
+  /** Is type-only import */
+  isTypeOnly?: boolean;
+}
+
+/**
+ * Import specifier types
+ */
+export type IRImportSpecifier = IRImportDefaultSpecifier | IRImportNamespaceSpecifier | IRNamedImportSpecifier;
+
+/**
+ * Default import specifier (import Foo from "module")
+ */
+export interface IRImportDefaultSpecifier {
+  type: "default";
+  local: string;
+}
+
+/**
+ * Namespace import specifier (import * as Foo from "module")
+ */
+export interface IRImportNamespaceSpecifier {
+  type: "namespace";
+  local: string;
+}
+
+/**
+ * Named import specifier (import {Foo} from "module" or import {Foo as Bar} from "module")
+ */
+export interface IRNamedImportSpecifier {
+  type: "named";
+  imported: string;
+  local: string;
+}
+
+/**
+ * Export declaration types
+ */
+export interface IRExportDeclaration extends IRDeclaration {
+  kind: IRNodeKind.ExportDeclaration;
+  
+  /** The declaration being exported */
+  declaration?: IRDeclaration;
+  
+  /** Export specifiers for named exports */
+  specifiers?: IRExportSpecifier[];
+  
+  /** Source module for re-exports */
+  source?: string;
+}
+
+/**
+ * Export named declaration
+ */
+export interface IRExportNamedDeclaration extends IRDeclaration {
+  kind: IRNodeKind.ExportNamedDeclaration;
+  
+  /** The declaration being exported */
+  declaration?: IRDeclaration;
+  
+  /** Export specifiers */
+  specifiers: IRExportSpecifier[];
+  
+  /** Source module for re-exports */
+  source?: string;
+}
+
+/**
+ * Export default declaration
+ */
+export interface IRExportDefaultDeclaration extends IRDeclaration {
+  kind: IRNodeKind.ExportDefaultDeclaration;
+  
+  /** The declaration being exported as default */
+  declaration: IRDeclaration | IRExpression;
+}
+
+/**
+ * Export all declaration (export * from "module")
+ */
+export interface IRExportAllDeclaration extends IRDeclaration {
+  kind: IRNodeKind.ExportAllDeclaration;
+  
+  /** Source module */
+  source: string;
+  
+  /** Exported name for "export * as name from" syntax */
+  exported?: string;
+}
+
+/**
+ * Export specifier
+ */
+export interface IRExportSpecifier {
+  /** Local name being exported */
+  local: string;
+  
+  /** Exported name (for renamed exports) */
+  exported: string;
+}
+
+/**
+ * Namespace declaration
+ */
+export interface IRNamespaceDeclaration extends IRDeclaration {
+  kind: IRNodeKind.NamespaceDeclaration;
+  
+  /** Namespace name */
+  name: string;
+  
+  /** Namespace body */
+  body: IRStatement[];
+  
+  /** Is export namespace */
+  isExported?: boolean;
+  
+  /** Nested namespaces (for dotted notation like A.B.C) */
+  nested?: string[];
 }
 
 /**
