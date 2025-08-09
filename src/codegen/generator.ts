@@ -2,6 +2,8 @@
  * C++ code generator
  */
 
+import { createSourceMap } from "../sourcemap/generator.ts";
+
 import type {
   IRArrayExpression,
   IRArrayPattern,
@@ -123,6 +125,9 @@ interface CodeGenContext {
   /** Whether we're in an async function */
   isAsync?: boolean;
 
+  /** Rest parameter mappings (parameter name -> array variable name) */
+  restParamMappings?: Map<string, string>;
+
   /** Options */
   options: TranspileOptions;
 }
@@ -218,7 +223,28 @@ class CppGenerator {
     const header = this.buildHeader(guardName, context);
     const source = this.buildSource(outputName, context);
 
-    return { header, source };
+    // Generate source map if enabled
+    let sourceMap: string | undefined;
+    if (this.options.options.sourceMap) {
+      // Get original source information from options context
+      const originalSource = (this.options.context as any)?.originalSource || "";
+      const originalFilename = this.options.options.filename || "input.ts";
+
+      const sourceMaps = createSourceMap(
+        originalSource,
+        originalFilename,
+        header,
+        source,
+        `${outputName}.h`,
+        `${outputName}.cpp`,
+      );
+
+      // For now, return the source file source map
+      // In a full implementation, we'd return both header and source maps
+      sourceMap = sourceMaps.sourceSourceMap;
+    }
+
+    return { header, source, sourceMap };
   }
 
   /**
@@ -362,6 +388,10 @@ class CppGenerator {
     const params = this.generateParameters(func.params, context);
     let returnType = this.mapType(func.returnType);
 
+    // Check if function has rest parameters
+    const hasRestParams = func.params.some((p) => p.isRest);
+    const templateDecl = hasRestParams ? "template<typename... Args>\n" : "";
+
     // Handle async functions
     if (func.isAsync) {
       // Wrap return type in Task for C++20 coroutines
@@ -376,7 +406,7 @@ std::shared_ptr<js::Promise<${innerType}>>
 
     if (context.isHeader) {
       // Generate declaration
-      return `${returnType} ${name}(${params});`;
+      return `${templateDecl}${returnType} ${name}(${params});`;
     } else {
       // Generate implementation (no default parameters in implementation)
       const implParams = this.generateParameters(func.params, context, false);
@@ -384,7 +414,32 @@ std::shared_ptr<js::Promise<${innerType}>>
       context.isAsync = func.isAsync;
 
       const lines: string[] = [];
-      lines.push(`${returnType} ${name}(${implParams}) {`);
+      lines.push(`${templateDecl}${returnType} ${name}(${implParams}) {`);
+
+      // If function has rest parameters, convert variadic pack to array at start of function
+      if (hasRestParams) {
+        const restParam = func.params.find((p) => p.isRest);
+        if (restParam) {
+          context.indent++;
+
+          // Extract element type from array type
+          let elementType = "js::any";
+          const paramType = this.mapType(restParam.type);
+          if (paramType.startsWith("js::array<") && paramType.endsWith(">")) {
+            elementType = paramType.slice(10, -1);
+          }
+
+          lines.push(
+            `${
+              this.getIndent(context)
+            }auto ${restParam.name}_array = js::array<${elementType}>{${restParam.name}...};`,
+          );
+          // Store a reference to map rest parameter name to array variable
+          context.restParamMappings = context.restParamMappings || new Map();
+          context.restParamMappings.set(restParam.name, `${restParam.name}_array`);
+          context.indent--;
+        }
+      }
 
       if (func.body) {
         context.indent++;
@@ -1312,7 +1367,7 @@ std::shared_ptr<js::Promise<${innerType}>>
   /**
    * Generate identifier
    */
-  private generateIdentifier(id: IRIdentifier, _context: CodeGenContext): string {
+  private generateIdentifier(id: IRIdentifier, context: CodeGenContext): string {
     // C++ reserved keywords that need to be escaped
     const cppReservedWords = new Set([
       "alignas",
@@ -1440,6 +1495,11 @@ std::shared_ptr<js::Promise<${innerType}>>
     const mappedName = identifierMap[id.name];
     if (mappedName) {
       return mappedName;
+    }
+
+    // Check if this identifier refers to a rest parameter that needs to be mapped to its array
+    if (context.restParamMappings?.has(id.name)) {
+      return context.restParamMappings.get(id.name)!;
     }
 
     // Check if the identifier is a C++ reserved word
@@ -1688,6 +1748,10 @@ std::shared_ptr<js::Promise<${innerType}>>
         "slice",
       ];
       if (typeof property === "string" && arrayMethods.includes(property)) {
+        // Special handling for length property vs method
+        if (property === "length") {
+          return `${object}.length()`;
+        }
         // Generate direct method call for array methods
         return `${object}.${property}`;
       }
@@ -1992,15 +2056,9 @@ std::shared_ptr<js::Promise<${innerType}>>
 
       // Handle rest parameters
       if (param.isRest) {
-        // Rest parameters are converted to std::initializer_list
-        // Extract the array element type
-        let elementType = type;
-        if (type.startsWith("js::array<") && type.endsWith(">")) {
-          elementType = type.slice(10, -1);
-        } else if (type === "any" || type === "js::any") {
-          elementType = "js::any";
-        }
-        return `std::initializer_list<${elementType}> ${name}`;
+        // Rest parameters use C++ variadic templates for proper call syntax
+        // This allows function(1, 2, 3) instead of function({1, 2, 3})
+        return `Args... ${name}`;
       }
 
       // Apply memory management

@@ -49,7 +49,8 @@ export async function transpile(
       warnings: [],
       stats,
       pluginContexts: new Map(),
-    };
+      originalSource: source, // Add original source for source maps
+    } as any;
 
     // Initialize plugins
     for (const plugin of plugins) {
@@ -179,6 +180,9 @@ export async function transpileFile(
  */
 function normalizeOptions(options: TranspileOptions): TranspileOptions {
   return {
+    filename: options.filename, // Preserve filename for source maps
+    outputName: options.outputName, // Preserve output name
+    tsx: options.tsx, // Preserve TSX flag
     standard: options.standard ?? "c++20",
     sourceMap: options.sourceMap ?? false,
     readability: options.readability ?? "default",

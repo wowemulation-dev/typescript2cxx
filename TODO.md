@@ -4,7 +4,7 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.7.0-dev**
+**Current Version: v0.8.1-dev**
 
 ### Overall Progress
 
@@ -30,7 +30,7 @@ This document tracks planned features and known issues for typescript2cxx.
 - ❌ **Async/Await** - C++20 coroutines not implemented
 - ❌ **Module System** - No ES module support
 - ✅ **Advanced Control Flow** - Switch statements, for...of/in loops implemented (v0.5.3-dev)
-- ⚠️ **Function Features** - Default/optional parameters done, rest parameters pending
+- ✅ **Function Features** - Default/optional parameters done, rest parameters completed (v0.8.0-dev)
 - ❌ **Destructuring** - No object/array destructuring
 - ✅ **Modern Operators** - Nullish coalescing, logical assignments implemented (v0.6.0-dev)
 
@@ -248,10 +248,10 @@ Based on analysis of both reference implementations:
   - This type
   - Unique symbol types
 
-- [x] **Functions and Parameters** ✅ PARTIAL (v0.2.0, v0.5.3-dev)
+- [x] **Functions and Parameters** ✅ COMPLETED (v0.2.0, v0.5.3-dev, v0.8.0-dev)
   - ✅ Default parameters (v0.5.3-dev)
   - ✅ Optional parameters (v0.5.3-dev)
-  - ✅ Rest parameters (...) (v0.5.3-dev)
+  - ✅ Rest parameters (...) (v0.8.0-dev)
   - [ ] Function overloading
   - [ ] Generic functions
   - ✅ Function types (v0.1.1)
@@ -934,9 +934,11 @@ Based on analysis of both reference implementations:
 
 ### 🚀 Features
 
-- [ ] **Source Maps**
-  - Generate source maps for debugging
-  - Map C++ lines back to TypeScript
+- [x] **Source Maps** ✅ COMPLETED (v0.8.1-dev)
+  - ✅ Generate source maps for debugging
+  - ✅ Map C++ lines back to TypeScript
+  - ✅ Base64 VLQ encoding for standard source map format
+  - ✅ Support for both header and source file source maps
 
 - [ ] **Module System**
   - Support ES modules import/export

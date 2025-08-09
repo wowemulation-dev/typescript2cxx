@@ -2,7 +2,7 @@
  * Transpiler tests
  */
 
-import { assertEquals, assertThrows as _assertThrows } from "@std/assert";
+import { assertEquals, assertNotEquals, assertThrows as _assertThrows } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { transpile } from "../src/transpiler.ts";
 import { ParseError } from "../src/errors.ts";
@@ -133,8 +133,17 @@ describe("Transpiler", () => {
       const code = `const x = 1;`;
       const result = await transpile(code, { sourceMap: true });
 
-      // TODO: Implement source map generation
-      assertEquals(result.sourceMap, undefined); // For now
+      // Source map generation is now implemented
+      assertNotEquals(result.sourceMap, undefined);
+      assertEquals(typeof result.sourceMap, "string");
+
+      // Parse and validate source map structure
+      const sourceMap = JSON.parse(result.sourceMap!);
+      assertEquals(sourceMap.version, 3);
+      assertEquals(sourceMap.file, "main.cpp");
+      assertEquals(Array.isArray(sourceMap.sources), true);
+      assertEquals(sourceMap.sources.length > 0, true);
+      assertEquals(typeof sourceMap.mappings, "string");
     });
   });
 });

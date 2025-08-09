@@ -69,6 +69,12 @@ public:
     number operator*(const number& other) const { return number(value_ * other.value_); }
     number operator/(const number& other) const { return number(value_ / other.value_); }
     
+    // Compound assignment operators
+    number& operator+=(const number& other) { value_ += other.value_; return *this; }
+    number& operator-=(const number& other) { value_ -= other.value_; return *this; }
+    number& operator*=(const number& other) { value_ *= other.value_; return *this; }
+    number& operator/=(const number& other) { value_ /= other.value_; return *this; }
+    
     // Comparison operators
     bool operator==(const number& other) const { return value_ == other.value_; }
     bool operator!=(const number& other) const { return value_ != other.value_; }
