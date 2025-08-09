@@ -212,6 +212,12 @@ class CppGenerator {
     const runtimeInclude = this.options.options.runtimeInclude || "runtime/core.h";
     context.includes.add(`"${runtimeInclude}"`);
 
+    // Check if we need async support
+    const hasAsyncFunctions = this.hasAsyncFunctions(module);
+    if (hasAsyncFunctions) {
+      context.includes.add(`"runtime/async.h"`);
+    }
+
     // Add module headers
     for (const header of module.headers) {
       context.includes.add(header.startsWith("<") ? header : `"${header}"`);
@@ -425,14 +431,25 @@ class CppGenerator {
 
     // Handle async functions
     if (func.isAsync) {
-      // Wrap return type in Task for C++20 coroutines
-      const innerType = returnType === "void" ? "js::any" : returnType;
-      returnType = `
-#if __cplusplus >= 202002L
-js::Task<${innerType}>
-#else
-std::shared_ptr<js::Promise<${innerType}>>
-#endif`;
+      // For async functions, unwrap Promise<T> to get T, then wrap with Task
+      let innerType = returnType;
+      
+      // Check if return type is a Promise
+      if (func.returnType?.startsWith("Promise<") && func.returnType?.endsWith(">")) {
+        // Extract the inner type from Promise<T>
+        const promiseInnerType = func.returnType.slice(8, -1);
+        innerType = this.mapType(promiseInnerType);
+      } else if (returnType.startsWith("js::Promise<") && returnType.endsWith(">")) {
+        // Already mapped to js::Promise<T>, extract T
+        innerType = returnType.slice(12, -1);
+      } else if (returnType.startsWith("std::future<") && returnType.endsWith(">")) {
+        // Already mapped to std::future<T>, extract T
+        innerType = returnType.slice(12, -1);
+      } else if (func.returnType === "Promise<void>") {
+        innerType = "void";
+      }
+      
+      returnType = `js::Task<${innerType}>`;
     }
 
     if (context.isHeader) {
@@ -1209,14 +1226,9 @@ std::shared_ptr<js::Promise<${innerType}>>
     if (returnStmt.argument) {
       const value = this.generateExpression(returnStmt.argument, context);
 
-      // Use co_return for async functions (need to track in context)
+      // Use co_return for async functions
       if (context.isAsync) {
-        return `
-#if __cplusplus >= 202002L
-    co_return ${value};
-#else
-    return js::Promise::resolve(${value});
-#endif`;
+        return `co_return ${value};`;
       }
 
       return `return ${value};`;
@@ -1224,12 +1236,7 @@ std::shared_ptr<js::Promise<${innerType}>>
 
     // Empty return for async functions
     if (context.isAsync) {
-      return `
-#if __cplusplus >= 202002L
-    co_return;
-#else
-    return js::Promise::resolve(js::any());
-#endif`;
+      return `co_return;`;
     }
 
     return "return;";
@@ -1385,14 +1392,9 @@ std::shared_ptr<js::Promise<${innerType}>>
    */
   private generateAwait(expr: IRAwaitExpression, context: CodeGenContext): string {
     const argument = this.generateExpression(expr.argument, context);
-
-    // Use co_await for C++20, or .get() for fallback
-    return `
-#if __cplusplus >= 202002L
-    co_await ${argument}
-#else
-    ${argument}->get()
-#endif`;
+    
+    // Use co_await for C++20 coroutines
+    return `co_await ${argument}`;
   }
 
   /**
@@ -2188,7 +2190,7 @@ std::shared_ptr<js::Promise<${innerType}>>
     // Handle Promise<T>
     if (tsType.startsWith("Promise<") && tsType.endsWith(">")) {
       const valueType = tsType.slice(8, -1);
-      return `js::Promise<${this.mapType(valueType)}>`;
+      return `std::future<${this.mapType(valueType)}>`;
     }
 
     // Handle function types
@@ -2771,6 +2773,46 @@ std::shared_ptr<js::Promise<${innerType}>>
       // Package imports - use angle brackets
       return `<${modulePath}.h>`;
     }
+  }
+
+  /**
+   * Check if module contains async functions
+   */
+  private hasAsyncFunctions(module: IRModule): boolean {
+    const checkAsync = (node: any): boolean => {
+      if (!node) return false;
+      
+      // Check if it's an async function
+      if ((node.kind === IRNodeKind.FunctionDeclaration || 
+           node.kind === IRNodeKind.FunctionExpression ||
+           node.kind === IRNodeKind.ArrowFunctionExpression) && 
+          node.isAsync) {
+        return true;
+      }
+      
+      // Check if it contains await expressions
+      if (node.kind === IRNodeKind.AwaitExpression) {
+        return true;
+      }
+      
+      // Recursively check children
+      for (const key in node) {
+        const value = node[key];
+        if (value && typeof value === 'object') {
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (checkAsync(item)) return true;
+            }
+          } else {
+            if (checkAsync(value)) return true;
+          }
+        }
+      }
+      
+      return false;
+    };
+    
+    return module.body.some(stmt => checkAsync(stmt));
   }
 
   /**

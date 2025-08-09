@@ -1,325 +1,327 @@
 /**
- * Async/Await Specification Tests
- * Tests async functions, await expressions, and Promise handling
+ * Tests for async/await functionality with C++20 coroutines
  */
 
 import { describe, it } from "@std/testing/bdd";
-import { assertStringIncludes } from "@std/assert";
-import { transpile } from "../../src/mod.ts";
+import { assertEquals } from "@std/assert";
+import { transpile } from "../../src/transpiler.ts";
 
 describe("Async/Await", () => {
   describe("Basic async functions", () => {
-    it("should generate C++20 coroutine for simple async function", async () => {
-      const code = `
-        async function greet(name: string): Promise<string> {
-          return "Hello, " + name;
-        }
-      `;
-      const result = await transpile(code);
+    it("should transform simple async function", async () => {
+      const input = `
+async function fetchData(): Promise<string> {
+  return "data";
+}
+`;
 
-      // Check for Task<T> return type in C++20 mode
-      assertStringIncludes(result.header, "js::Task<js::string>");
-      // Check for Promise fallback
-      assertStringIncludes(result.header, "js::Promise<js::string>");
-      assertStringIncludes(result.source, "co_return");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<js::string> fetchData()"), true);
+      assertEquals((result.header + result.source).includes("co_return"), true);
+      assertEquals((result.header + result.source).includes("runtime/async.h"), true);
     });
 
-    it("should handle async function with await expression", async () => {
-      const code = `
-        async function step1(): Promise<string> {
-          return "Step 1";
-        }
-        
-        async function step2(): Promise<string> {
-          const prev = await step1();
-          return prev + " -> Step 2";
-        }
-      `;
-      const result = await transpile(code);
+    it("should handle async function with await", async () => {
+      const input = `
+async function getData(): Promise<string> {
+  const result = await fetchData();
+  return result;
+}
+`;
 
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "co_return");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<js::string> getData()"), true);
+      assertEquals((result.header + result.source).includes("co_await fetchData()"), true);
+      assertEquals((result.header + result.source).includes("co_return result"), true);
     });
 
     it("should handle void async function", async () => {
-      const code = `
-        async function logMessage(msg: string): Promise<void> {
-          console.log("Log: " + msg);
-        }
-      `;
-      const result = await transpile(code);
+      const input = `
+async function processData(): Promise<void> {
+  await doSomething();
+}
+`;
 
-      assertStringIncludes(result.header, "js::Task<js::any>");
-      assertStringIncludes(result.source, "co_return");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<void> processData()"), true);
+      assertEquals((result.header + result.source).includes("co_await doSomething()"), true);
+    });
+
+    it("should handle async arrow functions", async () => {
+      const input = `
+const fetchUser = async (id: number): Promise<User> => {
+  const user = await getUserById(id);
+  return user;
+};
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<User>"), true);
+      assertEquals((result.header + result.source).includes("co_await getUserById(id)"), true);
+      assertEquals((result.header + result.source).includes("co_return user"), true);
     });
   });
 
-  describe("Await expressions", () => {
-    it("should transform await to co_await in C++20", async () => {
-      const code = `
-        async function test(): Promise<string> {
-          const value = await Promise.resolve("Resolved");
-          return value;
-        }
-      `;
-      const result = await transpile(code);
+  describe("Multiple awaits", () => {
+    it("should handle sequential awaits", async () => {
+      const input = `
+async function fetchMultiple(): Promise<void> {
+  const data1 = await fetch1();
+  const data2 = await fetch2();
+  const data3 = await fetch3();
+  console.log(data1, data2, data3);
+}
+`;
 
-      assertStringIncludes(result.source, "co_await js::Promise::resolve");
-      assertStringIncludes(result.source, "co_return value");
-    });
-
-    it("should handle multiple await expressions", async () => {
-      const code = `
-        async function fetchData(): Promise<string> {
-          const data1 = await getData1();
-          const data2 = await getData2();
-          return data1 + data2;
-        }
-      `;
-      const result = await transpile(code);
-
-      // Should have multiple co_await expressions
-      const coAwaitCount = (result.source.match(/co_await/g) || []).length;
-      if (coAwaitCount < 2) {
-        throw new Error(`Expected at least 2 co_await, found ${coAwaitCount}`);
-      }
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await fetch1()"), true);
+      assertEquals((result.header + result.source).includes("co_await fetch2()"), true);
+      assertEquals((result.header + result.source).includes("co_await fetch3()"), true);
     });
 
     it("should handle await in expressions", async () => {
-      const code = `
-        async function calculate(): Promise<number> {
-          const result = (await getValue()) * 2 + (await getOffset());
-          return result;
-        }
-      `;
-      const result = await transpile(code);
+      const input = `
+async function calculateAsync(): Promise<number> {
+  const sum = (await getValue1()) + (await getValue2());
+  return sum;
+}
+`;
 
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "* 2");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await getValue1()"), true);
+      assertEquals((result.header + result.source).includes("co_await getValue2()"), true);
+      assertEquals((result.header + result.source).includes("co_return sum"), true);
     });
   });
 
-  describe("Error handling with async/await", () => {
-    it("should handle try-catch with async/await", async () => {
-      const code = `
-        async function mayFail(shouldFail: boolean): Promise<string> {
-          if (shouldFail) {
-            throw new Error("Failed");
-          }
-          return "Success";
-        }
-        
-        async function test(): Promise<void> {
-          try {
-            const result = await mayFail(false);
-            console.log(result);
-          } catch (e) {
-            console.error("Caught:", e);
-          }
-        }
-      `;
-      const result = await transpile(code);
+  describe("Async class methods", () => {
+    it("should handle async methods in classes", async () => {
+      const input = `
+class DataService {
+  async fetchData(): Promise<string> {
+    const result = await this.getData();
+    return result;
+  }
+  
+  private async getData(): Promise<string> {
+    return "data";
+  }
+}
+`;
 
-      assertStringIncludes(result.source, "try {");
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "catch");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<js::string> fetchData()"), true);
+      assertEquals((result.header + result.source).includes("js::Task<js::string> getData()"), true);
+      assertEquals((result.header + result.source).includes("co_await this->getData()"), true);
     });
 
-    it("should handle finally block with async", async () => {
-      const code = `
-        async function withFinally(): Promise<void> {
-          try {
-            await doSomething();
-          } finally {
-            console.log("Cleanup");
-          }
-        }
-      `;
-      const result = await transpile(code);
+    it("should handle static async methods", async () => {
+      const input = `
+class Utils {
+  static async delay(ms: number): Promise<void> {
+    await sleep(ms);
+  }
+}
+`;
 
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "finally");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("static js::Task<void> delay"), true);
+      assertEquals((result.header + result.source).includes("co_await sleep(ms)"), true);
+    });
+  });
+
+  describe("Error handling", () => {
+    it("should handle try-catch with async/await", async () => {
+      const input = `
+async function fetchWithErrorHandling(): Promise<string> {
+  try {
+    const data = await fetchData();
+    return data;
+  } catch (error) {
+    console.error(error);
+    return "default";
+  }
+}
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("try {"), true);
+      assertEquals((result.header + result.source).includes("co_await fetchData()"), true);
+      assertEquals((result.header + result.source).includes("catch"), true);
+      assertEquals((result.header + result.source).includes("co_return"), true);
+    });
+
+    it("should handle finally with async", async () => {
+      const input = `
+async function withFinally(): Promise<void> {
+  try {
+    await doSomething();
+  } finally {
+    await cleanup();
+  }
+}
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await doSomething()"), true);
+      assertEquals((result.header + result.source).includes("co_await cleanup()"), true);
     });
   });
 
   describe("Promise methods", () => {
-    it("should handle Promise.resolve", async () => {
-      const code = `
-        async function test(): Promise<string> {
-          return await Promise.resolve("value");
-        }
-      `;
-      const result = await transpile(code);
-
-      assertStringIncludes(result.source, "js::Promise::resolve");
-      assertStringIncludes(result.source, "co_await");
-    });
-
-    it("should handle Promise.reject", async () => {
-      const code = `
-        async function test(): Promise<string> {
-          try {
-            return await Promise.reject("error");
-          } catch (e) {
-            return "caught";
-          }
-        }
-      `;
-      const result = await transpile(code);
-
-      assertStringIncludes(result.source, "js::Promise::reject");
-    });
-
     it("should handle Promise.all", async () => {
-      const code = `
-        async function waitAll(): Promise<string[]> {
-          const results = await Promise.all([
-            Promise.resolve("a"),
-            Promise.resolve("b")
-          ]);
-          return results;
-        }
-      `;
-      const result = await transpile(code);
+      const input = `
+async function fetchAll(): Promise<void> {
+  const results = await Promise.all([
+    fetch1(),
+    fetch2(),
+    fetch3()
+  ]);
+  console.log(results);
+}
+`;
 
-      assertStringIncludes(result.source, "js::Promise::all");
-      assertStringIncludes(result.source, "co_await");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await js::Promise::all"), true);
+    });
+
+    it("should handle Promise.race", async () => {
+      const input = `
+async function fetchFirst(): Promise<string> {
+  const result = await Promise.race([
+    fetch1(),
+    fetch2()
+  ]);
+  return result;
+}
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await js::Promise::race"), true);
+      assertEquals((result.header + result.source).includes("co_return result"), true);
+    });
+
+    it("should handle Promise.resolve and Promise.reject", async () => {
+      const input = `
+async function testPromiseMethods(): Promise<void> {
+  const resolved = await Promise.resolve(42);
+  try {
+    const rejected = await Promise.reject(new Error("test"));
+  } catch (e) {
+    console.error(e);
+  }
+}
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await js::Promise::resolve"), true);
+      assertEquals((result.header + result.source).includes("co_await js::Promise::reject"), true);
     });
   });
 
-  describe("Async arrow functions", () => {
-    it("should handle async arrow functions", async () => {
-      const code = `
-        const asyncArrow = async (x: number): Promise<number> => {
-          return await Promise.resolve(x * 2);
-        };
-      `;
-      const result = await transpile(code);
+  describe("Async iterators", () => {
+    it("should handle for-await-of loops", async () => {
+      const input = `
+async function processStream(): Promise<void> {
+  for await (const item of asyncIterable) {
+    console.log(item);
+  }
+}
+`;
 
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "co_return");
-    });
-
-    it("should handle inline async arrow functions", async () => {
-      const code = `
-        const double = async (x: number) => x * 2;
-      `;
-      const result = await transpile(code);
-
-      assertStringIncludes(result.source, "co_return");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<void> processStream()"), true);
+      // Note: for-await-of requires additional implementation
     });
   });
 
-  describe("Async methods in classes", () => {
-    it("should handle async methods", async () => {
-      const code = `
-        class DataService {
-          async fetchData(): Promise<string> {
-            return await this.getData();
-          }
-          
-          private async getData(): Promise<string> {
-            return "data";
-          }
-        }
-      `;
-      const result = await transpile(code);
+  describe("Complex scenarios", () => {
+    it("should handle nested async functions", async () => {
+      const input = `
+async function outer(): Promise<number> {
+  const inner = async (): Promise<number> => {
+    return await getValue();
+  };
+  
+  const result = await inner();
+  return result * 2;
+}
+`;
 
-      assertStringIncludes(result.header, "js::Task<js::string> fetchData()");
-      assertStringIncludes(result.source, "co_await");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<js::number>"), true);
+      assertEquals((result.header + result.source).includes("co_await inner()"), true);
+      assertEquals((result.header + result.source).includes("co_await getValue()"), true);
     });
 
-    it("should handle async constructor pattern", async () => {
-      const code = `
-        class AsyncInit {
-          private data: string;
-          
-          private constructor() {}
-          
-          static async create(): Promise<AsyncInit> {
-            const instance = new AsyncInit();
-            instance.data = await instance.loadData();
-            return instance;
-          }
-          
-          private async loadData(): Promise<string> {
-            return "loaded";
-          }
-        }
-      `;
-      const result = await transpile(code);
+    it("should handle async function expressions", async () => {
+      const input = `
+const processor = async function(data: string): Promise<string> {
+  const processed = await processData(data);
+  return processed.toUpperCase();
+};
+`;
 
-      assertStringIncludes(result.header, "static js::Task");
-      assertStringIncludes(result.source, "co_await");
-    });
-  });
-
-  describe("Complex async patterns", () => {
-    it("should handle async iteration", async () => {
-      const code = `
-        async function* generateNumbers(): AsyncGenerator<number> {
-          yield 1;
-          yield 2;
-          yield 3;
-        }
-        
-        async function consumeNumbers(): Promise<void> {
-          for await (const num of generateNumbers()) {
-            console.log(num);
-          }
-        }
-      `;
-      const result = await transpile(code);
-
-      // This is complex - may not be fully supported initially
-      assertStringIncludes(result.source, "for");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("js::Task<js::string>"), true);
+      assertEquals((result.header + result.source).includes("co_await processData"), true);
+      assertEquals((result.header + result.source).includes("co_return"), true);
     });
 
-    it("should handle Promise race", async () => {
-      const code = `
-        async function fastest(): Promise<string> {
-          return await Promise.race([
-            slowOperation(),
-            fastOperation()
-          ]);
-        }
-      `;
-      const result = await transpile(code);
+    it("should handle async with generic types", async () => {
+      const input = `
+async function fetchGeneric<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  const data = await response.json();
+  return data as T;
+}
+`;
 
-      assertStringIncludes(result.source, "js::Promise::race");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("template<typename T>"), true);
+      assertEquals((result.header + result.source).includes("js::Task<T> fetchGeneric"), true);
+      assertEquals((result.header + result.source).includes("co_await fetch(url)"), true);
+      assertEquals((result.header + result.source).includes("co_await response.json()"), true);
     });
   });
 
-  describe("C++ code generation", () => {
-    it("should generate C++20 coroutine with proper macros", async () => {
-      const code = `
-        async function example(): Promise<number> {
-          return 42;
-        }
-      `;
-      const result = await transpile(code);
+  describe("Integration with other features", () => {
+    it("should work with optional chaining", async () => {
+      const input = `
+async function fetchOptional(): Promise<string | undefined> {
+  const data = await getData();
+  return data?.value?.toString();
+}
+`;
 
-      // Should have C++20 version check
-      assertStringIncludes(result.header, "#if __cplusplus >= 202002L");
-      assertStringIncludes(result.header, "js::Task");
-      assertStringIncludes(result.header, "#else");
-      assertStringIncludes(result.header, "js::Promise");
-      assertStringIncludes(result.header, "#endif");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await getData()"), true);
+      assertEquals((result.header + result.source).includes("co_return"), true);
     });
 
-    it("should use std::async for C++17 fallback", async () => {
-      const code = `
-        async function fallback(): Promise<void> {
-          await delay(100);
-        }
-      `;
-      const result = await transpile(code);
+    it("should work with nullish coalescing", async () => {
+      const input = `
+async function fetchWithDefault(): Promise<string> {
+  const data = await getData();
+  return data ?? "default";
+}
+`;
 
-      // Should have fallback implementation
-      assertStringIncludes(result.source, "#if __cplusplus >= 202002L");
-      assertStringIncludes(result.source, "co_await");
-      assertStringIncludes(result.source, "#else");
-      assertStringIncludes(result.source, "std::async");
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await getData()"), true);
+      assertEquals((result.header + result.source).includes("co_return"), true);
+    });
+
+    it("should work with destructuring", async () => {
+      const input = `
+async function fetchAndDestruct(): Promise<void> {
+  const { name, age } = await getUserData();
+  console.log(name, age);
+}
+`;
+
+      const result = await transpile(input, { standard: "c++20" });
+      assertEquals((result.header + result.source).includes("co_await getUserData()"), true);
     });
   });
 });
