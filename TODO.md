@@ -208,7 +208,7 @@ Based on analysis of both reference implementations:
   - ✅ Complete inheritance with `super` (v0.2.0)
   - ✅ Abstract classes and methods (v0.5.3)
   - ✅ Static members and blocks (v0.2.0)
-  - [ ] Private fields (#private syntax)
+  - ✅ Private fields (#private syntax) (v0.8.0)
   - ✅ Decorators with metadata (class, method, property, parameter) (v0.4.0)
   - ✅ Decorator factories (v0.4.0)
   - ✅ Decorator metadata API (v0.4.0)
@@ -257,8 +257,8 @@ Based on analysis of both reference implementations:
   - ✅ Default parameters (v0.5.3-dev)
   - ✅ Optional parameters (v0.5.3-dev)
   - ✅ Rest parameters (...) (v0.8.0-dev)
-  - [ ] Function overloading
-  - [ ] Generic functions
+  - ✅ Function overloading (v0.8.0)
+  - ✅ Generic functions (v0.8.0)
   - ✅ Function types (v0.1.1)
   - [ ] Higher-order functions
   - ✅ Arrow functions with proper `this` binding (v0.2.0)
@@ -270,7 +270,7 @@ Based on analysis of both reference implementations:
   - ✅ Logical assignment operators (&&=, ||=, ??=) (v0.6.0-dev)
   - ✅ Numeric separators (1_000_000) (v0.6.0-dev)
   - ✅ Exponentiation operator (**) (v0.6.0-dev)
-  - [ ] BigInt literals (123n)
+  - ✅ BigInt literals (123n) (v0.8.0)
 
 - [x] **Object and Array Features** ✅ COMPLETED (v0.2.0-v0.8.0)
   - ✅ Advanced destructuring patterns (v0.8.0-dev)

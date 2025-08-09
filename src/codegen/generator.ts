@@ -425,9 +425,26 @@ class CppGenerator {
     const params = this.generateParameters(func.params, context);
     let returnType = this.mapType(func.returnType);
 
-    // Check if function has rest parameters
+    // Generate template declaration for generic functions
+    let templateDecl = "";
+
+    // Handle TypeScript generic type parameters
+    if (func.templateParams && func.templateParams.length > 0) {
+      const templateParams = func.templateParams.map((tp) => {
+        const constraint = tp.constraint || "typename";
+        return `${constraint} ${tp.name}`;
+      }).join(", ");
+      templateDecl += `template<${templateParams}>\n`;
+    }
+
+    // Check if function has rest parameters (add to existing template)
     const hasRestParams = func.params.some((p) => p.isRest);
-    const templateDecl = hasRestParams ? "template<typename... Args>\n" : "";
+    if (hasRestParams && !templateDecl) {
+      templateDecl = "template<typename... Args>\n";
+    } else if (hasRestParams && templateDecl) {
+      // Add variadic args to existing template
+      templateDecl = templateDecl.replace(">\n", ", typename... Args>\n");
+    }
 
     // Handle async functions
     if (func.isAsync) {
@@ -491,14 +508,16 @@ class CppGenerator {
 
       if (func.body) {
         context.indent++;
-        
+
         // For function body, generate the statements inside the block without the block braces
         if (func.body.kind === IRNodeKind.BlockStatement) {
           const block = func.body as IRBlockStatement;
           for (const stmt of block.body) {
             const code = this.generateStatement(stmt, context);
             if (code) {
-              lines.push(...code.split("\n").map((line) => line ? this.getIndent(context) + line : ""));
+              lines.push(
+                ...code.split("\n").map((line) => line ? this.getIndent(context) + line : ""),
+              );
             }
           }
         } else {
@@ -510,7 +529,7 @@ class CppGenerator {
             );
           }
         }
-        
+
         context.indent--;
       }
 
@@ -536,6 +555,15 @@ class CppGenerator {
 
     if (context.isHeader) {
       const lines: string[] = [];
+
+      // Generate template declaration for generic classes
+      if (cls.templateParams && cls.templateParams.length > 0) {
+        const templateParams = cls.templateParams.map((tp) => {
+          const constraint = tp.constraint || "typename";
+          return `${constraint} ${tp.name}`;
+        }).join(", ");
+        lines.push(`template<${templateParams}>`);
+      }
 
       // Generate class declaration with inheritance
       let classDecl = `class ${name}`;
@@ -570,7 +598,10 @@ class CppGenerator {
 
       for (const member of cls.members) {
         const access = (member as any).accessibility || "public";
-        if (access === "private") {
+        const isJsPrivateField = (member as any).isPrivateField || false;
+
+        // JavaScript private fields (#field) should always be private in C++
+        if (access === "private" || isJsPrivateField) {
           privateMembers.push(member);
         } else if (access === "protected") {
           protectedMembers.push(member);
@@ -750,13 +781,13 @@ class CppGenerator {
         const isAbstract = method.isAbstract && !funcDecl.isStatic; // Static methods can't be abstract
         const isOverride = !funcDecl.isStatic && !isAbstract && cls?.superClass &&
           this.isOverriddenMethod(methodName, cls);
-        
+
         // Make methods virtual if:
         // 1. Explicitly marked as virtual
         // 2. Abstract methods (pure virtual)
         // 3. Non-static, non-constructor methods that might be overridden
         // For inheritance to work properly in C++, we need base class methods to be virtual
-        const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isAbstract || 
+        const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isAbstract ||
           (methodName !== "constructor" && methodName !== "destructor"));
 
         let methodDecl = "";
@@ -1172,14 +1203,13 @@ class CppGenerator {
 
     // Generate the loop variable
     let loopVar = "";
-    let varDeclaration = "";
-    
+
     if (forOfStmt.left.kind === IRNodeKind.VariableDeclaration) {
       const varDecl = forOfStmt.left as IRVariableDeclaration;
       const declarator = varDecl.declarations[0];
       loopVar = this.generateIdentifier(declarator.id as IRIdentifier, context);
-      
-      // Determine the const/let keyword  
+
+      // Determine the const/let keyword
       const varKind = varDecl.declarationKind === "const" ? "const" : "";
 
       // For C++, we need to create an iterator-based loop
@@ -1602,6 +1632,11 @@ class CppGenerator {
       }
       return `js::number(${numValue})`;
     }
+    if (lit.cppType === "bigint" || lit.literalType === "bigint") {
+      // Handle BigInt literals
+      const bigintValue = typeof lit.value === "bigint" ? lit.value.toString() : String(lit.value);
+      return `js::bigint("${bigintValue}")`;
+    }
     if (lit.value === null) {
       return "js::null";
     }
@@ -1763,7 +1798,7 @@ class CppGenerator {
       // For smart pointer variables in computed access, use -> for method calls
       if (this.isSmartPointerVariable(object, context) && typeof property === "string") {
         // Strip quotes from property name
-        const cleanProperty = property.replace(/^["']|["']$/g, '');
+        const cleanProperty = property.replace(/^["']|["']$/g, "");
         return `${object}->${cleanProperty}`;
       }
 
@@ -2774,17 +2809,17 @@ class CppGenerator {
     if (init.kind === IRNodeKind.CallExpression) {
       // For function calls, try to infer the return type based on the function
       const callExpr = init as IRCallExpression;
-      
+
       // Check if this is a call to a function we know about
       if (callExpr.callee.kind === IRNodeKind.Identifier) {
-        const funcName = (callExpr.callee as IRIdentifier).name;
-        
+        const _funcName = (callExpr.callee as IRIdentifier).name;
+
         // Check if we have this function in our context (simplified approach)
         // In a full implementation, we'd have a type resolver
         // For now, we'll just use js::any unless we have specific knowledge
         return "js::any";
       }
-      
+
       return "js::any";
     }
     if (init.kind === IRNodeKind.Identifier) {

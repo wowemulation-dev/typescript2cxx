@@ -66,6 +66,7 @@ import type {
   IRSwitchCase,
   IRSwitchStatement,
   IRTemplateLiteral,
+  IRTemplateParameter,
   IRThisExpression,
   IRThrowStatement,
   IRTryStatement,
@@ -285,10 +286,10 @@ class ASTTransformer {
 
       case ts.SyntaxKind.ForStatement:
         return this.transformForStatement(node as ts.ForStatement);
-      
+
       case ts.SyntaxKind.ForOfStatement:
         return this.transformForOfStatement(node as ts.ForOfStatement);
-        
+
       case ts.SyntaxKind.ForInStatement:
         return this.transformForInStatement(node as ts.ForInStatement);
 
@@ -538,6 +539,11 @@ class ASTTransformer {
       this.context.currentModule.exports.push(name);
     }
 
+    // Transform type parameters (generics) if present
+    const templateParams = node.typeParameters
+      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      : undefined;
+
     const func: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
       id: { kind: IRNodeKind.Identifier, name },
@@ -546,6 +552,7 @@ class ASTTransformer {
       body: null as any,
       isAsync,
       isGenerator: false,
+      templateParams,
     };
 
     // Transform body with function context
@@ -600,6 +607,11 @@ class ASTTransformer {
       }
     }
 
+    // Transform type parameters (generics) if present
+    const templateParams = node.typeParameters
+      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      : undefined;
+
     const cls: IRClassDeclaration = {
       kind: IRNodeKind.ClassDeclaration,
       id: { kind: IRNodeKind.Identifier, name },
@@ -607,6 +619,7 @@ class ASTTransformer {
       implements: [],
       members: [],
       isAbstract: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
+      templateParams,
     };
 
     // Collect class decorators
@@ -683,6 +696,7 @@ class ASTTransformer {
       isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
       isReadonly: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword),
       memory,
+      isPrivateField: node.name ? ts.isPrivateIdentifier(node.name) : false,
     };
   }
 
@@ -698,6 +712,11 @@ class ASTTransformer {
     const params = this.transformParameters(Array.from(node.parameters));
     const returnType = node.type ? this.resolveType(node.type) : "auto";
 
+    // Transform type parameters (generics) if present
+    const templateParams = node.typeParameters
+      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      : undefined;
+
     // Create the function declaration for the method
     const funcDecl: IRFunctionDeclaration = {
       kind: IRNodeKind.FunctionDeclaration,
@@ -708,6 +727,7 @@ class ASTTransformer {
       isAsync: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword),
       isGenerator: !!node.asteriskToken,
       isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
+      templateParams,
     };
 
     // Transform body (skip for abstract methods)
@@ -1242,6 +1262,7 @@ class ASTTransformer {
 
       case ts.SyntaxKind.StringLiteral:
       case ts.SyntaxKind.NumericLiteral:
+      case ts.SyntaxKind.BigIntLiteral:
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
       case ts.SyntaxKind.NullKeyword:
@@ -1356,6 +1377,13 @@ class ASTTransformer {
         value = null;
         type = "null";
         break;
+      case ts.SyntaxKind.BigIntLiteral: {
+        // BigInt literal like 123n
+        const bigintText = (node as ts.BigIntLiteral).text;
+        value = BigInt(bigintText.slice(0, -1)); // Remove 'n' suffix
+        type = "bigint";
+        break;
+      }
       default:
         value = null;
         type = "unknown";
@@ -1527,10 +1555,19 @@ class ASTTransformer {
       // For property access, extract the property name directly
       // Use .text to avoid TypeScript resolving method names to their implementations
       const propertyAccess = node as ts.PropertyAccessExpression;
-      property = {
-        kind: IRNodeKind.Identifier,
-        name: propertyAccess.name.text,
-      } as IRIdentifier;
+
+      // Handle private identifiers (#prop)
+      if (ts.isPrivateIdentifier(propertyAccess.name)) {
+        property = {
+          kind: IRNodeKind.Identifier,
+          name: propertyAccess.name.text.substring(1), // Strip # prefix
+        } as IRIdentifier;
+      } else {
+        property = {
+          kind: IRNodeKind.Identifier,
+          name: propertyAccess.name.text,
+        } as IRIdentifier;
+      }
     }
 
     return {
@@ -1917,6 +1954,10 @@ class ASTTransformer {
     if (ts.isStringLiteral(key)) {
       return key.text;
     }
+    if (ts.isPrivateIdentifier(key)) {
+      // Strip # prefix for internal C++ field name
+      return key.text.substring(1);
+    }
     return "unknown";
   }
 
@@ -1932,6 +1973,10 @@ class ASTTransformer {
         raw: `"${key.text}"`,
         literalType: "string",
       };
+    }
+    if (ts.isPrivateIdentifier(key)) {
+      // Strip # prefix for internal C++ field name
+      return { kind: IRNodeKind.Identifier, name: key.text.substring(1) };
     }
     return { kind: IRNodeKind.Identifier, name: "unknown" };
   }
@@ -1949,6 +1994,14 @@ class ASTTransformer {
       return {
         kind: IRNodeKind.Identifier,
         name: key.text,
+      };
+    }
+
+    // Handle private identifiers: #prop
+    if (ts.isPrivateIdentifier(key)) {
+      return {
+        kind: IRNodeKind.Identifier,
+        name: key.text.substring(1), // Strip # prefix
       };
     }
 
@@ -2533,5 +2586,35 @@ class ASTTransformer {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Transform TypeScript type parameter to C++ template parameter
+   */
+  private transformTypeParameter(node: ts.TypeParameterDeclaration): IRTemplateParameter {
+    const name = node.name.text;
+
+    // Handle type constraints (e.g., T extends string)
+    let constraint: string | undefined;
+    if (node.constraint) {
+      // For now, just use typename for all constraints
+      // In the future, this could be expanded to support concepts
+      constraint = "typename";
+    } else {
+      constraint = "typename";
+    }
+
+    // Handle default type (e.g., T = string)
+    let defaultType: string | undefined;
+    if (node.default) {
+      defaultType = this.resolveType(node.default);
+    }
+
+    return {
+      name,
+      constraint,
+      defaultType,
+      isVariadic: false, // TypeScript doesn't have variadic type parameters like C++
+    };
   }
 }

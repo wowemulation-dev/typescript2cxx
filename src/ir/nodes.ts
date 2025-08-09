@@ -404,6 +404,20 @@ export interface IRVariableDeclarator {
 }
 
 /**
+ * Template parameter for generic types/functions
+ */
+export interface IRTemplateParameter {
+  /** Parameter name (e.g. "T") */
+  name: string;
+
+  /** Constraint type (e.g. "typename", "class", or a specific type) */
+  constraint?: string;
+
+  /** Default type */
+  defaultType?: string;
+}
+
+/**
  * Function declaration
  */
 export interface IRFunctionDeclaration extends IRDeclaration {
@@ -577,6 +591,9 @@ export interface IRPropertyDefinition extends IRNode {
 
   /** Memory management */
   memory: MemoryManagement;
+
+  /** Is JavaScript private field (#field) */
+  isPrivateField?: boolean;
 }
 
 /**

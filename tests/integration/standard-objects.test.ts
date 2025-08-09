@@ -14,8 +14,8 @@ Deno.test("Standard Objects: Error subclasses", async () => {
   `;
 
   const result = await transpile(code);
-  
-  assertEquals(result.warnings.filter(w => w.severity === "error").length, 0);
+
+  assertEquals(result.warnings.filter((w) => w.severity === "error").length, 0);
   assertEquals(result.source?.includes("js::EvalError"), true);
   assertEquals(result.source?.includes("js::URIError"), true);
   assertEquals(result.source?.includes("js::AggregateError"), true);
@@ -39,8 +39,8 @@ Deno.test("Standard Objects: URL encoding functions", async () => {
   `;
 
   const result = await transpile(code);
-  
-  assertEquals(result.warnings.filter(w => w.severity === "error").length, 0);
+
+  assertEquals(result.warnings.filter((w) => w.severity === "error").length, 0);
   assertEquals(result.source?.includes("js::encodeURI"), true);
   assertEquals(result.source?.includes("js::decodeURI"), true);
   assertEquals(result.source?.includes("js::encodeURIComponent"), true);
@@ -61,8 +61,8 @@ Deno.test("Standard Objects: Promise.all", async () => {
   `;
 
   const result = await transpile(code);
-  
-  assertEquals(result.warnings.filter(w => w.severity === "error").length, 0);
+
+  assertEquals(result.warnings.filter((w) => w.severity === "error").length, 0);
   assertEquals(result.source?.includes("js::Promise::all"), true);
 });
 
@@ -79,8 +79,8 @@ Deno.test("Standard Objects: Promise.race", async () => {
   `;
 
   const result = await transpile(code);
-  
-  assertEquals(result.warnings.filter(w => w.severity === "error").length, 0);
+
+  assertEquals(result.warnings.filter((w) => w.severity === "error").length, 0);
   assertEquals(result.source?.includes("js::Promise::race"), true);
 });
 
@@ -95,9 +95,9 @@ Deno.test("Standard Objects: Error with smart pointer handling", async () => {
   `;
 
   const result = await transpile(code);
-  
-  assertEquals(result.warnings.filter(w => w.severity === "error").length, 0);
-  
+
+  assertEquals(result.warnings.filter((w) => w.severity === "error").length, 0);
+
   // The caught error should not be wrapped in smart pointer syntax
   assertEquals(result.source?.includes("std::shared_ptr<js::any> error"), false);
   // It should be a regular js::any
