@@ -828,7 +828,12 @@ std::shared_ptr<js::Promise<${innerType}>>
       }
 
       // Handle simple identifier
-      const name = "name" in decl.id ? decl.id.name : "unknown";
+      const rawName = "name" in decl.id ? decl.id.name : "unknown";
+      // Escape C++ reserved words in variable names
+      const name = this.generateIdentifier(
+        { name: rawName, kind: IRNodeKind.Identifier } as IRIdentifier,
+        context,
+      );
       const type = decl.cppType;
       const isConst = varDecl.declarationKind === "const";
 
@@ -1308,6 +1313,102 @@ std::shared_ptr<js::Promise<${innerType}>>
    * Generate identifier
    */
   private generateIdentifier(id: IRIdentifier, _context: CodeGenContext): string {
+    // C++ reserved keywords that need to be escaped
+    const cppReservedWords = new Set([
+      "alignas",
+      "alignof",
+      "and",
+      "and_eq",
+      "asm",
+      "auto",
+      "bitand",
+      "bitor",
+      "bool",
+      "break",
+      "case",
+      "catch",
+      "char",
+      "char8_t",
+      "char16_t",
+      "char32_t",
+      "class",
+      "compl",
+      "concept",
+      "const",
+      "consteval",
+      "constexpr",
+      "constinit",
+      "const_cast",
+      "continue",
+      "co_await",
+      "co_return",
+      "co_yield",
+      "decltype",
+      "default",
+      "delete",
+      "do",
+      "double",
+      "dynamic_cast",
+      "else",
+      "enum",
+      "explicit",
+      "export",
+      "extern",
+      "false",
+      "float",
+      "for",
+      "friend",
+      "goto",
+      "if",
+      "inline",
+      "int",
+      "long",
+      "mutable",
+      "namespace",
+      "new",
+      "noexcept",
+      "not",
+      "not_eq",
+      "nullptr",
+      "operator",
+      "or",
+      "or_eq",
+      "private",
+      "protected",
+      "public",
+      "register",
+      "reinterpret_cast",
+      "requires",
+      "return",
+      "short",
+      "signed",
+      "sizeof",
+      "static",
+      "static_assert",
+      "static_cast",
+      "struct",
+      "switch",
+      "template",
+      "this",
+      "thread_local",
+      "throw",
+      "true",
+      "try",
+      "typedef",
+      "typeid",
+      "typename",
+      "union",
+      "unsigned",
+      "using",
+      "virtual",
+      "void",
+      "volatile",
+      "wchar_t",
+      "while",
+      "xor",
+      "xor_eq",
+    ]);
+
     // Map special identifiers to our runtime types
     const identifierMap: Record<string, string> = {
       "console": "js::console",
@@ -1341,7 +1442,13 @@ std::shared_ptr<js::Promise<${innerType}>>
       return mappedName;
     }
 
-    return id.cppName || id.name;
+    // Check if the identifier is a C++ reserved word
+    const name = id.cppName || id.name;
+    if (cppReservedWords.has(name)) {
+      return `${name}_`; // Append underscore to escape reserved words
+    }
+
+    return name;
   }
 
   /**
@@ -1385,10 +1492,10 @@ std::shared_ptr<js::Promise<${innerType}>>
     const right = this.generateExpression(expr.right, context);
 
     // Handle special operators
-    if (expr.operator === "===") {
+    if (expr.operator === "===" || expr.operator === "==") {
       return `(${left} == ${right})`;
     }
-    if (expr.operator === "!==") {
+    if (expr.operator === "!==" || expr.operator === "!=") {
       // Special case: comparing optional parameter with undefined
       if (right === "js::undefined") {
         // For optional parameters, use .has_value() to check if they exist
@@ -1532,7 +1639,23 @@ std::shared_ptr<js::Promise<${innerType}>>
       }
 
       // Check if this is a known array method
-      const arrayMethods = ["map", "filter", "reduce", "push", "pop", "length", "empty"];
+      const arrayMethods = [
+        "map",
+        "filter",
+        "reduce",
+        "push",
+        "pop",
+        "length",
+        "empty",
+        "forEach",
+        "find",
+        "findIndex",
+        "some",
+        "every",
+        "includes",
+        "concat",
+        "slice",
+      ];
       if (typeof property === "string" && arrayMethods.includes(property)) {
         // Generate direct method call for array methods
         return `${object}.${property}`;
@@ -2315,20 +2438,44 @@ std::shared_ptr<js::Promise<${innerType}>>
     if (pattern.kind === IRNodeKind.ObjectPattern) {
       // Object destructuring
       const objPattern = pattern as IRObjectPattern;
+      const extractedKeys: string[] = [];
+      let restVarName: string | null = null;
+
       for (const prop of objPattern.properties) {
         if (prop.rest) {
-          // Handle rest properties later
-          lines.push("// TODO: Rest properties in object destructuring");
+          // Handle rest properties - collect all remaining properties
+          restVarName = (prop.value as IRIdentifier).name;
         } else if (prop.value.kind === IRNodeKind.Identifier) {
           const varName = (prop.value as IRIdentifier).name;
           const propKey = prop.key.kind === IRNodeKind.Identifier
             ? (prop.key as IRIdentifier).name
             : String((prop.key as IRLiteral).value);
           lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}["${propKey}"];`);
+          extractedKeys.push(propKey);
         } else {
           // Nested destructuring
           lines.push("// TODO: Nested destructuring");
         }
+      }
+
+      // Generate rest object if needed
+      if (restVarName) {
+        // Use a lambda to create the rest object
+        lines.push(`${isConst ? "const " : ""}auto ${restVarName} = [&]() {`);
+        lines.push(`  js::object ${restVarName}_temp;`);
+        lines.push(`  // Copy all properties except extracted ones`);
+        lines.push(`  for (const auto& [key, value] : ${tempVar}.as_object().entries()) {`);
+        const excludeCheck = extractedKeys.map((k) => `key != "${k}"`).join(" && ");
+        if (excludeCheck) {
+          lines.push(`    if (${excludeCheck}) {`);
+          lines.push(`      ${restVarName}_temp.set(key, value);`);
+          lines.push(`    }`);
+        } else {
+          lines.push(`    ${restVarName}_temp.set(key, value);`);
+        }
+        lines.push(`  }`);
+        lines.push(`  return js::any(${restVarName}_temp);`);
+        lines.push(`}();`);
       }
     } else if (pattern.kind === IRNodeKind.ArrayPattern) {
       // Array destructuring

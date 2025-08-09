@@ -228,6 +228,68 @@ public:
         std::vector<T> sliced(elements_.begin() + start, elements_.begin() + actualEnd);
         return array<T>(sliced);
     }
+    
+    // forEach method - executes a function for each element
+    template<typename Func>
+    void forEach(Func&& func) const {
+        for (const auto& elem : elements_) {
+            func(elem);
+        }
+    }
+    
+    // find method - returns first element that satisfies the predicate
+    template<typename Func>
+    T find(Func&& func) const {
+        for (const auto& elem : elements_) {
+            if (func(elem)) {
+                return elem;
+            }
+        }
+        return T(); // Return default value if not found
+    }
+    
+    // findIndex method - returns index of first element that satisfies the predicate
+    template<typename Func>
+    int findIndex(Func&& func) const {
+        for (size_t i = 0; i < elements_.size(); ++i) {
+            if (func(elements_[i])) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1; // Return -1 if not found
+    }
+    
+    // some method - tests whether at least one element passes the test
+    template<typename Func>
+    bool some(Func&& func) const {
+        for (const auto& elem : elements_) {
+            if (func(elem)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // every method - tests whether all elements pass the test
+    template<typename Func>
+    bool every(Func&& func) const {
+        for (const auto& elem : elements_) {
+            if (!func(elem)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // includes method - checks if array includes a certain value
+    bool includes(const T& value) const {
+        for (const auto& elem : elements_) {
+            if (elem == value) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 // Object class for JavaScript objects
@@ -260,6 +322,11 @@ public:
     
     bool has(const std::string& key) const {
         return properties_.find(key) != properties_.end();
+    }
+    
+    // Get all entries as a range for iteration
+    const std::unordered_map<std::string, std::any>& entries() const {
+        return properties_;
     }
 };
 
@@ -466,8 +533,159 @@ public:
         return any(toString() + other);
     }
     
+    // Arithmetic operators with numbers
+    any operator*(const number& other) const {
+        if (is<number>()) {
+            return any(number(get<number>().value() * other.value()));
+        }
+        return undefined;
+    }
+    
+    any operator/(const number& other) const {
+        if (is<number>()) {
+            return any(number(get<number>().value() / other.value()));
+        }
+        return undefined;
+    }
+    
+    any operator-(const number& other) const {
+        if (is<number>()) {
+            return any(number(get<number>().value() - other.value()));
+        }
+        return undefined;
+    }
+    
+    any operator%(const number& other) const {
+        if (is<number>()) {
+            return any(number(std::fmod(get<number>().value(), other.value())));
+        }
+        return undefined;
+    }
+    
+    // Comparison operators
+    bool operator>(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() > other.value();
+        }
+        return false;
+    }
+    
+    bool operator<(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() < other.value();
+        }
+        return false;
+    }
+    
+    bool operator>=(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() >= other.value();
+        }
+        return false;
+    }
+    
+    bool operator<=(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() <= other.value();
+        }
+        return false;
+    }
+    
+    bool operator==(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() == other.value();
+        }
+        return false;
+    }
+    
+    bool operator!=(const number& other) const {
+        if (is<number>()) {
+            return get<number>().value() != other.value();
+        }
+        return true;
+    }
+    
     // Property assignment for objects - this method should not be used directly
     // Use explicit assignment through the object reference instead
+    
+    // Array methods - delegate to underlying array if this contains an array
+    template<typename Func>
+    auto map(Func&& func) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().map(std::forward<Func>(func));
+        }
+        return array<any>(); // Return empty array for non-arrays
+    }
+    
+    template<typename Func>
+    auto filter(Func&& func) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().filter(std::forward<Func>(func));
+        }
+        return array<any>(); // Return empty array for non-arrays
+    }
+    
+    template<typename Func, typename Init>
+    auto reduce(Func&& func, Init&& init) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().reduce(std::forward<Func>(func), std::forward<Init>(init));
+        }
+        return init; // Return initial value for non-arrays
+    }
+    
+    template<typename Func>
+    void forEach(Func&& func) const {
+        if (is<array<any>>()) {
+            get<array<any>>().forEach(std::forward<Func>(func));
+        }
+    }
+    
+    template<typename Func>
+    any find(Func&& func) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().find(std::forward<Func>(func));
+        }
+        return undefined; // Return undefined for non-arrays
+    }
+    
+    template<typename Func>
+    number findIndex(Func&& func) const {
+        if (is<array<any>>()) {
+            return number(get<array<any>>().findIndex(std::forward<Func>(func)));
+        }
+        return number(-1); // Return -1 for non-arrays
+    }
+    
+    template<typename Func>
+    bool some(Func&& func) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().some(std::forward<Func>(func));
+        }
+        return false; // Return false for non-arrays
+    }
+    
+    template<typename Func>
+    bool every(Func&& func) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().every(std::forward<Func>(func));
+        }
+        return true; // Return true for non-arrays (vacuous truth)
+    }
+    
+    bool includes(const any& value) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().includes(value);
+        }
+        return false; // Return false for non-arrays
+    }
+    
+    // As object for iteration  
+    object as_object() const {
+        if (is<object>()) {
+            return get<object>();
+        }
+        return object(); // Return empty object for non-objects
+    }
 };
 
 // Typedef for array<any> 
