@@ -29,7 +29,14 @@
       "tags": ["recommended"],
       "exclude": ["no-explicit-any"]
     },
-    "exclude": [".output/"]
+    "exclude": [
+      ".output/",
+      "node_modules/",
+      "**/build/",
+      "**/CMakeFiles/",
+      "**/*.cpp",
+      "**/*.h"
+    ]
   },
   "fmt": {
     "lineWidth": 100,
@@ -37,7 +44,14 @@
     "semiColons": true,
     "singleQuote": false,
     "proseWrap": "preserve",
-    "exclude": [".output/"]
+    "exclude": [
+      ".output/",
+      "node_modules/",
+      "**/build/",
+      "**/CMakeFiles/",
+      "**/*.cpp",
+      "**/*.h"
+    ]
   },
   "imports": {
     "@std/": "https://deno.land/std@0.220.0/",
@@ -57,7 +71,14 @@
   },
   "test": {
     "include": ["tests/", "src/**/*.test.ts"],
-    "exclude": ["tests/fixtures/", "tests/integration/"]
+    "exclude": [
+      "tests/fixtures/",
+      "tests/integration/",
+      ".output/",
+      "node_modules/",
+      "**/build/",
+      "**/CMakeFiles/"
+    ]
   },
   "bench": {
     "include": ["benchmarks/"]

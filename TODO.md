@@ -257,7 +257,7 @@ Based on analysis of both reference implementations:
   - ✅ Function types (v0.1.1)
   - [ ] Higher-order functions
   - ✅ Arrow functions with proper `this` binding (v0.2.0)
-  - [ ] IIFE (Immediately Invoked Function Expressions)
+  - ✅ IIFE (Immediately Invoked Function Expressions) (v0.7.0)
 
 - [x] **Modern JavaScript Operators** ✅ PARTIAL (v0.1.0-v0.5.4)
   - ✅ Nullish coalescing (??) (v0.5.4-dev)
@@ -273,7 +273,7 @@ Based on analysis of both reference implementations:
   - ✅ Rest parameters (...) (v0.5.3-dev)
   - ✅ Default parameters (v0.5.3-dev)
   - ✅ Dynamic property access (v0.2.0)
-  - [ ] Computed property names
+  - ✅ Computed property names (v0.7.0)
   - ✅ Object.assign/Object.create (v0.3.0)
   - ✅ Object.keys/values/entries (v0.3.0)
   - ✅ Array.from/Array.of (v0.3.0)
@@ -289,10 +289,10 @@ Based on analysis of both reference implementations:
   - String.prototype.matchAll
 
 - [x] **Other Language Features** ✅ PARTIAL (v0.2.0-v0.4.0)
-  - [ ] delete operator
-  - [ ] instanceof operator (runtime)
+  - [x] delete operator (v0.7.0)
+  - [x] instanceof operator (runtime) (v0.7.0)
   - ✅ typeof operator (runtime) (v0.4.0)
-  - [ ] in operator
+  - [x] in operator (v0.7.0)
   - [ ] void operator
   - Symbol support
   - Symbol.iterator protocol

@@ -1511,6 +1511,21 @@ std::shared_ptr<js::Promise<${innerType}>>
       context.includes.add("<cmath>");
       return `js::number(std::pow(${left}.value(), ${right}.value()))`;
     }
+    if (expr.operator === "instanceof") {
+      // For instanceof, the right side should be treated as a type name string
+      // Map common C++ type names to JavaScript type names
+      let typeName = right;
+      if (typeName === "js::array") typeName = "Array";
+      if (typeName === "js::string") typeName = "String";
+      if (typeName === "js::number") typeName = "Number";
+      if (typeName === "js::object") typeName = "Object";
+
+      const rightTypeStr = `"${typeName}"`;
+      return `js::instanceof_op(${left}, ${rightTypeStr})`;
+    }
+    if (expr.operator === "in") {
+      return `js::in_op(${left}, ${right})`;
+    }
 
     return `(${left} ${expr.operator} ${right})`;
   }
@@ -1528,6 +1543,22 @@ std::shared_ptr<js::Promise<${innerType}>>
       return `(void(${operand}), js::undefined)`;
     }
     if (expr.operator === "delete") {
+      // Special handling for delete operations on member expressions
+      if (expr.operand.kind === IRNodeKind.MemberExpression) {
+        const memberExpr = expr.operand as IRMemberExpression;
+        const objectExpr = this.generateExpression(memberExpr.object, context);
+        const propertyExpr = this.generateExpression(memberExpr.property, context);
+
+        if (memberExpr.computed) {
+          // delete obj[key]
+          return `js::delete_property(${objectExpr}, js::toString(${propertyExpr}))`;
+        } else {
+          // delete obj.prop - property is an identifier
+          const propName = (memberExpr.property as IRIdentifier).name;
+          return `js::delete_property(${objectExpr}, "${propName}")`;
+        }
+      }
+      // For other delete operations, use the generic delete_op
       return `js::delete_op(${operand})`;
     }
 

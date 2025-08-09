@@ -160,7 +160,9 @@ type BinaryOp =
   | ">>"
   | ">>>"
   | "??"
-  | "**";
+  | "**"
+  | "instanceof"
+  | "in";
 
 /**
  * Unary operator type (matching IR)
@@ -1060,6 +1062,9 @@ class ASTTransformer {
       case ts.SyntaxKind.ArrowFunction:
         return this.transformArrowFunction(node as ts.ArrowFunction);
 
+      case ts.SyntaxKind.FunctionExpression:
+        return this.transformFunctionExpression(node as ts.FunctionExpression);
+
       case ts.SyntaxKind.ThisKeyword:
         return this.transformThisExpression(node);
 
@@ -1081,6 +1086,9 @@ class ASTTransformer {
       case ts.SyntaxKind.ParenthesizedExpression:
         // Parenthesized expressions just pass through the inner expression
         return this.transformExpression((node as ts.ParenthesizedExpression).expression);
+
+      case ts.SyntaxKind.DeleteExpression:
+        return this.transformDeleteExpression(node as ts.DeleteExpression);
 
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
@@ -1357,6 +1365,18 @@ class ASTTransformer {
   }
 
   /**
+   * Transform delete expression (delete obj.prop)
+   */
+  private transformDeleteExpression(node: ts.DeleteExpression): IRUnaryExpression {
+    return {
+      kind: IRNodeKind.UnaryExpression,
+      operator: "delete",
+      operand: this.transformExpression(node.expression),
+      prefix: true,
+    };
+  }
+
+  /**
    * Transform assignment expression
    */
   private transformAssignmentExpression(node: any): IRAssignmentExpression {
@@ -1461,6 +1481,38 @@ class ASTTransformer {
       isAsync: false,
       isGenerator: false,
       isArrow: true, // Mark as arrow function for proper this binding
+    } as any;
+  }
+
+  /**
+   * Transform function expression
+   */
+  private transformFunctionExpression(node: ts.FunctionExpression): IRExpression {
+    // Function expressions are anonymous functions that can be called immediately (IIFE)
+    const params = this.transformParameters(Array.from(node.parameters || []));
+    const returnType = this.resolveType(node.type);
+
+    let body: IRBlockStatement;
+    if (node.body) {
+      body = this.transformBlockStatement(node.body);
+    } else {
+      // Empty body
+      body = {
+        kind: IRNodeKind.BlockStatement,
+        body: [],
+      };
+    }
+
+    // Return as a function expression that will be generated as a lambda
+    return {
+      kind: IRNodeKind.FunctionExpression,
+      id: node.name ? this.transformIdentifier(node.name) : null, // Function expressions can have optional names
+      params,
+      returnType,
+      body,
+      isAsync: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword),
+      isGenerator: !!node.asteriskToken,
+      isArrow: false, // Regular function expression, not arrow function
     } as any;
   }
 
@@ -1838,6 +1890,8 @@ class ASTTransformer {
       ">>>": ">>>",
       "??": "??",
       "**": "**",
+      "instanceof": "instanceof",
+      "in": "in",
     };
 
     return mapping[op] || "+";

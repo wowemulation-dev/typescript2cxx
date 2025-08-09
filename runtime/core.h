@@ -143,6 +143,7 @@ public:
     
     // Basic array operations
     size_t length() const { return elements_.size(); }
+    size_t size() const { return elements_.size(); }
     bool empty() const { return elements_.empty(); }
     
     T& operator[](size_t index) { return elements_[index]; }
@@ -322,6 +323,11 @@ public:
     
     bool has(const std::string& key) const {
         return properties_.find(key) != properties_.end();
+    }
+    
+    // Remove a property from the object (for delete operator)
+    bool remove(const std::string& key) {
+        return properties_.erase(key) > 0;
     }
     
     // Get all entries as a range for iteration
@@ -605,6 +611,32 @@ public:
         return true;
     }
     
+    // Equality operators for any-to-any comparison
+    bool operator==(const any& other) const {
+        // Handle the same type comparisons
+        if (value_.index() == other.value_.index()) {
+            return std::visit([&other](const auto& val) -> bool {
+                using T = std::decay_t<decltype(val)>;
+                if constexpr (std::is_same_v<T, undefined_t> || std::is_same_v<T, null_t> || std::is_same_v<T, bool>) {
+                    return val == std::get<T>(other.value_);
+                } else if constexpr (std::is_same_v<T, number>) {
+                    return val.value() == std::get<T>(other.value_).value();
+                } else if constexpr (std::is_same_v<T, string>) {
+                    return val.value() == std::get<T>(other.value_).value();
+                } else {
+                    // For complex types (array, object), just check if they're the same reference
+                    // In JavaScript, objects are compared by reference
+                    return &val == &std::get<T>(other.value_);
+                }
+            }, value_);
+        }
+        return false; // Different types are not equal
+    }
+    
+    bool operator!=(const any& other) const {
+        return !(*this == other);
+    }
+    
     // Property assignment for objects - this method should not be used directly
     // Use explicit assignment through the object reference instead
     
@@ -768,6 +800,129 @@ inline any object::get_as_js_any(const std::string& key) const {
         }
     }
     return undefined;
+}
+
+// Runtime operator implementations
+
+/**
+ * instanceof operator implementation
+ * Note: This is a simplified version - JavaScript instanceof is more complex
+ */
+template<typename T>
+bool instanceof_op(const T& obj, const std::string& typeName) {
+    // For now, return false for all cases
+    // This is a placeholder implementation
+    // In a full implementation, we'd need runtime type information
+    return false;
+}
+
+// Specialized versions for common cases
+inline bool instanceof_op(const any& obj, const std::string& typeName) {
+    if (typeName == "Array") {
+        return obj.template is<array<any>>();
+    } else if (typeName == "Object") {
+        return obj.template is<object>();
+    } else if (typeName == "String") {
+        return obj.template is<string>();
+    } else if (typeName == "Number") {
+        return obj.template is<number>();
+    } else if (typeName == "Boolean") {
+        return obj.template is<bool>();
+    }
+    return false;
+}
+
+// Overloads for specific types
+inline bool instanceof_op(const array<any>& obj, const std::string& typeName) {
+    return typeName == "Array";
+}
+
+inline bool instanceof_op(const string& obj, const std::string& typeName) {
+    return typeName == "String";
+}
+
+inline bool instanceof_op(const number& obj, const std::string& typeName) {
+    return typeName == "Number";
+}
+
+inline bool instanceof_op(bool obj, const std::string& typeName) {
+    return typeName == "Boolean";
+}
+
+/**
+ * in operator implementation
+ * Checks if a property exists in an object
+ */
+template<typename Key, typename Obj>
+bool in_op(const Key& key, const Obj& obj) {
+    // Convert key to string for property access
+    std::string keyStr;
+    if constexpr (std::is_same_v<Key, string>) {
+        keyStr = key.value();
+    } else if constexpr (std::is_same_v<Key, std::string>) {
+        keyStr = key;
+    } else if constexpr (std::is_same_v<Key, number>) {
+        keyStr = std::to_string(static_cast<int>(key.value()));
+    } else {
+        keyStr = "unknown";
+    }
+    
+    // For js::object, check if property exists
+    if constexpr (std::is_same_v<Obj, object>) {
+        return obj.has(keyStr);
+    }
+    // For js::any, check if it contains an object and then check the property
+    else if constexpr (std::is_same_v<Obj, any>) {
+        if (obj.template is<object>()) {
+            return obj.template get<object>().has(keyStr);
+        }
+        // Check if it's an array and the key is a valid index
+        else if (obj.template is<array<any>>()) {
+            try {
+                int index = std::stoi(keyStr);
+                const auto& arr = obj.template get<array<any>>();
+                return index >= 0 && index < static_cast<int>(arr.size());
+            } catch (...) {
+                return false;
+            }
+        }
+        return false;
+    }
+    // For arrays, check if index exists
+    else if constexpr (std::is_base_of_v<array<typename Obj::value_type>, Obj>) {
+        try {
+            int index = std::stoi(keyStr);
+            return index >= 0 && index < static_cast<int>(obj.size());
+        } catch (...) {
+            return false;
+        }
+    }
+    return false;
+}
+
+/**
+ * delete operator implementation
+ * Deletes a property from an object
+ */
+bool delete_property(any& obj, const std::string& property) {
+    if (obj.template is<object>()) {
+        // We need to extract the object, modify it, and put it back
+        // because get<>() returns a copy, not a reference
+        object jsObj = obj.template get<object>();
+        bool result = jsObj.remove(property);
+        obj = any(jsObj);
+        return result;
+    }
+    // For non-objects, delete always returns true but doesn't do anything
+    return true;
+}
+
+// Generic delete operation
+template<typename Obj>
+bool delete_op(Obj& obj) {
+    // For now, just return true (successful deletion)
+    // In JavaScript, delete always returns true except in strict mode with non-configurable properties
+    return true;
 }
 
 } // namespace js

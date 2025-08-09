@@ -20,3 +20,14 @@ Thumbs.db
 
 # Dependencies
 /node_modules/
+
+# Test and build outputs
+/**/build/
+/**/CMakeFiles/
+/test-output/
+/cov_profile/
+/coverage.lcov
+*.exe
+
+# Deno generated files
+/.deno/

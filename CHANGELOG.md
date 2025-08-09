@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-01-08
+
+### Added
+
+- feat: Array higher-order methods (forEach, find, findIndex, some, every, includes)
+- feat: Computed property names in object literals (`{[key]: value}`)
+- feat: IIFE (Immediately Invoked Function Expressions) support
+- feat: instanceof operator for runtime type checking
+- feat: in operator for property existence checking
+- feat: delete operator for property deletion
+- feat: Full arrow function support with lambda generation
+- feat: Object rest properties in destructuring (`const {a, ...rest} = obj`)
+- feat: Array spread in array literals (`[...arr1, ...arr2]`)
+
+### Fixed
+
+- fix: C++ reserved keywords properly escaped with underscore suffix
+- fix: Added missing arithmetic operators to js::any (*, /, -, %)
+- fix: Fixed === operator mapping to == in C++ generation
+- fix: Lambda capture issues resolved for global scope operations
+- fix: Better array method detection in code generator
+
+### Enhanced
+
+- Enhanced js::any with comprehensive operator overloads
+- Improved runtime helper functions for new operators
+- Better type safety in array method implementations
+
 ## [0.6.0] - 2025-01-08
 
 ### Added

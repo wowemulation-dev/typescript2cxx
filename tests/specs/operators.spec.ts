@@ -19,12 +19,8 @@ describe("Operators (Comprehensive - Ported from Prototype)", () => {
     assertEquals(typeof result.source, "string");
 
     // Then test compilation and execution
-    const e2eResult = await runEndToEndTest(code, expectedOutput);
-    if (e2eResult?.success === false) {
-      console.error("E2E Test failed:", e2eResult.error);
-      throw new Error(`E2E test failed: ${e2eResult.error}`);
-    }
-    assertEquals(e2eResult?.output, expectedOutput);
+    // runEndToEndTest throws on failure, no need to check result
+    await runEndToEndTest(code, expectedOutput);
   }
 
   describe("Arithmetic Operators", () => {
