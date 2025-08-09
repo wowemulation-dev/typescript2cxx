@@ -1566,6 +1566,7 @@ class CppGenerator {
       "Infinity": "js::number::POSITIVE_INFINITY",
       "Math": "js::Math",
       "Date": "js::Date",
+      "Object": "js::Object",
       "RegExp": "js::RegExp",
       "Error": "js::Error",
       "TypeError": "js::TypeError",
@@ -1584,7 +1585,6 @@ class CppGenerator {
       "decodeURI": "js::decodeURI",
       "encodeURIComponent": "js::encodeURIComponent",
       "decodeURIComponent": "js::decodeURIComponent",
-      "Object": "js::object",
       "Array": "js::array",
     };
 
@@ -1840,6 +1840,11 @@ class CppGenerator {
         return `js::JSON::${property}`;
       }
 
+      // Handle Object static methods
+      if (object === "js::Object") {
+        return `js::Object::${property}`;
+      }
+
       // Handle static method calls on class names
       // Check if object is a class name (starts with uppercase)
       if (
@@ -1850,8 +1855,14 @@ class CppGenerator {
         return `${object}::${property}`;
       }
 
-      // Handle js:: namespace objects - use dot notation
+      // Handle js:: namespace objects
       if (object.startsWith("js::") && !object.includes("->") && !object.includes(".")) {
+        // Check if this is a static class method (Math, Date, Object, JSON, etc.)
+        const staticClasses = ["js::Math", "js::Date", "js::Object", "js::JSON"];
+        if (staticClasses.includes(object)) {
+          return `${object}::${property}`;
+        }
+        // Otherwise use dot notation for instance members
         return `${object}.${property}`;
       }
 

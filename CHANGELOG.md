@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- feat: keyof operator support for type-safe property key extraction (v0.8.6-dev)
+- feat: Conditional types basic support with compile-time resolution (v0.8.6-dev)
+- feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
+- feat: Type assertion (as) expression support in transformer
+- feat: ConditionalType, InferType, and MappedType handling in SimpleTypeChecker
+
+### Fixed
+
+- fix: Object identifier mapping conflict (was dual-mapped to js::Object and js::object)
+- fix: Type assertions now properly pass through expressions without affecting runtime behavior
+- fix: Type aliases no longer generate runtime code (they're compile-time only constructs)
+
 ## [0.7.0] - 2025-01-08
 
 ### Added

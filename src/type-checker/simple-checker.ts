@@ -176,6 +176,42 @@ export class SimpleTypeChecker {
         return this.getTypeString(parenType.type);
       }
 
+      case ts.SyntaxKind.TypeOperator: {
+        const typeOp = typeNode as ts.TypeOperatorNode;
+        if (typeOp.operator === ts.SyntaxKind.KeyOfKeyword) {
+          const innerType = this.getTypeString(typeOp.type);
+          return `keyof ${innerType}`;
+        }
+        return "unknown";
+      }
+
+      case ts.SyntaxKind.ConditionalType: {
+        const condType = typeNode as ts.ConditionalTypeNode;
+        // For conditional types, we evaluate the condition at compile time if possible
+        // Otherwise, we default to the true type (common case)
+        // This is a simplified approach - full conditional type support is complex
+
+        // Check if this is a simple type test
+        const _checkType = this.getTypeString(condType.checkType);
+        const _extendsType = this.getTypeString(condType.extendsType);
+
+        // For now, return the true type as the default
+        // In the future, we could evaluate simple conditions
+        return this.getTypeString(condType.trueType);
+      }
+
+      case ts.SyntaxKind.InferType: {
+        // Infer types are used in conditional types for type extraction
+        // They don't have a direct C++ equivalent
+        return "auto";
+      }
+
+      case ts.SyntaxKind.MappedType: {
+        // Mapped types create new types by iterating over properties
+        // For now, treat as object
+        return "object";
+      }
+
       default:
         return "unknown";
     }
@@ -319,6 +355,37 @@ export class SimpleTypeChecker {
       case ts.SyntaxKind.ParenthesizedType: {
         const parenType = typeNode as ts.ParenthesizedTypeNode;
         return this.mapToCppType(parenType.type, this.getTypeString(parenType.type));
+      }
+
+      case ts.SyntaxKind.TypeOperator: {
+        const typeOp = typeNode as ts.TypeOperatorNode;
+        if (typeOp.operator === ts.SyntaxKind.KeyOfKeyword) {
+          // keyof T returns a string union of the keys
+          // In C++, we'll represent this as js::string for simplicity
+          // since C++ doesn't have native string literal types
+          return "js::string";
+        }
+        return "js::any";
+      }
+
+      case ts.SyntaxKind.ConditionalType: {
+        const condType = typeNode as ts.ConditionalTypeNode;
+        // For conditional types in C++, we use the true type as default
+        // since C++ doesn't have native conditional types
+        // More complex conditional logic would require template metaprogramming
+        return this.mapToCppType(condType.trueType, this.getTypeString(condType.trueType));
+      }
+
+      case ts.SyntaxKind.InferType: {
+        // Infer types are used for type extraction in conditional types
+        // In C++, we use auto for type inference
+        return "auto";
+      }
+
+      case ts.SyntaxKind.MappedType: {
+        // Mapped types create new types by transforming properties
+        // For C++, we treat them as generic objects
+        return "js::object";
       }
 
       default:

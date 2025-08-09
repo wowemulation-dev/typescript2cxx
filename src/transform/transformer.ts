@@ -891,13 +891,11 @@ class ASTTransformer {
   /**
    * Transform type alias
    */
-  private transformTypeAlias(_node: ts.TypeAliasDeclaration): IRExpressionStatement {
+  private transformTypeAlias(_node: ts.TypeAliasDeclaration): null {
     // Type aliases don't generate runtime code
-    // Return a placeholder expression statement
-    return {
-      kind: IRNodeKind.ExpressionStatement,
-      expression: this.createLiteral(null),
-    };
+    // They are compile-time only constructs in TypeScript
+    // Return null to skip code generation
+    return null;
   }
 
   /**
@@ -1332,6 +1330,14 @@ class ASTTransformer {
 
       case ts.SyntaxKind.DeleteExpression:
         return this.transformDeleteExpression(node as ts.DeleteExpression);
+
+      case ts.SyntaxKind.AsExpression:
+        // Type assertions don't affect runtime behavior, just return the expression
+        return this.transformExpression((node as ts.AsExpression).expression);
+
+      case ts.SyntaxKind.TypeAssertionExpression:
+        // Type assertions don't affect runtime behavior, just return the expression
+        return this.transformExpression((node as ts.TypeAssertion).expression);
 
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);

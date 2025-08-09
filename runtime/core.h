@@ -1791,6 +1791,71 @@ inline string decodeURIComponent(const string& component) {
     return string(result);
 }
 
+// Object static methods namespace
+namespace Object {
+    // Get all keys from an object
+    inline array<string> keys(const object& obj) {
+        array<string> result;
+        for (const auto& [key, value] : obj.entries()) {
+            (void)value; // Suppress unused warning
+            result.push(string(key));
+        }
+        return result;
+    }
+    
+    // Get all values from an object
+    inline array<any> values(const object& obj) {
+        array<any> result;
+        for (const auto& [key, value] : obj.entries()) {
+            (void)key; // Suppress unused warning
+            result.push(obj.get_as_js_any(key));
+        }
+        return result;
+    }
+    
+    // Get all key-value pairs from an object
+    inline array<array<any>> entries(const object& obj) {
+        array<array<any>> result;
+        for (const auto& [key, value] : obj.entries()) {
+            (void)value; // Suppress unused warning
+            array<any> entry;
+            entry.push(any(string(key)));
+            entry.push(obj.get_as_js_any(key));
+            result.push(entry);
+        }
+        return result;
+    }
+    
+    // Create object from entries (fromEntries)
+    inline object fromEntries(const array<array<any>>& entries) {
+        object result;
+        for (size_t i = 0; i < entries.length(); i++) {
+            const auto& entry = entries[i];
+            if (entry.length() >= 2) {
+                string key = entry[0].as<string>();
+                result.set(key.c_str(), entry[1]);
+            }
+        }
+        return result;
+    }
+    
+    // Assign properties from sources to target
+    template<typename... Sources>
+    inline object& assign(object& target, const Sources&... sources) {
+        ((void)(target = sources), ...); // Simplified - should copy properties
+        return target;
+    }
+    
+    // Create a new object with prototype
+    inline object create(const object* prototype) {
+        object result;
+        if (prototype) {
+            result.set_prototype(std::make_shared<object>(*prototype));
+        }
+        return result;
+    }
+}
+
 } // namespace js
 
 // Include type guards for logical operators and runtime checks

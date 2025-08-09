@@ -231,12 +231,12 @@ Based on analysis of both reference implementations:
   - ✅ Union types with runtime checks (v0.4.0)
   - ✅ Intersection types (v0.4.0)
   - ✅ Type guards and narrowing (custom and built-in) (v0.4.0)
-  - [ ] Conditional types
-  - Mapped types with modifiers (+/- readonly/optional)
-  - Template literal types
-  - Index types and indexed access
-  - `keyof` operator
-  - `typeof` type operator
+  - ✅ Conditional types (basic support) (v0.8.6-dev)
+  - [ ] Mapped types with modifiers (+/- readonly/optional)
+  - [ ] Template literal types
+  - [ ] Index types and indexed access
+  - ✅ `keyof` operator (v0.8.6-dev)
+  - [ ] `typeof` type operator
   - Const assertions (`as const`)
   - Satisfies operator
   - Non-null assertion operator (!)

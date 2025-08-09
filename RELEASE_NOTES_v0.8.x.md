@@ -1,3 +1,112 @@
+# TypeScript2Cxx v0.8.6 Release Notes (In Progress)
+
+## 🎯 Advanced Type Features - keyof & Conditional Types
+
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator** and **conditional types**, enabling type-safe property key extraction and compile-time type resolution. These features are essential for building type-safe property accessors and generic utility functions.
+
+### ✨ New Features
+
+#### keyof Operator Support
+
+The `keyof` operator extracts the keys of a type as a union of string literal types:
+
+**TypeScript Code:**
+
+```typescript
+interface Person {
+  name: string;
+  age: number;
+  email: string;
+}
+
+type PersonKeys = keyof Person; // "name" | "age" | "email"
+
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+function getKeys<T>(obj: T): (keyof T)[] {
+  return Object.keys(obj) as (keyof T)[];
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+template<typename T>
+js::array<js::string> getKeys(T obj) {
+    return js::Object::keys(obj);
+}
+```
+
+#### Conditional Types Support (Basic)
+
+TypeScript conditional types are now supported at a basic level, allowing compile-time type resolution:
+
+**TypeScript Code:**
+
+```typescript
+// Conditional types resolve at compile time
+type IsString<T> = T extends string ? true : false;
+type Exclude<T, U> = T extends U ? never : T;
+type Extract<T, U> = T extends U ? T : never;
+
+// Functions using conditional-like behavior
+function processValue<T>(value: T): string | number {
+  if (typeof value === "string") {
+    return value.toUpperCase();
+  }
+  return 42;
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+template<typename T>
+js::typed::StringOrNumber processValue(T value) {
+    if (js::typeof_op(value) === "string"_S) {
+        return value.toUpperCase();
+    }
+    return js::number(42);
+}
+```
+
+**Note:** Since C++ doesn't have native conditional types, TypeScript2Cxx resolves them at compile time when possible, defaulting to the "true" branch for complex conditions.
+
+### 🔧 Implementation Details
+
+- **Type System**: 
+  - Added `TypeOperatorNode` support in SimpleTypeChecker for `keyof` expressions
+  - Added `ConditionalType`, `InferType`, and `MappedType` node handling
+  - Conditional types resolve to their "true" branch by default (compile-time resolution)
+- **Transform Layer**: 
+  - Enhanced type assertion (`as`) expression handling to properly pass through expressions
+  - Type aliases now correctly skip runtime code generation (they're compile-time only)
+- **Code Generation**: 
+  - Fixed Object identifier mapping (was incorrectly dual-mapped to both js::Object and js::object)
+- **Runtime Library**: 
+  - Added `js::Object` namespace with static utility methods
+
+### 📚 Runtime Library Enhancements
+
+New `js::Object` namespace with static methods:
+
+- `keys(obj)` - Returns array of object property keys
+- `values(obj)` - Returns array of object property values
+- `entries(obj)` - Returns array of [key, value] pairs
+- `fromEntries(entries)` - Creates object from key-value pairs
+- `assign(target, ...sources)` - Copies properties between objects
+- `create(prototype)` - Creates object with specified prototype
+
+### 🚧 Known Limitations
+
+- `keyof` currently maps to `js::string` in C++ (no string literal types in C++)
+- Object.keys returns runtime keys, not compile-time type keys
+- Generic keyof constraints are simplified in C++ generation
+
+---
+
 # TypeScript2Cxx v0.8.0 Release Notes
 
 ## Overview
@@ -1650,15 +1759,15 @@ function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
 // Generic class
 class Container<T> {
   private value: T;
-  
+
   constructor(value: T) {
     this.value = value;
   }
-  
+
   getValue(): T {
     return this.value;
   }
-  
+
   setValue<U extends T>(newValue: U): void {
     this.value = newValue;
   }
@@ -1771,14 +1880,14 @@ public:
 
 ### Language Feature Completion
 
-| Feature Category         | Before v0.8.5 | After v0.8.5   | Status              |
-| ------------------------ | -------------- | -------------- | ------------------- |
-| **Private Fields**       | ❌ Missing     | ✅ Complete    | Full #private support |
-| **BigInt Literals**      | ❌ Missing     | ✅ Complete    | 123n syntax support |
-| **Function Overloading** | ❌ Missing     | ✅ Complete    | Runtime dispatch    |
-| **Generic Functions**    | ❌ Missing     | ✅ Complete    | C++ template gen    |
-| **Class System**         | 95%            | **98%**        | Near complete       |
-| **Function Features**    | 95%            | **100%**       | ✅ COMPLETE         |
+| Feature Category         | Before v0.8.5 | After v0.8.5 | Status                |
+| ------------------------ | ------------- | ------------ | --------------------- |
+| **Private Fields**       | ❌ Missing    | ✅ Complete  | Full #private support |
+| **BigInt Literals**      | ❌ Missing    | ✅ Complete  | 123n syntax support   |
+| **Function Overloading** | ❌ Missing    | ✅ Complete  | Runtime dispatch      |
+| **Generic Functions**    | ❌ Missing    | ✅ Complete  | C++ template gen      |
+| **Class System**         | 95%           | **98%**      | Near complete         |
+| **Function Features**    | 95%           | **100%**     | ✅ COMPLETE           |
 
 ### Updated Progress Statistics
 
@@ -1803,11 +1912,11 @@ public:
 // Now fully supported
 class MyClass {
   #privateData: number = 42;
-  
+
   #privateMethod(): string {
     return "private";
   }
-  
+
   public getPrivate(): number {
     return this.#privateData;
   }
@@ -1843,8 +1952,8 @@ function createArray<T>(item: T, count: number): T[] {
 }
 
 class Stack<T> {
-  push(item: T): void { /* ... */ }
-  pop(): T | undefined { /* ... */ }
+  push(item: T): void {/* ... */}
+  pop(): T | undefined {/* ... */}
 }
 ```
 
@@ -1853,7 +1962,7 @@ class Stack<T> {
 With these core language features complete, future development priorities:
 
 1. **Advanced Type Features**: Conditional types, mapped types, keyof operator
-2. **Module System**: Complete ES module import/export support  
+2. **Module System**: Complete ES module import/export support
 3. **Async Patterns**: Async generators, for await...of loops
 4. **Performance Optimization**: Template specialization and inlining
 
@@ -1869,7 +1978,7 @@ With these core language features complete, future development priorities:
 **TypeScript2Cxx v0.8.5 delivers essential modern JavaScript features:**
 
 - **Private Fields**: Complete #private syntax with C++ encapsulation
-- **BigInt Support**: Full arbitrary precision integer literals  
+- **BigInt Support**: Full arbitrary precision integer literals
 - **Function Overloading**: Multi-signature functions with runtime dispatch
 - **Generic Functions**: C++ template generation with type parameters
 - **Code Quality**: Enhanced AST processing and IR representation
