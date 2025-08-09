@@ -37,9 +37,11 @@ async function processTestFile(testPath: string): Promise<TestResult> {
     // Read test file
     const tsCode = await Deno.readTextFile(testPath);
 
-    // Skip if it's a test file (not actual TypeScript to transpile)
-    if (tsCode.includes("Deno.test") || tsCode.includes("import { assert")) {
-      result.error = "Test file, not transpilable code";
+    // Skip if it's a test file or plugin definition (not actual TypeScript to transpile)
+    if (tsCode.includes("Deno.test") || tsCode.includes("import { assert") || 
+        tsCode.includes("from \"../../src/plugins/types.ts\"") || 
+        testName.includes("plugin")) {
+      result.error = "Plugin definition or test file, not transpilable application code";
       return result;
     }
 

@@ -30,20 +30,20 @@ namespace typed {
         StringOrNumber(T n, typename std::enable_if<std::is_arithmetic<T>::value>::type* = 0) 
             : _value(number(n)) {}
         
-        bool is_string() const { return std::holds_alternative<js::string>(_value); }
-        bool is_number() const { return std::holds_alternative<js::number>(_value); }
+        bool is_string() const { return _value.is<js::string>(); }
+        bool is_number() const { return _value.is<js::number>(); }
         
         string as_string() const {
-            if (is_string()) return std::get<js::string>(_value);
-            if (is_number()) return std::get<js::number>(_value).toString();
+            if (is_string()) return _value.as<js::string>();
+            if (is_number()) return _value.as<js::number>().toString();
             throw std::runtime_error("StringOrNumber is neither string nor number");
         }
         
         number as_number() const {
-            if (is_number()) return std::get<js::number>(_value);
+            if (is_number()) return _value.as<js::number>();
             if (is_string()) {
                 // Try to parse string as number
-                auto str = std::get<js::string>(_value).to_std_string();
+                auto str = _value.as<js::string>().value();
                 try {
                     return number(std::stod(str));
                 } catch (...) {
@@ -83,27 +83,26 @@ namespace typed {
         Nullable(T&& value) : _value(std::move(value)) {}
         
         bool has_value() const {
-            return !std::holds_alternative<undefined_t>(_value) && 
-                   !std::holds_alternative<null_t>(_value);
+            return !_value.is_null() && !_value.is_undefined();
         }
         
-        bool is_null() const { return std::holds_alternative<null_t>(_value); }
-        bool is_undefined() const { return std::holds_alternative<undefined_t>(_value); }
+        bool is_null() const { return _value.is_null(); }
+        bool is_undefined() const { return _value.is_undefined(); }
         
         T value() const {
             if (!has_value()) {
                 throw std::runtime_error("Nullable has no value");
             }
-            return std::get<T>(_value);
+            return _value.as<T>();
         }
         
         T value_or(const T& default_value) const {
-            return has_value() ? std::get<T>(_value) : default_value;
+            return has_value() ? _value.as<T>() : default_value;
         }
         
         std::optional<T> to_optional() const {
             if (has_value()) {
-                return std::get<T>(_value);
+                return _value.as<T>();
             }
             return std::nullopt;
         }
@@ -156,7 +155,7 @@ namespace typed {
         std::optional<T> get(const string& key) const {
             if (_obj.has_property(key)) {
                 try {
-                    return std::get<T>(_obj[key]);
+                    return _obj[key].as<T>();
                 } catch (...) {
                     return std::nullopt;
                 }
@@ -204,7 +203,7 @@ namespace typed {
         std::optional<T> at(size_t index) const {
             if (index < _arr.length()) {
                 try {
-                    return std::get<T>(_arr[index]);
+                    return _arr[index].as<T>();
                 } catch (...) {
                     return std::nullopt;
                 }
@@ -221,7 +220,7 @@ namespace typed {
         
         void validate() const {
             for (size_t i = 0; i < _arr.length(); ++i) {
-                if (!std::holds_alternative<T>(_arr[i])) {
+                if (!_arr[i].is<T>()) {
                     throw std::runtime_error("Invalid type in SafeArray at index " + std::to_string(i));
                 }
             }
@@ -230,7 +229,7 @@ namespace typed {
         array<T> to_typed_array() const {
             array<T> result;
             for (size_t i = 0; i < _arr.length(); ++i) {
-                result.push(std::get<T>(_arr[i]));
+                result.push(_arr[i].as<T>());
             }
             return result;
         }

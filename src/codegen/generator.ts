@@ -2280,9 +2280,15 @@ class CppGenerator {
       "RangeError": "js::RangeError",
       "EvalError": "js::EvalError",
       "URIError": "js::URIError",
+      
+      // New JavaScript types
+      "symbol": "js::symbol",
+      "Symbol": "js::symbol",
+      "bigint": "js::bigint",
+      "BigInt": "js::bigint",
 
       // Utility types
-      "Function": "std::function<js::any()>",
+      "Function": "std::shared_ptr<js::function>",
       "Promise": "js::Promise<js::any>",
     };
 
@@ -2310,16 +2316,32 @@ class CppGenerator {
       return "std::function<js::any()>";
     }
 
-    // Handle union types - use js::any for now (could be enhanced with std::variant)
+    // Handle union types with typed wrappers
     if (tsType.includes(" | ")) {
       const types = tsType.split(" | ").map((t) => t.trim());
+
+      // Special case for string | number
+      if (types.length === 2 && types.includes("string") && types.includes("number")) {
+        return "js::typed::StringOrNumber";
+      }
+
+      // Special case for boolean | number
+      if (types.length === 2 && types.includes("boolean") && types.includes("number")) {
+        return "js::typed::BooleanOrNumber";
+      }
+
+      // Special case for string | boolean
+      if (types.length === 2 && types.includes("string") && types.includes("boolean")) {
+        return "js::typed::StringOrBoolean";
+      }
 
       // Special case for common nullable patterns
       if (types.length === 2) {
         if (types.includes("null") || types.includes("undefined")) {
           const nonNullType = types.find((t) => t !== "null" && t !== "undefined");
           if (nonNullType) {
-            return `std::optional<${this.mapType(nonNullType)}>`;
+            // Use Nullable wrapper instead of std::optional
+            return `js::typed::Nullable<${this.mapType(nonNullType)}>`;
           }
         }
       }

@@ -24,6 +24,8 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <atomic>
+#include <unordered_map>
 
 namespace js {
 
@@ -1224,9 +1226,374 @@ public:
     }
 };
 
+// Symbol class for JavaScript Symbol support
+class symbol {
+private:
+    std::string description;
+    static std::unordered_map<std::string, std::shared_ptr<symbol>> global_registry;
+    static std::atomic<uint64_t> symbol_counter;
+    uint64_t id;
+    bool is_global;
+    
+public:
+    // Default constructor - anonymous symbol
+    symbol() : description(""), id(symbol_counter++), is_global(false) {}
+    
+    // Constructor with description
+    explicit symbol(const string& desc) : description(desc.value()), id(symbol_counter++), is_global(false) {}
+    explicit symbol(const std::string& desc) : description(desc), id(symbol_counter++), is_global(false) {}
+    
+    // Private constructor for global symbols
+    symbol(const std::string& desc, bool global) : description(desc), id(symbol_counter++), is_global(global) {}
+    
+    // Get symbol description
+    string toString() const { 
+        if (description.empty()) {
+            return string("Symbol()");
+        }
+        return string("Symbol(" + description + ")");
+    }
+    
+    std::string getDescription() const { return description; }
+    
+    // Unique identifier for this symbol
+    uint64_t getId() const { return id; }
+    
+    // Global symbol registry methods
+    static std::shared_ptr<symbol> for_(const string& key) {
+        return for_(key.value());
+    }
+    
+    static std::shared_ptr<symbol> for_(const std::string& key) {
+        auto it = global_registry.find(key);
+        if (it != global_registry.end()) {
+            return it->second;
+        }
+        auto sym = std::make_shared<symbol>(key, true);
+        global_registry[key] = sym;
+        return sym;
+    }
+    
+    static string keyFor(const std::shared_ptr<symbol>& sym) {
+        if (!sym || !sym->is_global) {
+            return string(""); // undefined in JavaScript
+        }
+        
+        for (const auto& pair : global_registry) {
+            if (pair.second.get() == sym.get()) {
+                return string(pair.first);
+            }
+        }
+        return string(""); // undefined
+    }
+    
+    // Comparison operators (symbols are only equal to themselves)
+    bool operator==(const symbol& other) const {
+        return id == other.id;
+    }
+    
+    bool operator!=(const symbol& other) const {
+        return !(*this == other);
+    }
+    
+    // Hash function for use in containers
+    struct hash {
+        std::size_t operator()(const symbol& s) const {
+            return std::hash<uint64_t>{}(s.id);
+        }
+    };
+    
+    // Well-known symbols (static constants)
+    static std::shared_ptr<symbol> iterator;
+    static std::shared_ptr<symbol> asyncIterator; 
+    static std::shared_ptr<symbol> match;
+    static std::shared_ptr<symbol> replace;
+    static std::shared_ptr<symbol> search;
+    static std::shared_ptr<symbol> split;
+    static std::shared_ptr<symbol> hasInstance;
+    static std::shared_ptr<symbol> isConcatSpreadable;
+    static std::shared_ptr<symbol> species;
+    static std::shared_ptr<symbol> toPrimitive;
+    static std::shared_ptr<symbol> toStringTag;
+    static std::shared_ptr<symbol> metadata; // TypeScript 5.2+ decorator metadata
+};
+
+// Static member definitions
+inline std::unordered_map<std::string, std::shared_ptr<symbol>> symbol::global_registry;
+inline std::atomic<uint64_t> symbol::symbol_counter{0};
+
+// Well-known symbols initialization
+inline std::shared_ptr<symbol> symbol::iterator = std::make_shared<symbol>("Symbol.iterator", true);
+inline std::shared_ptr<symbol> symbol::asyncIterator = std::make_shared<symbol>("Symbol.asyncIterator", true);
+inline std::shared_ptr<symbol> symbol::match = std::make_shared<symbol>("Symbol.match", true);
+inline std::shared_ptr<symbol> symbol::replace = std::make_shared<symbol>("Symbol.replace", true);
+inline std::shared_ptr<symbol> symbol::search = std::make_shared<symbol>("Symbol.search", true);
+inline std::shared_ptr<symbol> symbol::split = std::make_shared<symbol>("Symbol.split", true);
+inline std::shared_ptr<symbol> symbol::hasInstance = std::make_shared<symbol>("Symbol.hasInstance", true);
+inline std::shared_ptr<symbol> symbol::isConcatSpreadable = std::make_shared<symbol>("Symbol.isConcatSpreadable", true);
+inline std::shared_ptr<symbol> symbol::species = std::make_shared<symbol>("Symbol.species", true);
+inline std::shared_ptr<symbol> symbol::toPrimitive = std::make_shared<symbol>("Symbol.toPrimitive", true);
+inline std::shared_ptr<symbol> symbol::toStringTag = std::make_shared<symbol>("Symbol.toStringTag", true);
+inline std::shared_ptr<symbol> symbol::metadata = std::make_shared<symbol>("Symbol.metadata", true);
+
+// BigInt class for JavaScript BigInt support  
+class bigint {
+private:
+    std::string value;
+    bool negative;
+    
+    void normalize() {
+        // Remove leading zeros
+        size_t first_non_zero = value.find_first_not_of('0');
+        if (first_non_zero == std::string::npos) {
+            value = "0";
+            negative = false;
+        } else {
+            value = value.substr(first_non_zero);
+        }
+    }
+    
+public:
+    // Constructors
+    bigint() : value("0"), negative(false) {}
+    
+    bigint(int64_t n) {
+        negative = n < 0;
+        value = std::to_string(negative ? -n : n);
+    }
+    
+    bigint(const string& str) : bigint(str.value()) {}
+    
+    bigint(const std::string& str) {
+        if (str.empty()) {
+            value = "0";
+            negative = false;
+        } else {
+            size_t start = 0;
+            negative = str[0] == '-';
+            if (negative || str[0] == '+') {
+                start = 1;
+            }
+            value = str.substr(start);
+            normalize();
+        }
+    }
+    
+    bigint(const char* str) : bigint(std::string(str)) {}
+    
+    // String conversion
+    string toString() const {
+        return string((negative && value != "0") ? "-" + value : value);
+    }
+    
+    std::string toStdString() const {
+        return (negative && value != "0") ? "-" + value : value;
+    }
+    
+    // Basic arithmetic operators (simplified implementation for demonstration)
+    // Note: A production implementation would need proper arbitrary precision arithmetic
+    bigint operator+(const bigint& other) const {
+        // Simplified - in reality would need proper big integer arithmetic
+        if (!negative && !other.negative) {
+            // Both positive - simplified string addition would go here
+            return bigint(toStdString() + "+" + other.toStdString());
+        } else {
+            // Handle mixed sign cases - simplified
+            return bigint(toStdString() + "+" + other.toStdString());
+        }
+    }
+    
+    bigint operator-(const bigint& other) const {
+        return bigint(toStdString() + "-" + other.toStdString());
+    }
+    
+    bigint operator*(const bigint& other) const {
+        return bigint(toStdString() + "*" + other.toStdString());
+    }
+    
+    bigint operator/(const bigint& other) const {
+        if (other.value == "0") {
+            throw std::runtime_error("Division by zero in bigint");
+        }
+        return bigint(toStdString() + "/" + other.toStdString());
+    }
+    
+    bigint operator%(const bigint& other) const {
+        if (other.value == "0") {
+            throw std::runtime_error("Division by zero in bigint modulo");
+        }
+        return bigint(toStdString() + "%" + other.toStdString());
+    }
+    
+    // Comparison operators
+    bool operator==(const bigint& other) const {
+        return negative == other.negative && value == other.value;
+    }
+    
+    bool operator!=(const bigint& other) const {
+        return !(*this == other);
+    }
+    
+    bool operator<(const bigint& other) const {
+        if (negative != other.negative) {
+            return negative; // negative < positive
+        }
+        if (value.length() != other.value.length()) {
+            return negative ? value.length() > other.value.length() 
+                            : value.length() < other.value.length();
+        }
+        return negative ? value > other.value : value < other.value;
+    }
+    
+    bool operator>(const bigint& other) const {
+        return other < *this;
+    }
+    
+    bool operator<=(const bigint& other) const {
+        return !(*this > other);
+    }
+    
+    bool operator>=(const bigint& other) const {
+        return !(*this < other);
+    }
+    
+    // Static methods
+    static bigint asIntN(size_t bits, const bigint& value) {
+        // Simplified implementation - would need proper bit manipulation
+        return value;
+    }
+    
+    static bigint asUintN(size_t bits, const bigint& value) {
+        // Simplified implementation - would need proper bit manipulation  
+        return value;
+    }
+    
+    // Output stream operator
+    friend std::ostream& operator<<(std::ostream& os, const bigint& bi) {
+        os << bi.toStdString();
+        return os;
+    }
+};
+
+// Function wrapper for JavaScript function callbacks
+class function {
+public:
+    virtual ~function() = default;
+    
+    // Virtual methods for different call patterns
+    virtual any invoke(std::initializer_list<any> args) = 0;
+    virtual any invoke(const std::vector<any>& args) = 0;
+    
+    // Template operator() for direct calls
+    template <typename... Args>
+    any operator()(Args&&... args) {
+        std::vector<any> arg_vec;
+        arg_vec.reserve(sizeof...(args));
+        (arg_vec.emplace_back(std::forward<Args>(args)), ...);
+        return invoke(arg_vec);
+    }
+    
+    // Call method (JavaScript function.call equivalent)
+    template <typename ThisType, typename... Args>
+    any call(ThisType&& thisArg, Args&&... args) {
+        // For now, ignore thisArg in simplified implementation
+        return operator()(std::forward<Args>(args)...);
+    }
+    
+    // Apply method (JavaScript function.apply equivalent)
+    any apply(const any& thisArg, const std::vector<any>& args) {
+        // For now, ignore thisArg in simplified implementation  
+        return invoke(args);
+    }
+};
+
+// Template implementation for specific function types
+template <typename F>
+class function_impl : public function {
+private:
+    F func;
+    
+    // Helper to detect function signature
+    template<typename T>
+    struct function_traits;
+    
+    template<typename R, typename... Args>
+    struct function_traits<R(Args...)> {
+        using return_type = R;
+        using args_tuple = std::tuple<Args...>;
+        static constexpr size_t arity = sizeof...(Args);
+    };
+    
+    template<typename R, typename... Args>
+    struct function_traits<R(*)(Args...)> : function_traits<R(Args...)> {};
+    
+    template<typename R, typename C, typename... Args>
+    struct function_traits<R(C::*)(Args...)> : function_traits<R(Args...)> {};
+    
+    template<typename R, typename C, typename... Args>
+    struct function_traits<R(C::*)(Args...) const> : function_traits<R(Args...)> {};
+    
+public:
+    explicit function_impl(F f) : func(std::move(f)) {}
+    
+    any invoke(std::initializer_list<any> args) override {
+        std::vector<any> arg_vec(args);
+        return invoke(arg_vec);
+    }
+    
+    any invoke(const std::vector<any>& args) override {
+        return invoke_helper(args, std::make_index_sequence<function_traits<F>::arity>{});
+    }
+    
+private:
+    template<size_t... Is>
+    any invoke_helper(const std::vector<any>& args, std::index_sequence<Is...>) {
+        // Simplified argument conversion - in practice would need proper type conversion
+        if constexpr (std::is_void_v<typename function_traits<F>::return_type>) {
+            if constexpr (function_traits<F>::arity == 0) {
+                func();
+            } else {
+                func(get_arg<Is>(args)...);
+            }
+            return any(); // undefined for void functions
+        } else {
+            if constexpr (function_traits<F>::arity == 0) {
+                return any(func());
+            } else {
+                return any(func(get_arg<Is>(args)...));
+            }
+        }
+    }
+    
+    template<size_t I>
+    auto get_arg(const std::vector<any>& args) {
+        if (I < args.size()) {
+            // Simplified - would need proper type conversion based on target type
+            return args[I];
+        } else {
+            return any(); // undefined for missing arguments
+        }
+    }
+};
+
+// Factory function to create function wrappers
+template<typename F>
+std::shared_ptr<function> make_function(F&& f) {
+    return std::make_shared<function_impl<std::decay_t<F>>>(std::forward<F>(f));
+}
+
+// Lambda wrapper for convenience
+template<typename F>
+std::shared_ptr<function> lambda(F&& f) {
+    return make_function(std::forward<F>(f));
+}
+
 } // namespace js
 
 // Include type guards for logical operators and runtime checks
 #include "type_guards.h"
+
+// Include typed wrappers for union types
+#include "typed_wrappers.h"
 
 #endif // TYPESCRIPT2CXX_RUNTIME_CORE_H
