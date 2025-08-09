@@ -17,15 +17,20 @@
 #include <chrono>
 #include <ctime>
 #include <cmath>
-#include <random>
 #include <iomanip>
+#include <random>
 #include <limits>
 #include <stdexcept>
+#include <algorithm>
+#include <cctype>
+#include <sstream>
 
 namespace js {
 
 // Forward declarations for types that will use any
 class any;
+class Date;
+class Error;
 
 // Simple types first (no circular dependencies)
 
@@ -75,6 +80,12 @@ public:
     number& operator*=(const number& other) { value_ *= other.value_; return *this; }
     number& operator/=(const number& other) { value_ /= other.value_; return *this; }
     
+    // Increment/decrement operators
+    number& operator++() { ++value_; return *this; }     // prefix ++
+    number operator++(int) { number temp(*this); ++value_; return temp; }  // postfix ++
+    number& operator--() { --value_; return *this; }     // prefix --
+    number operator--(int) { number temp(*this); --value_; return temp; }  // postfix --
+    
     // Comparison operators
     bool operator==(const number& other) const { return value_ == other.value_; }
     bool operator!=(const number& other) const { return value_ != other.value_; }
@@ -82,6 +93,14 @@ public:
     bool operator>(const number& other) const { return value_ > other.value_; }
     bool operator<=(const number& other) const { return value_ <= other.value_; }
     bool operator>=(const number& other) const { return value_ >= other.value_; }
+    
+    // Comparison with size_t (for array.length() comparisons)
+    bool operator<(size_t other) const { return value_ < static_cast<double>(other); }
+    bool operator>(size_t other) const { return value_ > static_cast<double>(other); }
+    bool operator<=(size_t other) const { return value_ <= static_cast<double>(other); }
+    bool operator>=(size_t other) const { return value_ >= static_cast<double>(other); }
+    bool operator==(size_t other) const { return value_ == static_cast<double>(other); }
+    bool operator!=(size_t other) const { return value_ != static_cast<double>(other); }
     
     // Special JavaScript values
     static number NaN() { return number(std::numeric_limits<double>::quiet_NaN()); }
@@ -107,6 +126,34 @@ public:
     size_t length() const { return value_.length(); }
     bool empty() const { return value_.empty(); }
     char charAt(size_t index) const { return index < value_.length() ? value_[index] : '\0'; }
+    
+    // String utility methods
+    string trim() const {
+        std::string result = value_;
+        result.erase(result.begin(), std::find_if(result.begin(), result.end(), [](unsigned char ch) {
+            return !std::isspace(ch);
+        }));
+        result.erase(std::find_if(result.rbegin(), result.rend(), [](unsigned char ch) {
+            return !std::isspace(ch);
+        }).base(), result.end());
+        return string(result);
+    }
+    
+    string toUpperCase() const {
+        std::string result = value_;
+        std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+        return string(result);
+    }
+    
+    string toLowerCase() const {
+        std::string result = value_;
+        std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+        return string(result);
+    }
+    
+    bool includes(const string& searchStr) const {
+        return value_.find(searchStr.value_) != std::string::npos;
+    }
     
     // String operators
     string operator+(const string& other) const { return string(value_ + other.value_); }
@@ -151,6 +198,24 @@ public:
     size_t length() const { return elements_.size(); }
     size_t size() const { return elements_.size(); }
     bool empty() const { return elements_.empty(); }
+    
+    // JavaScript array methods
+    string join(const string& separator = string(",")) const {
+        if (elements_.empty()) return string("");
+        
+        std::ostringstream result;
+        for (size_t i = 0; i < elements_.size(); ++i) {
+            if (i > 0) result << separator.value();
+            if constexpr (std::is_same_v<T, string>) {
+                result << elements_[i].value();
+            } else if constexpr (std::is_same_v<T, number>) {
+                result << elements_[i].value();
+            } else {
+                result << toString(elements_[i]).value();
+            }
+        }
+        return string(result.str());
+    }
     
     T& operator[](size_t index) { return elements_[index]; }
     const T& operator[](size_t index) const { return elements_[index]; }
@@ -389,6 +454,9 @@ public:
     any(int val) : value_(number(val)) {}
     any(const string& val) : value_(val) {}
     any(const char* val) : value_(string(val)) {}
+    // Date and Error constructors are defined later after class definitions
+    any(const Date& val);
+    any(const Error& val);
     any(const array<any>& val) : value_(val) {}
     any(const object& val) : value_(val) {}
     
@@ -717,6 +785,13 @@ public:
         return false; // Return false for non-arrays
     }
     
+    string join(const string& separator = string(",")) const {
+        if (is<array<any>>()) {
+            return get<array<any>>().join(separator);
+        }
+        return string(""); // Return empty string for non-arrays
+    }
+    
     // As object for iteration  
     object as_object() const {
         if (is<object>()) {
@@ -761,14 +836,7 @@ inline std::ostream& operator<<(std::ostream& os, const js::any& value) {
 }
 
 // Error types
-class Error {
-private:
-    string message_;
-
-public:
-    Error(const string& msg) : message_(msg) {}
-    const string& message() const { return message_; }
-};
+// Error class definition moved to after Date class
 
 // Implementation of object::get_as_js_any (after any class is defined)
 inline any object::get_as_js_any(const std::string& key) const {
@@ -839,19 +907,19 @@ inline bool instanceof_op(const any& obj, const std::string& typeName) {
 }
 
 // Overloads for specific types
-inline bool instanceof_op(const array<any>& obj, const std::string& typeName) {
+inline bool instanceof_op(const array<any>& /*obj*/, const std::string& typeName) {
     return typeName == "Array";
 }
 
-inline bool instanceof_op(const string& obj, const std::string& typeName) {
+inline bool instanceof_op(const string& /*obj*/, const std::string& typeName) {
     return typeName == "String";
 }
 
-inline bool instanceof_op(const number& obj, const std::string& typeName) {
+inline bool instanceof_op(const number& /*obj*/, const std::string& typeName) {
     return typeName == "Number";
 }
 
-inline bool instanceof_op(bool obj, const std::string& typeName) {
+inline bool instanceof_op(bool /*obj*/, const std::string& typeName) {
     return typeName == "Boolean";
 }
 
@@ -910,7 +978,7 @@ bool in_op(const Key& key, const Obj& obj) {
  * delete operator implementation
  * Deletes a property from an object
  */
-bool delete_property(any& obj, const std::string& property) {
+inline bool delete_property(any& obj, const std::string& property) {
     if (obj.template is<object>()) {
         // We need to extract the object, modify it, and put it back
         // because get<>() returns a copy, not a reference
@@ -930,6 +998,231 @@ bool delete_op(Obj& obj) {
     // In JavaScript, delete always returns true except in strict mode with non-configurable properties
     return true;
 }
+
+// Date class for JavaScript Date support
+class Date {
+private:
+    std::chrono::system_clock::time_point timePoint;
+    
+public:
+    // Default constructor - current time
+    Date() : timePoint(std::chrono::system_clock::now()) {}
+    
+    // Constructor from milliseconds since epoch
+    Date(number milliseconds) {
+        auto duration = std::chrono::milliseconds(static_cast<long long>(milliseconds.value()));
+        timePoint = std::chrono::system_clock::time_point(duration);
+    }
+    
+    // Constructor from year, month, day, etc.
+    Date(number year, number month, number day = number(1), number hours = number(0), 
+         number minutes = number(0), number seconds = number(0), number milliseconds = number(0)) {
+        std::tm tm = {};
+        tm.tm_year = static_cast<int>(year.value()) - 1900;
+        tm.tm_mon = static_cast<int>(month.value()); // JavaScript month is 0-based
+        tm.tm_mday = static_cast<int>(day.value());
+        tm.tm_hour = static_cast<int>(hours.value());
+        tm.tm_min = static_cast<int>(minutes.value());
+        tm.tm_sec = static_cast<int>(seconds.value());
+        
+        auto time_t_val = std::mktime(&tm);
+        timePoint = std::chrono::system_clock::from_time_t(time_t_val);
+        
+        // Add milliseconds
+        timePoint += std::chrono::milliseconds(static_cast<int>(milliseconds.value()));
+    }
+    
+    // Constructor from string (basic parsing)
+    Date(const string& dateString) {
+        // Simple ISO 8601 parsing - could be enhanced
+        std::istringstream ss(dateString.value());
+        std::tm tm = {};
+        
+        // Try to parse ISO format: YYYY-MM-DDTHH:MM:SS
+        if (!(ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S"))) {
+            // Fallback to simpler format: YYYY-MM-DD
+            ss.clear();
+            ss.str(dateString.value());
+            if (!(ss >> std::get_time(&tm, "%Y-%m-%d"))) {
+                // If parsing fails, use current time
+                timePoint = std::chrono::system_clock::now();
+                return;
+            }
+        }
+        
+        auto time_t_val = std::mktime(&tm);
+        timePoint = std::chrono::system_clock::from_time_t(time_t_val);
+    }
+    
+    // Get components
+    inline number getFullYear() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_year + 1900);
+    }
+    
+    inline number getMonth() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_mon); // JavaScript months are 0-based
+    }
+    
+    number getDate() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_mday);
+    }
+    
+    number getHours() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_hour);
+    }
+    
+    number getMinutes() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_min);
+    }
+    
+    number getSeconds() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        return number(tm.tm_sec);
+    }
+    
+    // toString method
+    string toString() const {
+        auto time_t_val = std::chrono::system_clock::to_time_t(timePoint);
+        auto tm = *std::localtime(&time_t_val);
+        
+        char buffer[100];
+        std::strftime(buffer, sizeof(buffer), "%a %b %d %Y %H:%M:%S", &tm);
+        return string(buffer);
+    }
+    
+    // getTime method - returns milliseconds since epoch
+    number getTime() const {
+        auto duration = timePoint.time_since_epoch();
+        auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+        return number(static_cast<double>(millis.count()));
+    }
+};
+
+// Error class for JavaScript Error support
+class Error {
+private:
+    string message_;
+    string name_;
+
+public:
+    Error() : message_(""), name_("Error") {}
+    Error(const string& message) : message_(message), name_("Error") {}
+    Error(const string& message, const string& name) : message_(message), name_(name) {}
+    
+    const string& getMessage() const { return message_; }
+    const string& getName() const { return name_; }
+    
+    string toString() const {
+        if (message_.empty()) {
+            return name_;
+        }
+        return name_ + string(": ") + message_;
+    }
+};
+
+// Implementation of any constructors that need complete type definitions
+inline any::any(const Date& val) {
+    object obj;
+    obj.set("_type", string("Date"));
+    obj.set("_value", number(static_cast<double>(val.getTime())));
+    value_ = obj;
+}
+
+inline any::any(const Error& val) {
+    object obj;
+    obj.set("_type", string("Error"));
+    obj.set("message", val.getMessage());
+    value_ = obj;
+}
+
+// Global JavaScript functions
+inline number parseInt(const string& str) {
+    try {
+        double result = std::stod(str.value());
+        return number(std::trunc(result)); // parseInt truncates to integer
+    } catch (...) {
+        return number(std::numeric_limits<double>::quiet_NaN());
+    }
+}
+
+inline number parseFloat(const string& str) {
+    try {
+        return number(std::stod(str.value()));
+    } catch (...) {
+        return number(std::numeric_limits<double>::quiet_NaN());
+    }
+}
+
+// Math static class for mathematical operations
+class Math {
+public:
+    static constexpr double PI = 3.141592653589793;
+    static constexpr double E = 2.718281828459045;
+    
+    static double random() {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        static std::uniform_real_distribution<> dis(0.0, 1.0);
+        return dis(gen);
+    }
+    
+    static number abs(const number& x) {
+        return number(std::abs(x.value()));
+    }
+    
+    static number max(const array<number>& values) {
+        if (values.length() == 0) {
+            return number(-std::numeric_limits<double>::infinity());
+        }
+        double maxVal = values[0].value();
+        for (size_t i = 1; i < values.length(); i++) {
+            maxVal = std::max(maxVal, values[i].value());
+        }
+        return number(maxVal);
+    }
+    
+    static number min(const array<number>& values) {
+        if (values.length() == 0) {
+            return number(std::numeric_limits<double>::infinity());
+        }
+        double minVal = values[0].value();
+        for (size_t i = 1; i < values.length(); i++) {
+            minVal = std::min(minVal, values[i].value());
+        }
+        return number(minVal);
+    }
+    
+    static number sqrt(const number& x) {
+        return number(std::sqrt(x.value()));
+    }
+    
+    static number pow(const number& base, const number& exponent) {
+        return number(std::pow(base.value(), exponent.value()));
+    }
+    
+    static number floor(const number& x) {
+        return number(std::floor(x.value()));
+    }
+    
+    static number ceil(const number& x) {
+        return number(std::ceil(x.value()));
+    }
+    
+    static number round(const number& x) {
+        return number(std::round(x.value()));
+    }
+};
 
 } // namespace js
 

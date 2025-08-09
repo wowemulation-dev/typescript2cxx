@@ -920,13 +920,13 @@ class ASTTransformer {
   /**
    * Transform if statement
    */
-  private transformIfStatement(node: any): IRIfStatement {
+  private transformIfStatement(node: ts.IfStatement): IRIfStatement {
     const test = this.transformExpression(node.expression);
     return {
       kind: IRNodeKind.IfStatement,
       test: test,
-      consequent: this.transformStatement(node.consequent),
-      alternate: node.alternate ? this.transformStatement(node.alternate) : undefined,
+      consequent: this.transformStatement(node.thenStatement),
+      alternate: node.elseStatement ? this.transformStatement(node.elseStatement) : undefined,
     };
   }
 
@@ -969,15 +969,15 @@ class ASTTransformer {
   /**
    * Transform for statement
    */
-  private transformForStatement(node: any): IRForStatement {
+  private transformForStatement(node: ts.ForStatement): IRForStatement {
     this.pushScope();
 
     const forStmt: IRForStatement = {
       kind: IRNodeKind.ForStatement,
-      init: node.init ? this.transformForInit(node.init) : undefined,
-      test: node.test ? this.transformExpression(node.test) : undefined,
-      update: node.update ? this.transformExpression(node.update) : undefined,
-      body: this.transformStatement(node.body),
+      init: node.initializer ? this.transformForInit(node.initializer) : undefined,
+      test: node.condition ? this.transformExpression(node.condition) : undefined,
+      update: node.incrementor ? this.transformExpression(node.incrementor) : undefined,
+      body: this.transformStatement(node.statement),
     };
 
     this.popScope();
@@ -1025,7 +1025,7 @@ class ASTTransformer {
    */
   private transformForInit(node: ts.ForInitializer): IRVariableDeclaration | IRExpression {
     if (ts.isVariableDeclarationList(node)) {
-      // Create a synthetic variable statement
+      // Create a synthetic variable statement to reuse existing logic
       const varStmt = ts.factory.createVariableStatement(
         undefined,
         node,
@@ -1499,19 +1499,30 @@ class ASTTransformer {
     if (isComputed) {
       // For element access, use the argument expression
       const elementAccess = node as ts.ElementAccessExpression;
-      property = this.transformExpression(elementAccess.argumentExpression);
-    } else {
-      // For property access, transform the property name
-      const propertyAccess = node as ts.PropertyAccessExpression;
-      if (ts.isPrivateIdentifier(propertyAccess.name)) {
-        // Handle private identifiers
+      
+      // Special handling for string literal method names to avoid TypeScript resolution
+      if (ts.isStringLiteral(elementAccess.argumentExpression)) {
+        property = {
+          kind: IRNodeKind.Literal,
+          value: elementAccess.argumentExpression.text,
+        } as IRLiteral;
+      } else if (ts.isIdentifier(elementAccess.argumentExpression)) {
+        // For identifiers, use .text to avoid resolution to implementation strings
         property = {
           kind: IRNodeKind.Identifier,
-          name: propertyAccess.name.text,
+          name: elementAccess.argumentExpression.text,
         } as IRIdentifier;
       } else {
-        property = this.transformIdentifier(propertyAccess.name);
+        property = this.transformExpression(elementAccess.argumentExpression);
       }
+    } else {
+      // For property access, extract the property name directly
+      // Use .text to avoid TypeScript resolving method names to their implementations
+      const propertyAccess = node as ts.PropertyAccessExpression;
+      property = {
+        kind: IRNodeKind.Identifier,
+        name: propertyAccess.name.text,
+      } as IRIdentifier;
     }
 
     return {
@@ -1562,14 +1573,16 @@ class ASTTransformer {
   /**
    * Transform unary expression
    */
-  private transformUnaryExpression(node: any): IRUnaryExpression {
+  private transformUnaryExpression(
+    node: ts.PrefixUnaryExpression | ts.PostfixUnaryExpression
+  ): IRUnaryExpression {
     const op = this.mapUnaryOperator(node.operator);
 
     return {
       kind: IRNodeKind.UnaryExpression,
       operator: op,
-      operand: this.transformExpression(node.argument),
-      prefix: node.prefix !== false,
+      operand: this.transformExpression(node.operand),
+      prefix: ts.isPrefixUnaryExpression(node),
     };
   }
 

@@ -949,7 +949,9 @@ class CppGenerator {
         }
         // Use the mapped type
         cppType = this.mapType(cppType);
-        const code = `extern ${isConst ? "const " : ""}${cppType} ${name};`;
+        // For arrays, don't use const even if declared const (JavaScript semantics)
+        const shouldBeConst = isConst && !cppType.startsWith("js::array");
+        const code = `extern ${shouldBeConst ? "const " : ""}${cppType} ${name};`;
         lines.push(code);
       } else {
         // In source, define the variable with consistent type
@@ -960,7 +962,9 @@ class CppGenerator {
         }
         // Use the mapped type (this will convert js::string to js::string properly)
         cppType = this.mapType(cppType);
-        let code = `${isConst ? "const " : ""}${cppType} ${name}`;
+        // For arrays, don't use const even if declared const (JavaScript semantics)
+        const shouldBeConst = isConst && !cppType.startsWith("js::array");
+        let code = `${shouldBeConst ? "const " : ""}${cppType} ${name}`;
         if (decl.init) {
           code += ` = ${this.generateExpression(decl.init, context)}`;
         }
@@ -1713,9 +1717,30 @@ class CppGenerator {
         return `${object}::getName(${property})`;
       }
 
+      // Check for malformed method names in computed property access
+      if (typeof property === "string") {
+        // Handle the exact malformed toString case
+        if (property === '"function toString() { [native code] }"') {
+          return `${object}.toString`;
+        }
+        // Handle other similar malformed function signatures - extract method name
+        const functionMatch = property.match(/"function\s+(\w+)\s*\(/);
+        if (functionMatch && functionMatch[1]) {
+          const methodName = functionMatch[1];
+          return `${object}.${methodName}`;
+        }
+      }
+
       return `${object}[${property}]`;
     } else {
-      const property = this.generateExpression(expr.property, context);
+      // For non-computed member access with identifier property, extract name directly
+      // This prevents TypeScript from resolving method names to their implementation strings
+      let property: string;
+      if (expr.property.kind === IRNodeKind.Identifier) {
+        property = (expr.property as IRIdentifier).name;
+      } else {
+        property = this.generateExpression(expr.property, context);
+      }
 
       // Handle super property/method access
       if (object === "super") {
@@ -1766,13 +1791,8 @@ class CppGenerator {
         return `${object}[${property}]`;
       }
 
-      // For smart pointer variables, use -> instead of .
-      // Check this BEFORE the unknown type check
-      if (this.isSmartPointerVariable(object, context)) {
-        return `${object}->${property}`;
-      }
-
-      // Check if this is a known array method
+      // Check if this is a known array method (check BEFORE smart pointer check)
+      // This ensures that method calls on arrays use dot notation even if stored as js::any
       const arrayMethods = [
         "map",
         "filter",
@@ -1789,6 +1809,7 @@ class CppGenerator {
         "includes",
         "concat",
         "slice",
+        "join",
       ];
       if (typeof property === "string" && arrayMethods.includes(property)) {
         // Special handling for length property vs method
@@ -1797,6 +1818,76 @@ class CppGenerator {
         }
         // Generate direct method call for array methods
         return `${object}.${property}`;
+      }
+
+      // Check if this is a known string method
+      const stringMethods = [
+        "length",
+        "charAt",
+        "trim",
+        "toUpperCase",
+        "toLowerCase",
+        "includes",
+        "substring",
+        "substr",
+        "slice",
+        "indexOf",
+        "lastIndexOf",
+        "split",
+        "replace",
+        "match",
+      ];
+      if (typeof property === "string" && stringMethods.includes(property)) {
+        // Special handling for length property vs method
+        if (property === "length") {
+          return `${object}.length()`;
+        }
+        // Generate direct method call for string methods
+        return `${object}.${property}`;
+      }
+
+      // Check for malformed method names that include function implementations
+      // This happens when TypeScript AST gives us the actual function string instead of method name
+      if (typeof property === "string") {
+        // Handle malformed function signatures - extract method name
+        const functionMatch = property.match(/function\s+(\w+)\s*\(/);
+        if (functionMatch && functionMatch[1]) {
+          const methodName = functionMatch[1];
+          return `${object}.${methodName}`;
+        }
+      }
+
+      // Check if this is a known Date method
+      const dateMethods = [
+        "toString",
+        "getFullYear",
+        "getMonth",
+        "getDate",
+        "getHours",
+        "getMinutes",
+        "getSeconds",
+        "getMilliseconds",
+        "getTime",
+        "setFullYear",
+        "setMonth",
+        "setDate",
+        "setHours",
+        "setMinutes",
+        "setSeconds",
+        "setMilliseconds",
+        "toISOString",
+        "toDateString",
+        "toTimeString",
+      ];
+      if (typeof property === "string" && dateMethods.includes(property)) {
+        // Generate direct method call for Date methods
+        return `${object}.${property}`;
+      }
+
+      // For smart pointer variables, use -> instead of .
+      // Check this AFTER method checks to ensure array/string methods use dot notation
+      if (this.isSmartPointerVariable(object, context)) {
+        return `${object}->${property}`;
       }
 
       // For identifiers, convert to string and use bracket notation
@@ -1984,12 +2075,32 @@ class CppGenerator {
         elem ? this.generateExpression(elem, context) : "js::undefined"
       );
 
-      // Handle empty arrays by specifying the type explicitly
-      if (elements.length === 0) {
-        return `js::array<js::any>{}`;
+      // Infer array element type from the first non-null element
+      let elementType = "js::any";
+      for (const elem of expr.elements) {
+        if (elem && elem.kind !== IRNodeKind.SpreadElement) {
+          if (elem.kind === IRNodeKind.Literal) {
+            const lit = elem as IRLiteral;
+            if (typeof lit.value === "number") {
+              elementType = "js::number";
+              break;
+            } else if (typeof lit.value === "string") {
+              elementType = "js::string";
+              break;
+            } else if (typeof lit.value === "boolean") {
+              elementType = "bool";
+              break;
+            }
+          }
+        }
       }
 
-      return `js::array{${elements.join(", ")}}`;
+      // Handle empty arrays
+      if (elements.length === 0) {
+        return `js::array<${elementType}>{}`;
+      }
+
+      return `js::array<${elementType}>{${elements.join(", ")}}`;
     }
   }
 
@@ -2246,6 +2357,9 @@ class CppGenerator {
       "js::undefined_t",
       "js::null_t",
       "js::any",
+      "js::Date",
+      "js::RegExp",
+      "js::Error",
     ].includes(type);
   }
 
@@ -2513,26 +2627,64 @@ class CppGenerator {
     if (init.kind === IRNodeKind.NewExpression) {
       const newExpr = init as IRNewExpression;
       const className = this.generateExpression(newExpr.callee, context);
+      
+      // Runtime types are value types, not smart pointers
+      if (this.isPrimitive(className)) {
+        return className;
+      }
+      
       return `std::shared_ptr<${className}>`;
     }
     if (init.kind === IRNodeKind.Literal) {
       const lit = init as IRLiteral;
       return this.mapType(lit.cppType || "auto");
     }
+    if (init.kind === IRNodeKind.ArrayExpression) {
+      // Infer array element type from array literal
+      const arrayExpr = init as IRArrayExpression;
+      if (arrayExpr.elements.length === 0) {
+        return "js::array<js::any>";
+      }
+      
+      // Check the first non-null element to infer type
+      let elementType = "js::any";
+      for (const elem of arrayExpr.elements) {
+        if (elem && elem.kind !== IRNodeKind.SpreadElement) {
+          if (elem.kind === IRNodeKind.Literal) {
+            const lit = elem as IRLiteral;
+            if (typeof lit.value === "number") {
+              elementType = "js::number";
+              break;
+            } else if (typeof lit.value === "string") {
+              elementType = "js::string";
+              break;
+            } else if (typeof lit.value === "boolean") {
+              elementType = "bool";
+              break;
+            }
+          }
+        }
+      }
+      return `js::array<${elementType}>`;
+    }
     if (init.kind === IRNodeKind.BinaryExpression) {
       // For binary expressions, try to infer based on the operator
       const binExpr = init as IRBinaryExpression;
-      // Arithmetic operators typically return the same type as operands
-      // For now, assume number for arithmetic operations
-      if (["+", "-", "*", "/", "%"].includes(binExpr.operator)) {
-        // If either operand is a number, result is a number
-        return "js::number";
-      }
-      // String concatenation
+      
       if (binExpr.operator === "+") {
-        // Could be string concatenation, but we default to number above
-        // This would need more sophisticated type analysis
-        return "js::any";
+        // For + operator, check if either operand is a string (string concatenation)
+        const leftType = this.inferExpressionType(binExpr.left, context);
+        const rightType = this.inferExpressionType(binExpr.right, context);
+        
+        if (leftType === "js::string" || rightType === "js::string") {
+          return "js::string"; // String concatenation
+        }
+        return "js::number"; // Numeric addition
+      }
+      
+      // Other arithmetic operators always return numbers
+      if (["-", "*", "/", "%"].includes(binExpr.operator)) {
+        return "js::number";
       }
       // Comparison operators return boolean
       if (["==", "!=", "===", "!==", "<", ">", "<=", ">="].includes(binExpr.operator)) {
@@ -2545,6 +2697,40 @@ class CppGenerator {
       return "js::any";
     }
     return "js::any"; // Use js::any as fallback instead of auto
+  }
+
+  /**
+   * Infer type from expression for type analysis
+   */
+  private inferExpressionType(expr: IRExpression, context: CodeGenContext): string {
+    if (expr.kind === IRNodeKind.Literal) {
+      const lit = expr as IRLiteral;
+      if (typeof lit.value === "string") return "js::string";
+      if (typeof lit.value === "number") return "js::number";
+      if (typeof lit.value === "boolean") return "bool";
+    }
+    if (expr.kind === IRNodeKind.BinaryExpression) {
+      const binExpr = expr as IRBinaryExpression;
+      if (binExpr.operator === "+") {
+        const leftType = this.inferExpressionType(binExpr.left, context);
+        const rightType = this.inferExpressionType(binExpr.right, context);
+        if (leftType === "js::string" || rightType === "js::string") {
+          return "js::string";
+        }
+        return "js::number";
+      }
+      if (["-", "*", "/", "%"].includes(binExpr.operator)) {
+        return "js::number";
+      }
+      if (["==", "!=", "===", "!==", "<", ">", "<=", ">="].includes(binExpr.operator)) {
+        return "bool";
+      }
+    }
+    if (expr.kind === IRNodeKind.Identifier) {
+      // Would need symbol table lookup for proper implementation
+      return "js::any";
+    }
+    return "js::any";
   }
 
   /**
