@@ -226,12 +226,11 @@ export class CrossPlatformTestRunner {
 
       // Convert runtime path to absolute path
       const absoluteRuntimePath = resolve(runtimePath);
-      const runtimeInclude = `${absoluteRuntimePath}/core.h`;
 
       // Transpile TypeScript to C++
       const result = await transpile(tsCode, {
         outputName: "test",
-        runtimeInclude,
+        runtimeInclude: "core.h", // Use simple include, path will be added via -I flag
       });
 
       // Check for transpilation errors (transpile doesn't throw, it returns warnings)
@@ -250,14 +249,15 @@ export class CrossPlatformTestRunner {
       await Deno.writeTextFile(headerPath, result.header || "");
       await Deno.writeTextFile(sourcePath, result.source || "");
 
-      // Compile the generated code
+      // Compile the generated code - use absolute runtime path for includes
       const compileResult = await this.compile(
         [sourcePath],
         `${tempDir}/test`,
-        runtimePath,
+        absoluteRuntimePath,
       );
 
       if (!compileResult.success) {
+        console.error("Compilation failed:", compileResult.output);
         return {
           success: false,
           message: `Compilation failed: ${compileResult.output}`,

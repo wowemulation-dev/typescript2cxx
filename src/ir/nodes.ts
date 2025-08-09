@@ -252,7 +252,10 @@ export interface IRImportDeclaration extends IRDeclaration {
 /**
  * Import specifier types
  */
-export type IRImportSpecifier = IRImportDefaultSpecifier | IRImportNamespaceSpecifier | IRNamedImportSpecifier;
+export type IRImportSpecifier =
+  | IRImportDefaultSpecifier
+  | IRImportNamespaceSpecifier
+  | IRNamedImportSpecifier;
 
 /**
  * Default import specifier (import Foo from "module")
@@ -284,13 +287,13 @@ export interface IRNamedImportSpecifier {
  */
 export interface IRExportDeclaration extends IRDeclaration {
   kind: IRNodeKind.ExportDeclaration;
-  
+
   /** The declaration being exported */
   declaration?: IRDeclaration;
-  
+
   /** Export specifiers for named exports */
   specifiers?: IRExportSpecifier[];
-  
+
   /** Source module for re-exports */
   source?: string;
 }
@@ -300,13 +303,13 @@ export interface IRExportDeclaration extends IRDeclaration {
  */
 export interface IRExportNamedDeclaration extends IRDeclaration {
   kind: IRNodeKind.ExportNamedDeclaration;
-  
+
   /** The declaration being exported */
   declaration?: IRDeclaration;
-  
+
   /** Export specifiers */
   specifiers: IRExportSpecifier[];
-  
+
   /** Source module for re-exports */
   source?: string;
 }
@@ -316,7 +319,7 @@ export interface IRExportNamedDeclaration extends IRDeclaration {
  */
 export interface IRExportDefaultDeclaration extends IRDeclaration {
   kind: IRNodeKind.ExportDefaultDeclaration;
-  
+
   /** The declaration being exported as default */
   declaration: IRDeclaration | IRExpression;
 }
@@ -326,10 +329,10 @@ export interface IRExportDefaultDeclaration extends IRDeclaration {
  */
 export interface IRExportAllDeclaration extends IRDeclaration {
   kind: IRNodeKind.ExportAllDeclaration;
-  
+
   /** Source module */
   source: string;
-  
+
   /** Exported name for "export * as name from" syntax */
   exported?: string;
 }
@@ -340,7 +343,7 @@ export interface IRExportAllDeclaration extends IRDeclaration {
 export interface IRExportSpecifier {
   /** Local name being exported */
   local: string;
-  
+
   /** Exported name (for renamed exports) */
   exported: string;
 }
@@ -350,16 +353,16 @@ export interface IRExportSpecifier {
  */
 export interface IRNamespaceDeclaration extends IRDeclaration {
   kind: IRNodeKind.NamespaceDeclaration;
-  
+
   /** Namespace name */
   name: string;
-  
+
   /** Namespace body */
   body: IRStatement[];
-  
+
   /** Is export namespace */
   isExported?: boolean;
-  
+
   /** Nested namespaces (for dotted notation like A.B.C) */
   nested?: string[];
 }

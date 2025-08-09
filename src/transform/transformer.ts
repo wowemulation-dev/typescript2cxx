@@ -25,7 +25,7 @@ import type {
   IREnumDeclaration,
   IREnumMember,
   IRExportAllDeclaration,
-  IRExportDeclaration,
+  IRExportDeclaration as _IRExportDeclaration,
   IRExportDefaultDeclaration,
   IRExportNamedDeclaration,
   IRExportSpecifier,
@@ -38,8 +38,8 @@ import type {
   IRIdentifier,
   IRIfStatement,
   IRImportDeclaration,
-  IRImportDefaultSpecifier,
-  IRImportNamespaceSpecifier,
+  IRImportDefaultSpecifier as _IRImportDefaultSpecifier,
+  IRImportNamespaceSpecifier as _IRImportNamespaceSpecifier,
   IRImportSpecifier,
   IRInterfaceDeclaration,
   IRLiteral,
@@ -191,7 +191,7 @@ class ASTTransformer {
     this.options = options;
     // Use outputName from options if available, otherwise default to "main"
     const moduleName = (options as any).outputName || "main";
-    const runtimeInclude = options.context.options.runtimeInclude || "runtime/core.h";
+    const runtimeInclude = options.context.options.runtimeInclude || "core.h";
 
     // Initialize memory annotation parser
     const memoryAnnotations = new MemoryAnnotationParser();
@@ -246,7 +246,7 @@ class ASTTransformer {
 
       case ts.SyntaxKind.ExportDeclaration:
         return this.transformExportDeclaration(node as ts.ExportDeclaration);
-      
+
       case ts.SyntaxKind.ExportAssignment:
         return this.transformExportAssignment(node as ts.ExportAssignment);
 
@@ -285,6 +285,12 @@ class ASTTransformer {
 
       case ts.SyntaxKind.ForStatement:
         return this.transformForStatement(node as ts.ForStatement);
+      
+      case ts.SyntaxKind.ForOfStatement:
+        return this.transformForOfStatement(node as ts.ForOfStatement);
+        
+      case ts.SyntaxKind.ForInStatement:
+        return this.transformForInStatement(node as ts.ForInStatement);
 
       case ts.SyntaxKind.ReturnStatement:
         return this.transformReturnStatement(node as ts.ReturnStatement);
@@ -321,10 +327,10 @@ class ASTTransformer {
     }
 
     const specifiers: IRImportSpecifier[] = [];
-    
+
     if (node.importClause) {
       const { name: defaultBinding, namedBindings } = node.importClause;
-      
+
       // Handle default import (import Foo from "module")
       if (defaultBinding) {
         specifiers.push({
@@ -332,7 +338,7 @@ class ASTTransformer {
           local: defaultBinding.text,
         });
       }
-      
+
       // Handle named and namespace imports
       if (namedBindings) {
         if (ts.isNamespaceImport(namedBindings)) {
@@ -353,17 +359,17 @@ class ASTTransformer {
         }
       }
     }
-    
+
     // Track import for header generation
     this.context.currentModule.imports.push({
       from: source.text,
-      items: specifiers.map(spec => ({
+      items: specifiers.map((spec) => ({
         imported: spec.type === "named" ? (spec as IRNamedImportSpecifier).imported : spec.local,
         local: spec.local,
         isType: false,
       })),
-      isNamespace: specifiers.some(s => s.type === "namespace"),
-      namespace: specifiers.find(s => s.type === "namespace")?.local,
+      isNamespace: specifiers.some((s) => s.type === "namespace"),
+      namespace: specifiers.find((s) => s.type === "namespace")?.local,
     });
 
     return {
@@ -378,30 +384,32 @@ class ASTTransformer {
   /**
    * Transform export declaration
    */
-  private transformExportDeclaration(node: ts.ExportDeclaration): IRExportNamedDeclaration | IRExportAllDeclaration | null {
+  private transformExportDeclaration(
+    node: ts.ExportDeclaration,
+  ): IRExportNamedDeclaration | IRExportAllDeclaration | null {
     const source = node.moduleSpecifier;
     const sourceText = source && ts.isStringLiteral(source) ? source.text : undefined;
-    
+
     if (node.exportClause) {
       if (ts.isNamedExports(node.exportClause)) {
         // export { Foo, Bar as Baz } from "module" or export { Foo, Bar as Baz }
         const specifiers: IRExportSpecifier[] = [];
-        
+
         for (const element of node.exportClause.elements) {
           const local = element.propertyName?.text || element.name.text;
           const exported = element.name.text;
-          
+
           specifiers.push({ local, exported });
-          
+
           // Track exported name
           this.context.currentModule.exports.push(exported);
         }
-        
+
         // For re-exports, also track as an import
         if (sourceText) {
           this.context.currentModule.imports.push({
             from: sourceText,
-            items: specifiers.map(spec => ({
+            items: specifiers.map((spec) => ({
               imported: spec.local,
               local: spec.exported,
               isType: false,
@@ -409,7 +417,7 @@ class ASTTransformer {
             isNamespace: false,
           });
         }
-        
+
         return {
           kind: IRNodeKind.ExportNamedDeclaration,
           specifiers,
@@ -425,14 +433,14 @@ class ASTTransformer {
         items: [],
         isNamespace: false,
       });
-      
+
       return {
         kind: IRNodeKind.ExportAllDeclaration,
         source: sourceText,
         location: this.getLocation(node),
       };
     }
-    
+
     return null;
   }
 
@@ -443,16 +451,16 @@ class ASTTransformer {
     if (!node.isExportEquals) {
       // export default expression
       const declaration = this.transformExpression(node.expression);
-      
+
       this.context.currentModule.exports.push("default");
-      
+
       return {
         kind: IRNodeKind.ExportDefaultDeclaration,
         declaration,
         location: this.getLocation(node),
       };
     }
-    
+
     // export = syntax is not supported in ES modules
     this.warn("CommonJS export= syntax is not supported");
     return null;
@@ -465,10 +473,10 @@ class ASTTransformer {
     if (!node.name || !node.body) {
       return null;
     }
-    
+
     const name = ts.isIdentifier(node.name) ? node.name.text : node.name.text;
     const body: IRStatement[] = [];
-    
+
     // Handle dotted namespace names (e.g., A.B.C)
     const nested: string[] = [];
     if (ts.isQualifiedName(node.name)) {
@@ -480,7 +488,7 @@ class ASTTransformer {
       }
       nested.unshift(ts.isIdentifier(current) ? current.text : (current as ts.StringLiteral).text);
     }
-    
+
     // Process namespace body
     if (ts.isModuleBlock(node.body)) {
       for (const statement of node.body.statements) {
@@ -496,9 +504,9 @@ class ASTTransformer {
         body.push(nestedNs);
       }
     }
-    
-    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) || false;
-    
+
+    const isExported = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) || false;
+
     return {
       kind: IRNodeKind.NamespaceDeclaration,
       name,
@@ -520,11 +528,11 @@ class ASTTransformer {
     // Check if function is async
     const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) ||
       false;
-    
+
     // Check if function is exported
     const isExported = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.ExportKeyword) ||
       false;
-    
+
     // Track exported function
     if (isExported) {
       this.context.currentModule.exports.push(name);
@@ -570,11 +578,11 @@ class ASTTransformer {
    */
   private transformClassDeclaration(node: ts.ClassDeclaration): IRClassDeclaration {
     const name = node.name?.text || "anonymous";
-    
+
     // Check if class is exported
-    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ||
+    const isExported = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ||
       false;
-    
+
     // Track exported class
     if (isExported) {
       this.context.currentModule.exports.push(name);
@@ -790,9 +798,9 @@ class ASTTransformer {
    */
   private transformVariableStatement(node: ts.VariableStatement): IRVariableDeclaration {
     const declarations: IRVariableDeclarator[] = [];
-    
+
     // Check if variables are exported
-    const isExported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ||
+    const isExported = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ||
       false;
 
     for (const decl of node.declarationList.declarations) {
@@ -805,7 +813,7 @@ class ASTTransformer {
           name: decl.name.text,
         };
         this.addToScope(decl.name.text, id as IRIdentifier);
-        
+
         // Track exported variables
         if (isExported) {
           this.context.currentModule.exports.push(decl.name.text);
@@ -1499,7 +1507,7 @@ class ASTTransformer {
     if (isComputed) {
       // For element access, use the argument expression
       const elementAccess = node as ts.ElementAccessExpression;
-      
+
       // Special handling for string literal method names to avoid TypeScript resolution
       if (ts.isStringLiteral(elementAccess.argumentExpression)) {
         property = {
@@ -1574,7 +1582,7 @@ class ASTTransformer {
    * Transform unary expression
    */
   private transformUnaryExpression(
-    node: ts.PrefixUnaryExpression | ts.PostfixUnaryExpression
+    node: ts.PrefixUnaryExpression | ts.PostfixUnaryExpression,
   ): IRUnaryExpression {
     const op = this.mapUnaryOperator(node.operator);
 

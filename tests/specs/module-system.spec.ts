@@ -15,8 +15,8 @@ console.log(add(2, 3));
       });
 
       // Check for C++ namespace include
-      assertEquals(result.header.includes("#include \"./math.h\""), true);
-      
+      assertEquals(result.header.includes('#include "./math.h"'), true);
+
       // Check for proper function call
       assertEquals(result.source.includes("add("), true);
     });
@@ -33,8 +33,8 @@ console.log(calc.add(5, 3));
       });
 
       // Check for header include
-      assertEquals(result.header.includes("#include \"./calculator.h\""), true);
-      
+      assertEquals(result.header.includes('#include "./calculator.h"'), true);
+
       // Check for proper instantiation
       assertEquals(result.source.includes("Calculator"), true);
     });
@@ -161,8 +161,8 @@ export { default as Calculator } from "./calculator";
       });
 
       // Should include the source modules
-      assertEquals(result.header.includes("#include \"./math.h\""), true);
-      assertEquals(result.header.includes("#include \"./calculator.h\""), true);
+      assertEquals(result.header.includes('#include "./math.h"'), true);
+      assertEquals(result.header.includes('#include "./calculator.h"'), true);
     });
   });
 
@@ -255,8 +255,8 @@ import { config } from "../config";
       });
 
       // Should convert to proper header includes
-      assertEquals(result.header.includes("#include \"./utils/helper.h\""), true);
-      assertEquals(result.header.includes("#include \"../config.h\""), true);
+      assertEquals(result.header.includes('#include "./utils/helper.h"'), true);
+      assertEquals(result.header.includes('#include "../config.h"'), true);
     });
 
     it("should handle absolute module names", async () => {
@@ -287,7 +287,7 @@ async function loadModule() {
       });
 
       // Dynamic imports should be converted to regular includes for C++
-      assertEquals(result.header.includes("#include \"./dynamic-module.h\""), true);
+      assertEquals(result.header.includes('#include "./dynamic-module.h"'), true);
     });
   });
 
@@ -308,7 +308,7 @@ export class A {
       });
 
       // Should use forward declarations to handle circular deps
-      assertEquals(result.header.includes("#include \"./module-b.h\""), true);
+      assertEquals(result.header.includes('#include "./module-b.h"'), true);
     });
   });
 });

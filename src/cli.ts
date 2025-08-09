@@ -84,7 +84,7 @@ Transpilation Options:
   --readable <mode>   Code readability: default, debug, minimal, false
   --optimization <O>  Optimization level: O0, O1, O2, O3, Os (default: O2)
   --memory <strategy> Memory strategy: auto, shared, unique, manual (default: auto)
-  --runtime <path>    Runtime include path (default: runtime/core.h)
+  --runtime <path>    Runtime include path (default: core.h)
   --plugin <name>     Load plugin (can be specified multiple times)
 
 Compilation Options:

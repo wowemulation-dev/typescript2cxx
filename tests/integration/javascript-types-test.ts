@@ -8,8 +8,7 @@
 import { transpile } from "../../src/mod.ts";
 import { CMakeGenerator } from "../../src/cmake/generator.ts";
 import { ensureDir } from "@std/fs";
-import { basename, join } from "@std/path";
-import type { TranspilerConfig } from "../../src/config/types.ts";
+import { join } from "@std/path";
 
 interface TestResult {
   name: string;
@@ -47,7 +46,7 @@ console.log("Symbol.iterator:", Symbol.iterator.toString());
 console.log("Symbol.metadata:", Symbol.metadata.toString());
 `;
 
-// Test for BigInt functionality  
+// Test for BigInt functionality
 const bigintTest = `
 // BigInt basic functionality test
 console.log("=== BigInt Tests ===");
@@ -175,7 +174,7 @@ const tests = [
   { name: "bigint-test", code: bigintTest },
   { name: "function-test", code: functionTest },
   { name: "union-types-test", code: unionTypesTest },
-  { name: "integration-test", code: integrationTest }
+  { name: "integration-test", code: integrationTest },
 ];
 
 async function runTest(testName: string, code: string): Promise<TestResult> {
@@ -183,18 +182,18 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
     name: testName,
     transpiled: false,
     compiled: false,
-    executed: false
+    executed: false,
   };
 
   try {
     console.log(`\n--- Testing ${testName} ---`);
-    
+
     // Transpile TypeScript to C++
     const transpileResult = await transpile(code, {
       outputName: testName,
-      runtime: "./runtime"
+      runtime: "./runtime",
     });
-    
+
     result.transpiled = true;
     console.log(`✅ ${testName}: Transpiled successfully`);
 
@@ -205,15 +204,15 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
     // Write generated files
     await Promise.all([
       Deno.writeTextFile(join(testDir, testName + ".h"), transpileResult.header),
-      Deno.writeTextFile(join(testDir, testName + ".cpp"), transpileResult.source)
+      Deno.writeTextFile(join(testDir, testName + ".cpp"), transpileResult.source),
     ]);
 
-    // Copy runtime files to test directory 
+    // Copy runtime files to test directory
     const runtimeDir = join(testDir, "runtime");
     await ensureDir(runtimeDir);
-    
+
     const runtimeFiles = ["core.h", "typed_wrappers.h", "type_guards.h"];
-    await Promise.all(runtimeFiles.map(async file => {
+    await Promise.all(runtimeFiles.map(async (file) => {
       const sourcePath = join(Deno.cwd(), "runtime", file);
       const destPath = join(runtimeDir, file);
       const content = await Deno.readTextFile(sourcePath);
@@ -231,7 +230,7 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
       libraries: [],
       findPackages: [],
       executable: true,
-      outputName: testName
+      outputName: testName,
     });
 
     const cmakeContent = generator.generate();
@@ -242,11 +241,11 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
       args: ["-B", "build", "-S", ".", "-DCMAKE_BUILD_TYPE=Release"],
       cwd: testDir,
       stdout: "piped",
-      stderr: "piped"
+      stderr: "piped",
     });
 
     const configResult = await configCmd.output();
-    
+
     if (!configResult.success) {
       result.error = `CMake configuration failed: ${new TextDecoder().decode(configResult.stderr)}`;
       return result;
@@ -255,8 +254,8 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
     const buildCmd = new Deno.Command("cmake", {
       args: ["--build", "build"],
       cwd: testDir,
-      stdout: "piped", 
-      stderr: "piped"
+      stdout: "piped",
+      stderr: "piped",
     });
 
     const buildResult = await buildCmd.output();
@@ -272,11 +271,11 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
     // Execute the test
     const execCmd = new Deno.Command(join(testDir, "build", testName), {
       stdout: "piped",
-      stderr: "piped"
+      stderr: "piped",
     });
 
     const execResult = await execCmd.output();
-    
+
     if (execResult.success) {
       result.executed = true;
       result.output = new TextDecoder().decode(execResult.stdout);
@@ -285,7 +284,6 @@ async function runTest(testName: string, code: string): Promise<TestResult> {
     } else {
       result.error = `Execution failed: ${new TextDecoder().decode(execResult.stderr)}`;
     }
-
   } catch (error) {
     result.error = `Test failed: ${error.message}`;
     console.log(`❌ ${testName}: ${result.error}`);
@@ -309,9 +307,9 @@ async function runAllTests(): Promise<void> {
   console.log("\n📊 Test Results Summary");
   console.log("========================");
 
-  const successful = results.filter(r => r.executed);
-  const compiled = results.filter(r => r.compiled);
-  const transpiled = results.filter(r => r.transpiled);
+  const successful = results.filter((r) => r.executed);
+  const compiled = results.filter((r) => r.compiled);
+  const transpiled = results.filter((r) => r.transpiled);
 
   console.log(`✅ Executed successfully: ${successful.length}/${results.length}`);
   console.log(`🔨 Compiled successfully: ${compiled.length}/${results.length}`);

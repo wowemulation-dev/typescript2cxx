@@ -21,10 +21,10 @@ import type {
   IRDecoratorMetadata as _IRDecoratorMetadata,
   IREnumDeclaration,
   IREnumMember as _IREnumMember,
-  IRExportAllDeclaration,
-  IRExportDeclaration,
-  IRExportDefaultDeclaration,
-  IRExportNamedDeclaration,
+  IRExportAllDeclaration as _IRExportAllDeclaration,
+  IRExportDeclaration as _IRExportDeclaration,
+  IRExportDefaultDeclaration as _IRExportDefaultDeclaration,
+  IRExportNamedDeclaration as _IRExportNamedDeclaration,
   IRExpression,
   IRExpressionStatement,
   IRForInStatement,
@@ -33,7 +33,7 @@ import type {
   IRFunctionDeclaration,
   IRIdentifier,
   IRIfStatement,
-  IRImportDeclaration,
+  IRImportDeclaration as _IRImportDeclaration,
   IRInterfaceDeclaration,
   IRLiteral,
   IRMemberExpression,
@@ -118,10 +118,10 @@ interface CodeGenContext {
 
   /** Current namespace */
   namespace?: string;
-  
+
   /** Namespace imports (import * as ns from ...) */
   namespaceImports: Map<string, string>;
-  
+
   /** User-defined namespaces in current module */
   userNamespaces: Set<string>;
 
@@ -209,7 +209,7 @@ class CppGenerator {
     };
 
     // Add runtime includes
-    const runtimeInclude = this.options.options.runtimeInclude || "runtime/core.h";
+    const runtimeInclude = this.options.options.runtimeInclude || "core.h";
     context.includes.add(`"${runtimeInclude}"`);
 
     // Check if we need async support
@@ -433,7 +433,7 @@ class CppGenerator {
     if (func.isAsync) {
       // For async functions, unwrap Promise<T> to get T, then wrap with Task
       let innerType = returnType;
-      
+
       // Check if return type is a Promise
       if (func.returnType?.startsWith("Promise<") && func.returnType?.endsWith(">")) {
         // Extract the inner type from Promise<T>
@@ -448,7 +448,7 @@ class CppGenerator {
       } else if (func.returnType === "Promise<void>") {
         innerType = "void";
       }
-      
+
       returnType = `js::Task<${innerType}>`;
     }
 
@@ -491,12 +491,26 @@ class CppGenerator {
 
       if (func.body) {
         context.indent++;
-        const bodyCode = this.generateStatement(func.body, context);
-        if (bodyCode) {
-          lines.push(
-            ...bodyCode.split("\n").map((line) => line ? this.getIndent(context) + line : ""),
-          );
+        
+        // For function body, generate the statements inside the block without the block braces
+        if (func.body.kind === IRNodeKind.BlockStatement) {
+          const block = func.body as IRBlockStatement;
+          for (const stmt of block.body) {
+            const code = this.generateStatement(stmt, context);
+            if (code) {
+              lines.push(...code.split("\n").map((line) => line ? this.getIndent(context) + line : ""));
+            }
+          }
+        } else {
+          // Single statement function body
+          const bodyCode = this.generateStatement(func.body, context);
+          if (bodyCode) {
+            lines.push(
+              ...bodyCode.split("\n").map((line) => line ? this.getIndent(context) + line : ""),
+            );
+          }
         }
+        
         context.indent--;
       }
 
@@ -736,7 +750,14 @@ class CppGenerator {
         const isAbstract = method.isAbstract && !funcDecl.isStatic; // Static methods can't be abstract
         const isOverride = !funcDecl.isStatic && !isAbstract && cls?.superClass &&
           this.isOverriddenMethod(methodName, cls);
-        const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isOverride || isAbstract);
+        
+        // Make methods virtual if:
+        // 1. Explicitly marked as virtual
+        // 2. Abstract methods (pure virtual)
+        // 3. Non-static, non-constructor methods that might be overridden
+        // For inheritance to work properly in C++, we need base class methods to be virtual
+        const isVirtual = !funcDecl.isStatic && (funcDecl.isVirtual || isAbstract || 
+          (methodName !== "constructor" && methodName !== "destructor"));
 
         let methodDecl = "";
         if (isVirtual && !isOverride) {
@@ -1151,15 +1172,20 @@ class CppGenerator {
 
     // Generate the loop variable
     let loopVar = "";
+    let varDeclaration = "";
+    
     if (forOfStmt.left.kind === IRNodeKind.VariableDeclaration) {
       const varDecl = forOfStmt.left as IRVariableDeclaration;
       const declarator = varDecl.declarations[0];
       loopVar = this.generateIdentifier(declarator.id as IRIdentifier, context);
+      
+      // Determine the const/let keyword  
+      const varKind = varDecl.declarationKind === "const" ? "const" : "";
 
       // For C++, we need to create an iterator-based loop
       const iterableExpr = this.generateExpression(forOfStmt.right, context);
 
-      lines.push(`for (auto& ${loopVar} : ${iterableExpr}) {`);
+      lines.push(`for (${varKind} auto& ${loopVar} : ${iterableExpr}) {`);
     } else {
       // Handle simple identifier assignment (not full patterns for now)
       const identId = forOfStmt.left as IRIdentifier;
@@ -1396,7 +1422,7 @@ class CppGenerator {
    */
   private generateAwait(expr: IRAwaitExpression, context: CodeGenContext): string {
     const argument = this.generateExpression(expr.argument, context);
-    
+
     // Use co_await for C++20 coroutines
     return `co_await ${argument}`;
   }
@@ -1516,6 +1542,9 @@ class CppGenerator {
       "ReferenceError": "js::ReferenceError",
       "SyntaxError": "js::SyntaxError",
       "RangeError": "js::RangeError",
+      "EvalError": "js::EvalError",
+      "URIError": "js::URIError",
+      "AggregateError": "js::AggregateError",
       "JSON": "js::JSON",
       "parseInt": "js::parseInt",
       "parseFloat": "js::parseFloat",
@@ -1729,6 +1758,13 @@ class CppGenerator {
           const methodName = functionMatch[1];
           return `${object}.${methodName}`;
         }
+      }
+
+      // For smart pointer variables in computed access, use -> for method calls
+      if (this.isSmartPointerVariable(object, context) && typeof property === "string") {
+        // Strip quotes from property name
+        const cleanProperty = property.replace(/^["']|["']$/g, '');
+        return `${object}->${cleanProperty}`;
       }
 
       return `${object}[${property}]`;
@@ -2290,7 +2326,8 @@ class CppGenerator {
       "RangeError": "js::RangeError",
       "EvalError": "js::EvalError",
       "URIError": "js::URIError",
-      
+      "AggregateError": "js::AggregateError",
+
       // New JavaScript types
       "symbol": "js::symbol",
       "Symbol": "js::symbol",
@@ -2635,6 +2672,11 @@ class CppGenerator {
       "evalErr",
       "uriErr",
       "aggErr",
+      // Common calculators/processors
+      "calc",
+      "calculator",
+      "processor",
+      "computer",
     ];
 
     // Check if variable name matches any pattern
@@ -2665,12 +2707,12 @@ class CppGenerator {
     if (init.kind === IRNodeKind.NewExpression) {
       const newExpr = init as IRNewExpression;
       const className = this.generateExpression(newExpr.callee, context);
-      
+
       // Runtime types are value types, not smart pointers
       if (this.isPrimitive(className)) {
         return className;
       }
-      
+
       return `std::shared_ptr<${className}>`;
     }
     if (init.kind === IRNodeKind.Literal) {
@@ -2683,7 +2725,7 @@ class CppGenerator {
       if (arrayExpr.elements.length === 0) {
         return "js::array<js::any>";
       }
-      
+
       // Check the first non-null element to infer type
       let elementType = "js::any";
       for (const elem of arrayExpr.elements) {
@@ -2708,18 +2750,18 @@ class CppGenerator {
     if (init.kind === IRNodeKind.BinaryExpression) {
       // For binary expressions, try to infer based on the operator
       const binExpr = init as IRBinaryExpression;
-      
+
       if (binExpr.operator === "+") {
         // For + operator, check if either operand is a string (string concatenation)
         const leftType = this.inferExpressionType(binExpr.left, context);
         const rightType = this.inferExpressionType(binExpr.right, context);
-        
+
         if (leftType === "js::string" || rightType === "js::string") {
           return "js::string"; // String concatenation
         }
         return "js::number"; // Numeric addition
       }
-      
+
       // Other arithmetic operators always return numbers
       if (["-", "*", "/", "%"].includes(binExpr.operator)) {
         return "js::number";
@@ -2728,6 +2770,22 @@ class CppGenerator {
       if (["==", "!=", "===", "!==", "<", ">", "<=", ">="].includes(binExpr.operator)) {
         return "bool";
       }
+    }
+    if (init.kind === IRNodeKind.CallExpression) {
+      // For function calls, try to infer the return type based on the function
+      const callExpr = init as IRCallExpression;
+      
+      // Check if this is a call to a function we know about
+      if (callExpr.callee.kind === IRNodeKind.Identifier) {
+        const funcName = (callExpr.callee as IRIdentifier).name;
+        
+        // Check if we have this function in our context (simplified approach)
+        // In a full implementation, we'd have a type resolver
+        // For now, we'll just use js::any unless we have specific knowledge
+        return "js::any";
+      }
+      
+      return "js::any";
     }
     if (init.kind === IRNodeKind.Identifier) {
       // For identifiers, we'd need to look up their type
@@ -2811,33 +2869,40 @@ class CppGenerator {
             : prop.key.kind === IRNodeKind.Literal
             ? String((prop.key as IRLiteral).value)
             : this.generateExpression(prop.key, context); // Computed property
-          
+
           // Handle renamed properties (e.g., { name: userName })
-          const targetName = prop.renamed || 
+          const targetName = prop.renamed ||
             (prop.value.kind === IRNodeKind.Identifier ? (prop.value as IRIdentifier).name : null);
-          
+
           if (prop.value.kind === IRNodeKind.Identifier && targetName) {
             // Simple property extraction (possibly with rename)
             const varName = targetName;
-            
+
             // Handle default values
             if (prop.defaultValue) {
               const defaultExpr = this.generateExpression(prop.defaultValue, context);
-              lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.has("${propKey}") && !${tempVar}["${propKey}"].is_undefined() ? ${tempVar}["${propKey}"] : ${defaultExpr};`);
+              lines.push(
+                `${
+                  isConst ? "const " : ""
+                }auto ${varName} = ${tempVar}.has("${propKey}") && !${tempVar}["${propKey}"].is_undefined() ? ${tempVar}["${propKey}"] : ${defaultExpr};`,
+              );
             } else {
               lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}["${propKey}"];`);
             }
             extractedKeys.push(propKey);
-          } else if (prop.value.kind === IRNodeKind.ObjectPattern || prop.value.kind === IRNodeKind.ArrayPattern) {
+          } else if (
+            prop.value.kind === IRNodeKind.ObjectPattern ||
+            prop.value.kind === IRNodeKind.ArrayPattern
+          ) {
             // Nested destructuring
-            const nestedTempVar = `${tempVar}_${propKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            const nestedTempVar = `${tempVar}_${propKey.replace(/[^a-zA-Z0-9]/g, "_")}`;
             lines.push(`auto ${nestedTempVar} = ${tempVar}["${propKey}"];`);
             const nestedCode = this.generateDestructuring(
               prop.value,
               undefined,
               declarationKind,
               context,
-              nestedTempVar
+              nestedTempVar,
             );
             lines.push(nestedCode);
             extractedKeys.push(propKey);
@@ -2877,11 +2942,15 @@ class CppGenerator {
           index++;
         } else if (element.kind === IRNodeKind.Identifier) {
           const varName = (element as IRIdentifier).name;
-          
+
           // Handle default values for array elements
           if ((element as any).defaultValue) {
             const defaultExpr = this.generateExpression((element as any).defaultValue, context);
-            lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.length() > ${index} ? ${tempVar}[${index}] : ${defaultExpr};`);
+            lines.push(
+              `${
+                isConst ? "const " : ""
+              }auto ${varName} = ${tempVar}.length() > ${index} ? ${tempVar}[${index}] : ${defaultExpr};`,
+            );
           } else {
             lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}[${index}];`);
           }
@@ -2894,7 +2963,9 @@ class CppGenerator {
             lines.push(`${isConst ? "const " : ""}auto ${varName} = ${tempVar}.slice(${index});`);
           }
           break; // Rest element must be last
-        } else if (element.kind === IRNodeKind.ArrayPattern || element.kind === IRNodeKind.ObjectPattern) {
+        } else if (
+          element.kind === IRNodeKind.ArrayPattern || element.kind === IRNodeKind.ObjectPattern
+        ) {
           // Nested destructuring
           const nestedTempVar = `${tempVar}_elem${index}`;
           lines.push(`auto ${nestedTempVar} = ${tempVar}[${index}];`);
@@ -2903,7 +2974,7 @@ class CppGenerator {
             undefined,
             declarationKind,
             context,
-            nestedTempVar
+            nestedTempVar,
           );
           lines.push(nestedCode);
           index++;
@@ -3025,11 +3096,11 @@ class CppGenerator {
     for (const importInfo of module.imports) {
       const headerPath = this.resolveImportPath(importInfo.from);
       context.includes.add(headerPath);
-      
+
       // Track namespace imports for member expression generation
       if (importInfo.isNamespace && importInfo.namespace) {
         // Extract the module name from the path for C++ namespace
-        const moduleName = importInfo.from.replace(/^\.\//, '').replace(/\.(ts|js)$/, '');
+        const moduleName = importInfo.from.replace(/^\.\//, "").replace(/\.(ts|js)$/, "");
         context.namespaceImports.set(importInfo.namespace, moduleName);
       }
     }
@@ -3058,24 +3129,26 @@ class CppGenerator {
   private hasAsyncFunctions(module: IRModule): boolean {
     const checkAsync = (node: any): boolean => {
       if (!node) return false;
-      
+
       // Check if it's an async function
-      if ((node.kind === IRNodeKind.FunctionDeclaration || 
-           node.kind === IRNodeKind.FunctionExpression ||
-           node.kind === IRNodeKind.ArrowFunctionExpression) && 
-          node.isAsync) {
+      if (
+        (node.kind === IRNodeKind.FunctionDeclaration ||
+          node.kind === IRNodeKind.FunctionExpression ||
+          node.kind === IRNodeKind.ArrowFunctionExpression) &&
+        node.isAsync
+      ) {
         return true;
       }
-      
+
       // Check if it contains await expressions
       if (node.kind === IRNodeKind.AwaitExpression) {
         return true;
       }
-      
+
       // Recursively check children
       for (const key in node) {
         const value = node[key];
-        if (value && typeof value === 'object') {
+        if (value && typeof value === "object") {
           if (Array.isArray(value)) {
             for (const item of value) {
               if (checkAsync(item)) return true;
@@ -3085,11 +3158,11 @@ class CppGenerator {
           }
         }
       }
-      
+
       return false;
     };
-    
-    return module.body.some(stmt => checkAsync(stmt));
+
+    return module.body.some((stmt) => checkAsync(stmt));
   }
 
   /**
@@ -3097,19 +3170,19 @@ class CppGenerator {
    */
   private generateNamespace(ns: IRNamespaceDeclaration, context: CodeGenContext): string {
     const lines: string[] = [];
-    
+
     // Handle nested namespaces (e.g., A.B.C -> namespace A { namespace B { namespace C { ... } } })
     const namespaces = ns.nested || [ns.name];
-    
+
     // Track user-defined namespace
     context.userNamespaces.add(ns.name);
-    
+
     // Open namespace declarations
     for (const name of namespaces) {
       lines.push(`${this.getIndent(context)}namespace ${name} {`);
       context.indent++;
     }
-    
+
     lines.push("");
 
     // Generate namespace body
@@ -3133,7 +3206,7 @@ class CppGenerator {
   /**
    * Check if statement needs namespace qualified access
    */
-  private needsNamespaceAccess(stmt: IRStatement, module: IRModule): boolean {
+  private needsNamespaceAccess(_stmt: IRStatement, module: IRModule): boolean {
     // Check if the statement references imported items that need namespace qualification
     for (const importInfo of module.imports) {
       if (importInfo.isNamespace && importInfo.namespace) {

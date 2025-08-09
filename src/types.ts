@@ -33,7 +33,7 @@ export interface TranspileOptions {
   /** Additional include paths */
   includePaths?: string[];
 
-  /** Runtime include path (default: "runtime/core.h") */
+  /** Runtime include path (default: "core.h") */
   runtimeInclude?: string;
 
   /** Custom type mappings */

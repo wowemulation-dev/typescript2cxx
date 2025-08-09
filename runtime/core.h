@@ -33,6 +33,8 @@ namespace js {
 class any;
 class Date;
 class Error;
+class string;
+class object_property_proxy;
 
 // Simple types first (no circular dependencies)
 
@@ -69,6 +71,9 @@ public:
     bool isNaN() const { return std::isnan(value_); }
     bool isFinite() const { return std::isfinite(value_); }
     bool isInteger() const { return std::floor(value_) == value_; }
+    
+    // Convert to string (implementation after string class)
+    string toString() const;
     
     // Arithmetic operators
     number operator+(const number& other) const { return number(value_ + other.value_); }
@@ -122,6 +127,7 @@ public:
     string(char ch) : value_(1, ch) {}
     
     const std::string& value() const { return value_; }
+    const std::string& std() const { return value_; }  // Alias for value() for compatibility
     operator std::string() const { return value_; }
     
     // JavaScript string methods
@@ -180,6 +186,18 @@ inline std::ostream& operator<<(std::ostream& os, const string& str) {
 // Stream operator for js::number
 inline std::ostream& operator<<(std::ostream& os, const number& num) {
     return os << num.value();
+}
+
+// Implementation of number::toString() after string class is defined
+inline string number::toString() const { 
+    double val = value_;
+    if (val == std::floor(val) && std::isfinite(val)) {
+        // Integer value - convert without decimal
+        return string(std::to_string(static_cast<long long>(val)));
+    } else {
+        // Floating point value - use standard conversion
+        return string(std::to_string(val));
+    }
 }
 
 // Forward declare template classes
@@ -394,8 +412,37 @@ public:
     // Declaration only - implementation will be after 'any' class is defined
     any get_as_js_any(const std::string& key) const;
     
+    // Subscript operators for js::string (implementations after any class)
+    any operator[](const string& key) const;
+    object_property_proxy operator[](const string& key);
+    
     bool has(const std::string& key) const {
         return properties_.find(key) != properties_.end();
+    }
+    
+    // Alias for has() to match typed_wrappers.h expectations
+    bool has_property(const std::string& key) const {
+        return has(key);
+    }
+    
+    // Alias for has() taking js::string
+    bool has_property(const string& key) const {
+        return has(key.value());
+    }
+    
+    // Subscript operator for property access  
+    // Note: This returns a reference to std::any, not js::any
+    std::any& operator[](const std::string& key) {
+        return properties_[key];
+    }
+    
+    const std::any& operator[](const std::string& key) const {
+        auto it = properties_.find(key);
+        if (it != properties_.end()) {
+            return it->second;
+        }
+        static const std::any empty;
+        return empty;
     }
     
     // Remove a property from the object (for delete operator)
@@ -483,6 +530,15 @@ public:
     bool is() const {
         return std::holds_alternative<T>(value_);
     }
+    
+    // Helper methods for null and undefined checks
+    bool is_null() const {
+        return std::holds_alternative<null_t>(value_);
+    }
+    
+    bool is_undefined() const {
+        return std::holds_alternative<undefined_t>(value_);
+    }
 
     // Value access
     template<typename T>
@@ -498,7 +554,7 @@ public:
     // Convert to string for concatenation
     string toString() const {
         if (is<string>()) return get<string>();
-        if (is<number>()) return string(std::to_string(get<number>().value_));
+        if (is<number>()) return get<number>().toString(); // Use number's toString method
         if (is<bool>()) return string(get<bool>() ? "true" : "false");
         if (is<null_t>()) return string("null");
         if (is<undefined_t>()) return string("undefined");
@@ -839,6 +895,39 @@ inline std::ostream& operator<<(std::ostream& os, const js::any& value) {
 
 // Error types
 // Error class definition moved to after Date class
+
+// Subscript operators for js::string that return js::any (for typed_wrappers.h)
+inline any object::operator[](const string& key) const {
+    return get_as_js_any(key.value());
+}
+
+// Non-const version that allows assignment
+class object_property_proxy {
+private:
+    object& obj_;
+    std::string key_;
+public:
+    object_property_proxy(object& obj, const std::string& key) : obj_(obj), key_(key) {}
+    
+    operator any() const {
+        return obj_.get_as_js_any(key_);
+    }
+    
+    template<typename T>
+    object_property_proxy& operator=(const T& value) {
+        obj_.set(key_, value);
+        return *this;
+    }
+    
+    template<typename T>
+    T as() const {
+        return obj_.get_as_js_any(key_).as<T>();
+    }
+};
+
+inline object_property_proxy object::operator[](const string& key) {
+    return object_property_proxy(*this, key.value());
+}
 
 // Implementation of object::get_as_js_any (after any class is defined)
 inline any object::get_as_js_any(const std::string& key) const {
@@ -1617,7 +1706,7 @@ std::shared_ptr<function> lambda(F&& f) {
 // URL encoding/decoding global functions
 inline string encodeURI(const string& uri) {
     std::string result;
-    std::string str = uri.toStdString();
+    std::string str = uri.std();
     for (size_t i = 0; i < str.length(); ++i) {
         unsigned char c = str[i];
         // Characters that don't need encoding (RFC 3986 unreserved + reserved)
@@ -1639,7 +1728,7 @@ inline string encodeURI(const string& uri) {
 
 inline string decodeURI(const string& uri) {
     std::string result;
-    std::string str = uri.toStdString();
+    std::string str = uri.std();
     for (size_t i = 0; i < str.length(); ++i) {
         if (str[i] == '%' && i + 2 < str.length()) {
             // Decode %XX
@@ -1662,7 +1751,7 @@ inline string decodeURI(const string& uri) {
 
 inline string encodeURIComponent(const string& component) {
     std::string result;
-    std::string str = component.toStdString();
+    std::string str = component.std();
     for (size_t i = 0; i < str.length(); ++i) {
         unsigned char c = str[i];
         // Characters that don't need encoding (RFC 3986 unreserved only)
@@ -1681,7 +1770,7 @@ inline string encodeURIComponent(const string& component) {
 
 inline string decodeURIComponent(const string& component) {
     std::string result;
-    std::string str = component.toStdString();
+    std::string str = component.std();
     for (size_t i = 0; i < str.length(); ++i) {
         if (str[i] == '%' && i + 2 < str.length()) {
             // Decode %XX

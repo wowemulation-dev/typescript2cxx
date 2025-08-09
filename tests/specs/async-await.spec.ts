@@ -16,7 +16,10 @@ async function fetchData(): Promise<string> {
 `;
 
       const result = await transpile(input, { standard: "c++20" });
-      assertEquals((result.header + result.source).includes("js::Task<js::string> fetchData()"), true);
+      assertEquals(
+        (result.header + result.source).includes("js::Task<js::string> fetchData()"),
+        true,
+      );
       assertEquals((result.header + result.source).includes("co_return"), true);
       assertEquals((result.header + result.source).includes("runtime/async.h"), true);
     });
@@ -30,7 +33,10 @@ async function getData(): Promise<string> {
 `;
 
       const result = await transpile(input, { standard: "c++20" });
-      assertEquals((result.header + result.source).includes("js::Task<js::string> getData()"), true);
+      assertEquals(
+        (result.header + result.source).includes("js::Task<js::string> getData()"),
+        true,
+      );
       assertEquals((result.header + result.source).includes("co_await fetchData()"), true);
       assertEquals((result.header + result.source).includes("co_return result"), true);
     });
@@ -110,8 +116,14 @@ class DataService {
 `;
 
       const result = await transpile(input, { standard: "c++20" });
-      assertEquals((result.header + result.source).includes("js::Task<js::string> fetchData()"), true);
-      assertEquals((result.header + result.source).includes("js::Task<js::string> getData()"), true);
+      assertEquals(
+        (result.header + result.source).includes("js::Task<js::string> fetchData()"),
+        true,
+      );
+      assertEquals(
+        (result.header + result.source).includes("js::Task<js::string> getData()"),
+        true,
+      );
       assertEquals((result.header + result.source).includes("co_await this->getData()"), true);
     });
 
@@ -230,7 +242,10 @@ async function processStream(): Promise<void> {
 `;
 
       const result = await transpile(input, { standard: "c++20" });
-      assertEquals((result.header + result.source).includes("js::Task<void> processStream()"), true);
+      assertEquals(
+        (result.header + result.source).includes("js::Task<void> processStream()"),
+        true,
+      );
       // Note: for-await-of requires additional implementation
     });
   });

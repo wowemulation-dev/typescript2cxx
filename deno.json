@@ -73,7 +73,6 @@
     "include": ["tests/", "src/**/*.test.ts"],
     "exclude": [
       "tests/fixtures/",
-      "tests/integration/",
       ".output/",
       "node_modules/",
       "**/build/",

@@ -21,8 +21,8 @@ This document tracks planned features and known issues for typescript2cxx.
 - ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
 - ✅ **Advanced Types** - Unions, intersections, type guards, decorators
 - ✅ **Enum Support** - Numeric, string, mixed, const enums with reverse mapping
-- ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline with 100% success
-- ✅ **CMake Build System** - Complete CMake integration with CLI support  
+- ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline with 12/12 tests passing (100% success)
+- ✅ **CMake Build System** - Complete CMake integration with CLI support
 - ✅ **JSR.io Publishing** - Package available on JSR registry
 - ✅ **Method Corruption Fix** - Resolved toString method name corruption issue
 - ✅ **Complete JavaScript Types** - Symbol, BigInt, Function, and typed wrappers implemented
@@ -180,13 +180,13 @@ Based on analysis of both reference implementations:
   - ✅ Global functions:
     - ✅ parseInt, parseFloat
     - ✅ isNaN, isFinite
-    - ✅ encodeURI, decodeURI, encodeURIComponent, decodeURIComponent
+    - ✅ encodeURI, decodeURI, encodeURIComponent, decodeURIComponent (v0.8.4-dev)
     - [ ] eval (if supported)
   - ✅ `Error` and error subclasses:
     - ✅ Error, TypeError, ReferenceError, SyntaxError, RangeError
-    - ✅ EvalError, URIError, AggregateError
+    - ✅ EvalError, URIError, AggregateError (v0.8.4-dev)
   - ✅ `Promise` implementation with async/await
-    - ✅ Promise.all and Promise.race methods
+    - ✅ Promise.all and Promise.race methods (v0.8.4-dev)
     - [ ] Promise.allSettled, Promise.any
   - [ ] `ArrayBuffer` and views
   - [ ] `URL` and `URLSearchParams`
@@ -200,7 +200,7 @@ Based on analysis of both reference implementations:
   - ✅ async/await transformation working correctly
   - ✅ Promise.resolve/reject factory functions
   - [ ] Event loop for Deno compatibility (future enhancement)
-  - [ ] Promise.all/race (future enhancement)  
+  - [ ] Promise.all/race (future enhancement)
   - [ ] Async generators (future enhancement)
   - [ ] for await...of loops (future enhancement)
 
@@ -637,20 +637,20 @@ Based on analysis of both reference implementations:
 
 - ✅ **Critical toString Method Fix**
   - ✅ Resolved TypeScript resolving method identifiers to implementation strings
-  - ✅ Property access now extracts identifier names directly to prevent corruption  
+  - ✅ Property access now extracts identifier names directly to prevent corruption
   - ✅ Fixed generator to handle identifier properties specially in member expressions
   - ✅ All transpilable TypeScript applications achieve 100% C++20 compilation success
-  
+
 - ✅ **Enhanced Runtime Implementation**
   - ✅ Complete Date class with full JavaScript API (toString, getFullYear, getTime, etc.)
-  - ✅ Error class with getMessage and toString methods  
+  - ✅ Error class with getMessage and toString methods
   - ✅ Math static class with essential operations (PI, random, abs, max, min, etc.)
   - ✅ String utility methods (trim, toUpperCase, toLowerCase, includes)
   - ✅ Array join method for proper string conversion
-  
+
 - ✅ **Type System and Code Generation Improvements**
   - ✅ Fixed const qualifier handling for arrays (JavaScript semantics)
-  - ✅ Enhanced type inference for arrays and binary expressions  
+  - ✅ Enhanced type inference for arrays and binary expressions
   - ✅ Improved method recognition for arrays, strings, and Date objects
   - ✅ Added comprehensive operator overloads for js::number (++, --, comparisons)
   - ✅ Better smart pointer detection ordering to prioritize method calls
@@ -671,7 +671,7 @@ Based on analysis of both reference implementations:
   - ✅ Automatic coroutine return type inference
   - ✅ Integration with existing error handling (try/catch with async)
 
-- ✅ **Comprehensive ES6 Module System** 
+- ✅ **Comprehensive ES6 Module System**
   - ✅ import/export statements with C++ namespace mapping
   - ✅ Named imports: `import { foo, bar } from "./module"`
   - ✅ Default imports: `import Component from "./component"`
