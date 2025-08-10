@@ -209,7 +209,7 @@ class CppGenerator {
     };
 
     // Add runtime includes
-    const runtimeInclude = this.options.options.runtimeInclude || "core.h";
+    const runtimeInclude = this.options.options.runtimeInclude || "runtime/core.h";
     context.includes.add(`"${runtimeInclude}"`);
 
     // Check if we need async support
@@ -990,7 +990,9 @@ class CppGenerator {
         context,
       );
       const type = decl.cppType;
-      const isConst = varDecl.declarationKind === "const";
+      // Check for const declaration or const assertion
+      const isConst = varDecl.declarationKind === "const" ||
+        (decl.init && (decl.init as any).isConstAssertion);
 
       if (context.isHeader) {
         // In header, only declare extern variables with explicit types
@@ -1001,8 +1003,10 @@ class CppGenerator {
         }
         // Use the mapped type
         cppType = this.mapType(cppType);
-        // For arrays, don't use const even if declared const (JavaScript semantics)
-        const shouldBeConst = isConst && !cppType.startsWith("js::array");
+        // For arrays with const assertions, use const to make them readonly
+        // For regular const declarations, arrays are mutable (JavaScript semantics)
+        const hasConstAssertion = decl.init && (decl.init as any).isConstAssertion;
+        const shouldBeConst = isConst && (!cppType.startsWith("js::array") || hasConstAssertion);
         const code = `extern ${shouldBeConst ? "const " : ""}${cppType} ${name};`;
         lines.push(code);
       } else {
@@ -1014,8 +1018,10 @@ class CppGenerator {
         }
         // Use the mapped type (this will convert js::string to js::string properly)
         cppType = this.mapType(cppType);
-        // For arrays, don't use const even if declared const (JavaScript semantics)
-        const shouldBeConst = isConst && !cppType.startsWith("js::array");
+        // For arrays with const assertions, use const to make them readonly
+        // For regular const declarations, arrays are mutable (JavaScript semantics)
+        const hasConstAssertion = decl.init && (decl.init as any).isConstAssertion;
+        const shouldBeConst = isConst && (!cppType.startsWith("js::array") || hasConstAssertion);
         let code = `${shouldBeConst ? "const " : ""}${cppType} ${name}`;
         if (decl.init) {
           code += ` = ${this.generateExpression(decl.init, context)}`;

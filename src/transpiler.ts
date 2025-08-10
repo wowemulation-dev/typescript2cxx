@@ -195,7 +195,7 @@ function normalizeOptions(options: TranspileOptions): TranspileOptions {
     useCoroutines: options.useCoroutines ?? true,
     useModules: options.useModules ?? false,
     generateReflection: options.generateReflection ?? false,
-    runtimeInclude: options.runtimeInclude ?? "core.h",
+    runtimeInclude: options.runtimeInclude ?? "runtime/core.h",
   };
 }
 

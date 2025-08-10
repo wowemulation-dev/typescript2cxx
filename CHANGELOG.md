@@ -15,15 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Template literal types support with js::string mapping (v0.8.6-dev)
 - feat: Index types and indexed access support with dynamic property access (v0.8.6-dev)
 - feat: Typeof type operator support for type extraction from values (v0.8.6-dev)
+- feat: Const assertions (`as const`) support for literal type narrowing and immutability (v0.8.6-dev)
 - feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
 - feat: Type assertion (as) expression support in transformer
 - feat: ConditionalType, InferType, MappedType, TemplateLiteralType, IndexedAccessType, and TypeQuery handling in SimpleTypeChecker
+- feat: AsExpression detection for const assertions with `isConstAssertion` flag propagation
 
 ### Fixed
 
 - fix: Object identifier mapping conflict (was dual-mapped to js::Object and js::object)
 - fix: Type assertions now properly pass through expressions without affecting runtime behavior
 - fix: Type aliases no longer generate runtime code (they're compile-time only constructs)
+- fix: Default runtime include path changed from "core.h" to "runtime/core.h" for consistency
+- fix: Arrays with const assertions now properly receive C++ const qualifier for immutability
 
 ## [0.7.0] - 2025-01-08
 

@@ -192,7 +192,7 @@ class ASTTransformer {
     this.options = options;
     // Use outputName from options if available, otherwise default to "main"
     const moduleName = (options as any).outputName || "main";
-    const runtimeInclude = options.context.options.runtimeInclude || "core.h";
+    const runtimeInclude = options.context.options.runtimeInclude || "runtime/core.h";
 
     // Initialize memory annotation parser
     const memoryAnnotations = new MemoryAnnotationParser();
@@ -1332,8 +1332,7 @@ class ASTTransformer {
         return this.transformDeleteExpression(node as ts.DeleteExpression);
 
       case ts.SyntaxKind.AsExpression:
-        // Type assertions don't affect runtime behavior, just return the expression
-        return this.transformExpression((node as ts.AsExpression).expression);
+        return this.transformAsExpression(node as ts.AsExpression);
 
       case ts.SyntaxKind.TypeAssertionExpression:
         // Type assertions don't affect runtime behavior, just return the expression
@@ -1669,6 +1668,31 @@ class ASTTransformer {
       operand: this.transformExpression(node.expression),
       prefix: true,
     };
+  }
+
+  /**
+   * Transform as expression (type assertions and const assertions)
+   */
+  private transformAsExpression(node: ts.AsExpression): IRExpression {
+    // Check if this is a const assertion
+    const isConstAssertion = node.type.kind === ts.SyntaxKind.TypeReference &&
+      (node.type as ts.TypeReferenceNode).typeName &&
+      ts.isIdentifier((node.type as ts.TypeReferenceNode).typeName) &&
+      ((node.type as ts.TypeReferenceNode).typeName as ts.Identifier).text === "const";
+
+    const expression = this.transformExpression(node.expression);
+
+    if (isConstAssertion) {
+      // Mark the expression as const/readonly
+      // This is primarily for type checking; the runtime behavior is the same
+      // In C++, this will generate const qualifiers on the resulting type
+      if (expression) {
+        (expression as any).isConstAssertion = true;
+      }
+    }
+
+    // Type assertions don't affect runtime behavior, return the expression
+    return expression;
   }
 
   /**

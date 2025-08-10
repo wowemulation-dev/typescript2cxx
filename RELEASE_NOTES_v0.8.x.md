@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types & typeof
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof & Const Assertions
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, and the **typeof type operator**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, and type extraction from values. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, and **const assertions**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, and literal type narrowing. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
 
 ### ✨ New Features
 
@@ -380,6 +380,66 @@ void updatePerson(Partial updates) {
 
 **Note:** The `typeof` type operator is resolved at compile time in TypeScript. Since C++ doesn't have an equivalent compile-time type extraction mechanism, TypeScript2Cxx maps `typeof` expressions to `js::any` for flexibility. The type safety is enforced at the TypeScript level before transpilation.
 
+#### Const Assertions Support
+
+TypeScript const assertions (`as const`) are now supported for literal type narrowing and readonly immutability:
+
+**TypeScript Code:**
+
+```typescript
+// Literal type narrowing
+const literalString = "hello" as const; // Type: "hello"
+const literalNumber = 42 as const; // Type: 42
+
+// Object const assertions - all properties become readonly
+const config = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  retryAttempts: 3,
+} as const;
+
+// Array const assertions - becomes readonly tuple
+const colors = ["red", "green", "blue"] as const;
+// Type: readonly ["red", "green", "blue"]
+
+// Using const assertions for discriminated unions
+const action1 = { type: "ADD", payload: 10 } as const;
+const action2 = { type: "REMOVE", payload: "item" } as const;
+
+type Action = typeof action1 | typeof action2;
+
+// Const assertions with template literals
+const prefix = "api" as const;
+const version = "v1" as const;
+const endpoint = `/${prefix}/${version}/users` as const;
+// Type: "/api/v1/users"
+```
+
+**Generated C++ Code:**
+
+```cpp
+// Literals with const qualifiers
+const js::string literalString = "hello"_S;
+const js::number literalNumber = js::number(42);
+
+// Objects maintain const qualifier
+const js::any config = []() {
+      js::object obj_temp_0;
+      obj_temp_0.set("apiUrl", "https://api.example.com"_S);
+      obj_temp_0.set("timeout", js::number(5000));
+      obj_temp_0.set("retryAttempts", js::number(3));
+      return js::any(obj_temp_0);
+    }();
+
+// Arrays with const assertions become const in C++
+const js::array<js::string> colors = js::array<js::string>{"red"_S, "green"_S, "blue"_S};
+
+// Template literals are evaluated and const
+const js::any endpoint = ("/"_S + js::toString(prefix) + "/"_S + js::toString(version) + "/users"_S);
+```
+
+**Note:** Const assertions provide literal type narrowing in TypeScript and are transpiled to proper C++ const qualifiers. Arrays with const assertions receive the const qualifier in C++, making them truly immutable, which differs from JavaScript's behavior where the array reference is constant but contents can be modified.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -388,10 +448,12 @@ void updatePerson(Partial updates) {
   - Added `TemplateLiteralType` node handling for template literal types
   - Added `IndexedAccessType` node handling for indexed access types
   - Added `TypeQuery` node handling for `typeof` type operator
+  - Added `AsExpression` support for const assertions detection
   - Conditional types resolve to their "true" branch by default (compile-time resolution)
   - Mapped types detect readonly and optional modifiers for proper C++ type generation
   - Template literal types map to `js::string` for C++ compatibility
   - Indexed access types currently map to `js::any` for dynamic access
+  - Const assertions propagate through IR with `isConstAssertion` flag
   - Typeof type expressions map to `js::any` for runtime flexibility
 - **Transform Layer**:
   - Enhanced type assertion (`as`) expression handling to properly pass through expressions
