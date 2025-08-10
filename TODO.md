@@ -244,7 +244,7 @@ Based on analysis of both reference implementations:
   - ✅ Const assertions (`as const`) (v0.8.6-dev)
   - [x] Satisfies operator (v0.8.6-dev)
   - [x] Non-null assertion operator (!) (v0.8.6-dev)
-  - Definite assignment assertion (!)
+  - [x] Definite assignment assertion (!) (v0.8.6-dev)
   - Const type parameters
   - NoInfer utility type
   - TypedArray support

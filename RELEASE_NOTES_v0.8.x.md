@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator & Non-null Assertion
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator, Non-null Assertion & Definite Assignment Assertion
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, the **satisfies operator**, and the **non-null assertion operator (!)**. These features enable type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, type validation without type narrowing, and non-null assertions for nullable types. These features are essential for building type-safe property accessors, generic utility functions, advanced type manipulations, and working with nullable types safely.
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, the **satisfies operator**, the **non-null assertion operator (!)**, and the **definite assignment assertion (!)**. These features enable type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, type validation without type narrowing, non-null assertions for nullable types, and property initialization control. These features are essential for building type-safe property accessors, generic utility functions, advanced type manipulations, working with nullable types safely, and managing strict property initialization requirements.
 
 ### ✨ New Features
 
@@ -612,6 +612,66 @@ js::string testFunctionNonNull() {
 ```
 
 **Note:** The non-null assertion operator is a TypeScript compile-time construct that tells the compiler to treat nullable values as non-null. Since it doesn't affect runtime behavior, TypeScript2Cxx implements pass-through behavior, transpiling the underlying expression directly. In production C++, this provides optimal performance by avoiding runtime null checks, while in debug builds, runtime null checks could be added if needed.
+
+#### Definite Assignment Assertion (!) Support
+
+TypeScript definite assignment assertion is now supported, allowing developers to suppress TypeScript's strict property initialization checking. This feature tells the TypeScript compiler that a property will be assigned before it's used, even if the assignment isn't visible in the declaration.
+
+**TypeScript Code:**
+
+```typescript
+class ConfigManager {
+  // Definite assignment assertion - property will be assigned in initialize()
+  apiUrl!: string;
+  timeout!: number;
+  debug?: boolean;  // Optional property for comparison
+  
+  // Additional properties with assertions
+  initialized!: boolean;
+  settings!: { [key: string]: any };
+  
+  initialize(url: string, timeoutMs: number) {
+    this.apiUrl = url;
+    this.timeout = timeoutMs;
+    this.initialized = true;
+    this.settings = { theme: "dark" };
+  }
+  
+  isReady(): boolean {
+    return this.initialized;
+  }
+}
+
+// Usage
+const config = new ConfigManager();
+config.initialize("https://api.example.com", 5000);
+console.log("API URL:", config.apiUrl);
+```
+
+**Generated C++ Code:**
+
+```cpp
+class ConfigManager {
+public:
+    js::string apiUrl;     // No initializer - will be set in initialize()
+    js::number timeout;    // No initializer - will be set in initialize()
+    bool debug;           // Optional property
+    bool initialized;     // Will be set in initialize()
+    js::any settings;     // Will be set in initialize()
+    
+    virtual auto initialize(js::string url, js::number timeoutMs);
+    virtual bool isReady();
+};
+
+auto ConfigManager::initialize(js::string url, js::number timeoutMs) {
+    this->apiUrl = url;
+    this->timeout = timeoutMs;
+    this->initialized = true;
+    this->settings = js::any(/* object literal */);
+}
+```
+
+**Note:** The definite assignment assertion (`!`) is a TypeScript compile-time feature that suppresses strict property initialization checking. In C++, this translates to declaring properties without initializers, which is the natural behavior. TypeScript2Cxx handles this automatically - properties with definite assignment assertions are transpiled as regular C++ member variables that are assigned later in constructors or initialization methods.
 
 ### 🔧 Implementation Details
 
