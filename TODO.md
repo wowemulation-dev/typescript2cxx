@@ -242,7 +242,7 @@ Based on analysis of both reference implementations:
   - ✅ `keyof` operator (v0.8.6-dev)
   - ✅ `typeof` type operator (v0.8.6-dev)
   - ✅ Const assertions (`as const`) (v0.8.6-dev)
-  - [ ] Satisfies operator
+  - [x] Satisfies operator (v0.8.6-dev)
   - Non-null assertion operator (!)
   - Definite assignment assertion (!)
   - Const type parameters

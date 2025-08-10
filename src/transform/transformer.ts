@@ -1334,6 +1334,9 @@ class ASTTransformer {
       case ts.SyntaxKind.AsExpression:
         return this.transformAsExpression(node as ts.AsExpression);
 
+      case ts.SyntaxKind.SatisfiesExpression:
+        return this.transformSatisfiesExpression(node as ts.SatisfiesExpression);
+
       case ts.SyntaxKind.TypeAssertionExpression:
         // Type assertions don't affect runtime behavior, just return the expression
         return this.transformExpression((node as ts.TypeAssertion).expression);
@@ -1693,6 +1696,17 @@ class ASTTransformer {
 
     // Type assertions don't affect runtime behavior, return the expression
     return expression;
+  }
+
+  /**
+   * Transform satisfies expression
+   */
+  private transformSatisfiesExpression(node: ts.SatisfiesExpression): IRExpression {
+    // The satisfies operator is a TypeScript type-checking construct
+    // It validates that the expression satisfies the type constraint
+    // but doesn't change the runtime type of the expression
+    // In C++, this is handled at compile time, so we just return the expression
+    return this.transformExpression(node.expression);
   }
 
   /**

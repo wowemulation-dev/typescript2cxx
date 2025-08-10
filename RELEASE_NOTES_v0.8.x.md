@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof & Const Assertions
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions & Satisfies Operator
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, and **const assertions**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, and literal type narrowing. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, and the **satisfies operator**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, and type validation without type narrowing. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
 
 ### ✨ New Features
 
@@ -440,6 +440,102 @@ const js::any endpoint = ("/"_S + js::toString(prefix) + "/"_S + js::toString(ve
 
 **Note:** Const assertions provide literal type narrowing in TypeScript and are transpiled to proper C++ const qualifiers. Arrays with const assertions receive the const qualifier in C++, making them truly immutable, which differs from JavaScript's behavior where the array reference is constant but contents can be modified.
 
+#### Satisfies Operator Support
+
+TypeScript satisfies operator is now supported for type validation without type narrowing, allowing developers to ensure expressions match type constraints while preserving their literal types:
+
+**TypeScript Code:**
+
+```typescript
+// Basic satisfies operator usage
+const colors = {
+  red: "#ff0000",
+  green: "#00ff00",
+  blue: "#0000ff",
+} satisfies Record<string, string>;
+
+// The type is still the specific object type, not Record<string, string>
+// This allows us to access specific properties
+const redColor: string = colors.red;
+
+// With satisfies, we can ensure an object matches a type while preserving its literal type
+const config = {
+  host: "localhost",
+  port: 8080,
+  ssl: false,
+} satisfies {
+  host: string;
+  port: number;
+  ssl: boolean;
+};
+
+// Type is preserved - we can access properties with their literal types
+const port: 8080 = config.port; // Type is 8080, not number
+
+// Satisfies with const assertion
+const routes = {
+  home: "/",
+  about: "/about",
+  contact: "/contact",
+} as const satisfies Record<string, string>;
+
+// Function with satisfies
+function getConfig() {
+  return {
+    apiUrl: "https://api.example.com",
+    timeout: 5000,
+    retryAttempts: 3,
+  } satisfies {
+    apiUrl: string;
+    timeout: number;
+    retryAttempts: number;
+  };
+}
+
+// Satisfies with union types
+type Status = "loading" | "success" | "error";
+const currentStatus = "success" satisfies Status;
+
+// Satisfies with arrays
+const numbers = [1, 2, 3, 4, 5] satisfies number[];
+const mixedArray = [1, "two", true, { x: 10 }] satisfies unknown[];
+```
+
+**Generated C++ Code:**
+
+```cpp
+// Satisfies expressions are compile-time only, so we transpile the underlying expression
+const js::any colors = []() {
+      js::object obj_temp_0;
+      obj_temp_0.set("red", "#ff0000"_S);
+      obj_temp_0.set("green", "#00ff00"_S);
+      obj_temp_0.set("blue", "#0000ff"_S);
+      return js::any(obj_temp_0);
+    }();
+
+const js::string redColor = colors["red"];
+
+const js::any config = []() {
+      js::object obj_temp_1;
+      obj_temp_1.set("host", "localhost"_S);
+      obj_temp_1.set("port", js::number(8080));
+      obj_temp_1.set("ssl", false);
+      return js::any(obj_temp_1);
+    }();
+
+const js::any port = config["port"];
+
+// Satisfies operator doesn't change runtime behavior
+js::array<js::number> numbers = js::array<js::number>{js::number(1), js::number(2), js::number(3), js::number(4), js::number(5)};
+js::array<js::number> mixedArray = js::array<js::number>{js::number(1), "two"_S, true, []() {
+      js::object obj_temp_4;
+      obj_temp_4.set("x", js::number(10));
+      return js::any(obj_temp_4);
+    }()};
+```
+
+**Note:** The satisfies operator is a TypeScript compile-time construct for type validation. Since it doesn't change runtime behavior, TypeScript2Cxx transpiles the underlying expression directly. The type validation occurs during TypeScript analysis before transpilation to C++.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -449,12 +545,14 @@ const js::any endpoint = ("/"_S + js::toString(prefix) + "/"_S + js::toString(ve
   - Added `IndexedAccessType` node handling for indexed access types
   - Added `TypeQuery` node handling for `typeof` type operator
   - Added `AsExpression` support for const assertions detection
+  - Added `SatisfiesExpression` support for satisfies operator with pass-through behavior
   - Conditional types resolve to their "true" branch by default (compile-time resolution)
   - Mapped types detect readonly and optional modifiers for proper C++ type generation
   - Template literal types map to `js::string` for C++ compatibility
   - Indexed access types currently map to `js::any` for dynamic access
   - Const assertions propagate through IR with `isConstAssertion` flag
   - Typeof type expressions map to `js::any` for runtime flexibility
+  - Satisfies expressions pass through the underlying expression since they're compile-time only
 - **Transform Layer**:
   - Enhanced type assertion (`as`) expression handling to properly pass through expressions
   - Type aliases now correctly skip runtime code generation (they're compile-time only)

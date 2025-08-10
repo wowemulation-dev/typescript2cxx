@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Index types and indexed access support with dynamic property access (v0.8.6-dev)
 - feat: Typeof type operator support for type extraction from values (v0.8.6-dev)
 - feat: Const assertions (`as const`) support for literal type narrowing and immutability (v0.8.6-dev)
+- feat: Satisfies operator support for type validation without type narrowing (v0.8.6-dev)
 - feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
 - feat: Type assertion (as) expression support in transformer
 - feat: ConditionalType, InferType, MappedType, TemplateLiteralType, IndexedAccessType, and TypeQuery handling in SimpleTypeChecker
 - feat: AsExpression detection for const assertions with `isConstAssertion` flag propagation
+- feat: SatisfiesExpression support with pass-through behavior for compile-time type validation
 
 ### Fixed
 
