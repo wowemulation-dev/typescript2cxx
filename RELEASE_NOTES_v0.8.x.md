@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions & Satisfies Operator
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator & Non-null Assertion
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, and the **satisfies operator**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, and type validation without type narrowing. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, the **satisfies operator**, and the **non-null assertion operator (!)**. These features enable type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, type validation without type narrowing, and non-null assertions for nullable types. These features are essential for building type-safe property accessors, generic utility functions, advanced type manipulations, and working with nullable types safely.
 
 ### ✨ New Features
 
@@ -536,6 +536,83 @@ js::array<js::number> mixedArray = js::array<js::number>{js::number(1), "two"_S,
 
 **Note:** The satisfies operator is a TypeScript compile-time construct for type validation. Since it doesn't change runtime behavior, TypeScript2Cxx transpiles the underlying expression directly. The type validation occurs during TypeScript analysis before transpilation to C++.
 
+#### Non-null Assertion Operator (!) Support
+
+TypeScript non-null assertion operator is now supported, allowing developers to tell the compiler that a value is not null or undefined. This is particularly useful for working with nullable types and optional properties.
+
+**TypeScript Code:**
+
+```typescript
+// Basic non-null assertion
+function testBasicNonNull(value: string | null): number {
+  return value!.length; // Assert value is not null
+}
+
+// Object property non-null assertion
+interface User {
+  name: string;
+  email?: string;
+}
+
+function testObjectNonNull(user: User | null): string {
+  return user!.name; // Assert user is not null
+}
+
+// Optional property non-null assertion
+function testOptionalNonNull(user: User): string {
+  return user.email!; // Assert email is defined
+}
+
+// Chained non-null assertions
+interface DataStructure {
+  user?: User | null;
+  config?: {
+    settings?: {
+      theme?: string;
+    };
+  };
+}
+
+function testChainedNonNull(data: DataStructure | null): string {
+  return data!.user!.name; // Multiple assertions
+}
+
+// Function call non-null assertion
+function maybeGetUser(): User | null {
+  return { name: "Alice", email: "alice@example.com" };
+}
+
+function testFunctionNonNull(): string {
+  return maybeGetUser()!.name; // Assert function returns non-null
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+js::number testBasicNonNull(js::typed::Nullable<js::string> value) {
+    return value.length();
+}
+
+js::string testObjectNonNull(js::typed::Nullable<User> user) {
+    return user->name;
+}
+
+js::string testOptionalNonNull(User user) {
+    return user->email;
+}
+
+js::string testChainedNonNull(js::typed::Nullable<DataStructure> data) {
+    return data->user.name;
+}
+
+js::string testFunctionNonNull() {
+    return maybeGetUser()->name;
+}
+```
+
+**Note:** The non-null assertion operator is a TypeScript compile-time construct that tells the compiler to treat nullable values as non-null. Since it doesn't affect runtime behavior, TypeScript2Cxx implements pass-through behavior, transpiling the underlying expression directly. In production C++, this provides optimal performance by avoiding runtime null checks, while in debug builds, runtime null checks could be added if needed.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -546,6 +623,7 @@ js::array<js::number> mixedArray = js::array<js::number>{js::number(1), "two"_S,
   - Added `TypeQuery` node handling for `typeof` type operator
   - Added `AsExpression` support for const assertions detection
   - Added `SatisfiesExpression` support for satisfies operator with pass-through behavior
+  - Added `NonNullExpression` support for non-null assertion operator with pass-through behavior
   - Conditional types resolve to their "true" branch by default (compile-time resolution)
   - Mapped types detect readonly and optional modifiers for proper C++ type generation
   - Template literal types map to `js::string` for C++ compatibility

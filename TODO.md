@@ -243,7 +243,7 @@ Based on analysis of both reference implementations:
   - ✅ `typeof` type operator (v0.8.6-dev)
   - ✅ Const assertions (`as const`) (v0.8.6-dev)
   - [x] Satisfies operator (v0.8.6-dev)
-  - Non-null assertion operator (!)
+  - [x] Non-null assertion operator (!) (v0.8.6-dev)
   - Definite assignment assertion (!)
   - Const type parameters
   - NoInfer utility type

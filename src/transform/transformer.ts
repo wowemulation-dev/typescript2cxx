@@ -1281,9 +1281,6 @@ class ASTTransformer {
           node as ts.PropertyAccessExpression | ts.ElementAccessExpression,
         );
 
-      case ts.SyntaxKind.NonNullExpression:
-        return this.transformOptionalChainingExpression(node);
-
       case ts.SyntaxKind.BinaryExpression:
         return this.transformBinaryExpression(node as ts.BinaryExpression);
 
@@ -1340,6 +1337,9 @@ class ASTTransformer {
       case ts.SyntaxKind.TypeAssertionExpression:
         // Type assertions don't affect runtime behavior, just return the expression
         return this.transformExpression((node as ts.TypeAssertion).expression);
+
+      case ts.SyntaxKind.NonNullExpression:
+        return this.transformNonNullExpression(node as ts.NonNullExpression);
 
       default:
         this.warn(`Unsupported expression type: ${ts.SyntaxKind[node.kind]}`);
@@ -1706,6 +1706,17 @@ class ASTTransformer {
     // It validates that the expression satisfies the type constraint
     // but doesn't change the runtime type of the expression
     // In C++, this is handled at compile time, so we just return the expression
+    return this.transformExpression(node.expression);
+  }
+
+  /**
+   * Transform non-null assertion expression (!)
+   */
+  private transformNonNullExpression(node: ts.NonNullExpression): IRExpression {
+    // Non-null assertion operator (!) tells TypeScript that a value is not null/undefined
+    // In production C++, this is typically optimized away (pass-through behavior)
+    // In debug mode or with runtime checks, this could generate null checks
+    // For now, implement as pass-through since it's a type-level assertion
     return this.transformExpression(node.expression);
   }
 
