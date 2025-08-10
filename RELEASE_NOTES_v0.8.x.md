@@ -705,11 +705,11 @@ class Container {
 // Generic class with const type parameter
 class TypedContainer<const T> {
   private value: T;
-  
+
   constructor(initialValue: T) {
     this.value = initialValue;
   }
-  
+
   getValue(): T {
     return this.value;
   }
@@ -761,6 +761,76 @@ public:
 
 **Note:** Const type parameters are a TypeScript compile-time feature for improved type inference and literal type preservation. In C++, TypeScript2Cxx generates standard template parameters but adds `/* const */` comments to indicate which parameters had the const modifier in the original TypeScript code. This helps maintain readability and provides context for developers familiar with the TypeScript source.
 
+#### NoInfer Utility Type Support
+
+TypeScript 5.4+ introduces the `NoInfer` utility type that prevents TypeScript from inferring types for specific type parameters. This is useful in function signatures where you want to prevent unwanted type inference from certain parameters.
+
+**TypeScript Example:**
+
+```typescript
+// Basic NoInfer usage - prevents inference from the second parameter
+function createArray<T>(length: number, fill: NoInfer<T>): T[] {
+  return Array(length).fill(fill);
+}
+
+// Without NoInfer, T would be inferred as string from both parameters
+// With NoInfer, T must be explicitly provided or inferred from context
+const numbers = createArray<number>(3, 42); // T is number
+const strings = createArray(3, "hello" as string); // T inferred as string from type assertion
+
+// Function with mixed inference suppression
+function processData<T extends object>(
+  processor: (item: T) => void,
+  data: NoInfer<T>[]
+): void {
+  data.forEach(processor);
+}
+
+// Prevents distribution in conditional types
+type MyConditional<T> = T extends string ? string : number;
+type WithNoInfer<T> = MyConditional<NoInfer<T>>;
+
+// Complex example with mapped types
+type Optional<T> = {
+  [K in keyof T]?: NoInfer<T[K]>;
+};
+
+function applyDefaults<T>(
+  defaults: T,
+  overrides: Optional<T>
+): T {
+  return { ...defaults, ...overrides };
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+// NoInfer types are extracted during compilation
+template<typename T>
+js::array<T> createArray(js::number length, T fill) {
+    return js::array(length).fill(fill);
+}
+
+const js::array<js::number> numbers = createArray<js::number>(js::number(3), js::number(42));
+const js::array<js::string> strings = createArray(js::number(3), "hello"_S);
+
+// Generic constraint processing
+template<typename T>
+void processData(std::function<void(T)> processor, js::array<T> data) {
+    data.forEach(processor);
+}
+
+// Mapped type processing
+template<typename T>
+T applyDefaults(T defaults, js::object overrides) {
+    // Spread operation implementation
+    return js::object_assign(defaults, overrides);
+}
+```
+
+**Note:** NoInfer is a compile-time TypeScript utility that controls type inference behavior. TypeScript2Cxx processes NoInfer by extracting the inner type and using it directly in C++ generation, since C++ template type deduction works differently from TypeScript's inference system. The utility serves its purpose during the TypeScript compilation phase and doesn't require special runtime handling in C++.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -784,6 +854,8 @@ public:
   - Type aliases now correctly skip runtime code generation (they're compile-time only)
   - Added `hasConstModifier` method for detecting const modifiers on type parameters
   - Enhanced `IRTemplateParameter` interface with `isConst` flag for const type parameter tracking
+  - Added NoInfer utility type support in SimpleTypeChecker for type inference control
+  - NoInfer<T> types extract inner type T during compilation for C++ template compatibility
 - **Code Generation**:
   - Fixed Object identifier mapping (was incorrectly dual-mapped to both js::Object and js::object)
   - Enhanced template parameter generation to include `/* const */` comments for const type parameters

@@ -121,7 +121,14 @@ export class SimpleTypeChecker {
       case ts.SyntaxKind.TypeReference: {
         const typeRef = typeNode as ts.TypeReferenceNode;
         if (ts.isIdentifier(typeRef.typeName)) {
-          return typeRef.typeName.text;
+          const typeName = typeRef.typeName.text;
+
+          // Handle NoInfer utility type - extract inner type
+          if (typeName === "NoInfer" && typeRef.typeArguments && typeRef.typeArguments.length > 0) {
+            return this.getTypeString(typeRef.typeArguments[0]);
+          }
+
+          return typeName;
         }
         return "unknown";
       }
@@ -353,6 +360,13 @@ export class SimpleTypeChecker {
         if (ts.isIdentifier(typeRef.typeName)) {
           // Special handling for built-in generics
           const typeName = typeRef.typeName.text;
+
+          // Handle NoInfer utility type - extract inner type
+          if (typeName === "NoInfer" && typeRef.typeArguments && typeRef.typeArguments.length > 0) {
+            const innerType = this.resolveTypeNode(typeRef.typeArguments[0]);
+            return innerType.cppType;
+          }
+
           if (typeName === "Array" && typeRef.typeArguments && typeRef.typeArguments.length > 0) {
             const elementType = this.resolveTypeNode(typeRef.typeArguments[0]);
             return `js::array<${elementType.cppType}>`;

@@ -246,7 +246,7 @@ Based on analysis of both reference implementations:
   - [x] Non-null assertion operator (!) (v0.8.6-dev)
   - [x] Definite assignment assertion (!) (v0.8.6-dev)
   - [x] Const type parameters (v0.8.6-dev)
-  - NoInfer utility type
+  - [x] NoInfer utility type (v0.8.6-dev)
   - TypedArray support
   - Tuple types with rest elements
   - Literal types (string, number, boolean)
