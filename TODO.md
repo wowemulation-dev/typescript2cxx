@@ -247,7 +247,7 @@ Based on analysis of both reference implementations:
   - [x] Definite assignment assertion (!) (v0.8.6-dev)
   - [x] Const type parameters (v0.8.6-dev)
   - [x] NoInfer utility type (v0.8.6-dev)
-  - TypedArray support
+  - [x] TypedArray support (v0.8.6-dev)
   - Tuple types with rest elements
   - Literal types (string, number, boolean)
   - Enum literal types

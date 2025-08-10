@@ -781,7 +781,7 @@ const strings = createArray(3, "hello" as string); // T inferred as string from 
 // Function with mixed inference suppression
 function processData<T extends object>(
   processor: (item: T) => void,
-  data: NoInfer<T>[]
+  data: NoInfer<T>[],
 ): void {
   data.forEach(processor);
 }
@@ -797,7 +797,7 @@ type Optional<T> = {
 
 function applyDefaults<T>(
   defaults: T,
-  overrides: Optional<T>
+  overrides: Optional<T>,
 ): T {
   return { ...defaults, ...overrides };
 }
@@ -831,6 +831,114 @@ T applyDefaults(T defaults, js::object overrides) {
 
 **Note:** NoInfer is a compile-time TypeScript utility that controls type inference behavior. TypeScript2Cxx processes NoInfer by extracting the inner type and using it directly in C++ generation, since C++ template type deduction works differently from TypeScript's inference system. The utility serves its purpose during the TypeScript compilation phase and doesn't require special runtime handling in C++.
 
+#### TypedArray Support
+
+TypeScript2Cxx now includes comprehensive support for all JavaScript TypedArray types, providing efficient binary data handling for applications like graphics programming, audio processing, and data manipulation. TypedArrays are mapped to specific C++ template classes that inherit from the base array type while providing TypedArray-specific methods and properties.
+
+**TypeScript Code:**
+
+```typescript
+// Basic TypedArray usage
+const data = new Uint8Array(10);
+data[0] = 255;
+data[1] = 128;
+
+const buffer = new Float32Array([1.1, 2.2, 3.3, 4.4]);
+const subBuffer = buffer.subarray(1, 3);
+
+// Audio processing example with Int16Array
+const audioSamples = new Int16Array(1024);
+
+function generateSineWave(
+  buffer: Int16Array,
+  frequency: number,
+  sampleRate: number
+): void {
+  for (let i = 0; i < buffer.length; i++) {
+    const t = i / sampleRate;
+    const sample = Math.sin(2 * Math.PI * frequency * t);
+    buffer[i] = Math.round(sample * 32767);
+  }
+}
+
+generateSineWave(audioSamples, 440, 44100);
+
+// Graphics data with Float32Array
+const vertices = new Float32Array([
+  0.0, 1.0, 0.0,    // vertex 1
+  -1.0, -1.0, 0.0,  // vertex 2
+  1.0, -1.0, 0.0    // vertex 3
+]);
+
+// TypedArray properties and methods
+const length = data.length;
+const byteLength = data.byteLength;
+const bytesPerElement = data.BYTES_PER_ELEMENT;
+
+// Advanced operations
+const copy = new Uint8Array(data.length);
+copy.set(data);
+copy.fill(0, 5);
+```
+
+**Generated C++ Code:**
+
+```cpp
+js::Uint8Array data(10);
+data[0] = 255;
+data[1] = 128;
+
+js::Float32Array buffer({1.1f, 2.2f, 3.3f, 4.4f});
+js::Float32Array subBuffer = buffer.subarray(1, 3);
+
+js::Int16Array audioSamples(1024);
+
+void generateSineWave(
+  js::Int16Array buffer,
+  js::number frequency,
+  js::number sampleRate
+) {
+  for (js::number i = 0; i < buffer.length(); i++) {
+    const js::number t = i / sampleRate;
+    const js::number sample = js::Math::sin(2 * js::Math::PI * frequency * t);
+    buffer[i] = static_cast<int16_t>(js::Math::round(sample * 32767));
+  }
+}
+
+generateSineWave(audioSamples, 440, 44100);
+
+js::Float32Array vertices({
+  0.0f, 1.0f, 0.0f,
+  -1.0f, -1.0f, 0.0f,
+  1.0f, -1.0f, 0.0f
+});
+```
+
+**Supported TypedArray Types:**
+
+- `Int8Array` → `js::Int8Array` (signed 8-bit integers)
+- `Uint8Array` → `js::Uint8Array` (unsigned 8-bit integers)
+- `Uint8ClampedArray` → `js::Uint8ClampedArray` (clamped 8-bit integers)
+- `Int16Array` → `js::Int16Array` (signed 16-bit integers)
+- `Uint16Array` → `js::Uint16Array` (unsigned 16-bit integers)
+- `Int32Array` → `js::Int32Array` (signed 32-bit integers)
+- `Uint32Array` → `js::Uint32Array` (unsigned 32-bit integers)
+- `Float32Array` → `js::Float32Array` (32-bit floating point)
+- `Float64Array` → `js::Float64Array` (64-bit floating point)
+- `BigInt64Array` → `js::BigInt64Array` (signed 64-bit integers)
+- `BigUint64Array` → `js::BigUint64Array` (unsigned 64-bit integers)
+
+**TypedArray Methods and Properties:**
+
+- `length` - Number of elements
+- `byteLength` - Size in bytes
+- `BYTES_PER_ELEMENT` - Bytes per element (static property)
+- `subarray(start, end)` - Create a typed view of a portion
+- `set(source, offset)` - Copy data from another array
+- `fill(value, start, end)` - Fill with a specific value
+
+**Note:** TypedArrays provide memory-efficient binary data handling and are essential for performance-critical applications like game engines, audio processing, and graphics programming. The C++ implementation uses template specialization to ensure type safety while maintaining JavaScript semantics.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -856,11 +964,18 @@ T applyDefaults(T defaults, js::object overrides) {
   - Enhanced `IRTemplateParameter` interface with `isConst` flag for const type parameter tracking
   - Added NoInfer utility type support in SimpleTypeChecker for type inference control
   - NoInfer<T> types extract inner type T during compilation for C++ template compatibility
+  - Added comprehensive TypedArray type recognition for all 11 JavaScript TypedArray types
+  - TypedArray types mapped to specific C++ template classes (Int8Array → js::Int8Array, etc.)
 - **Code Generation**:
   - Fixed Object identifier mapping (was incorrectly dual-mapped to both js::Object and js::object)
   - Enhanced template parameter generation to include `/* const */` comments for const type parameters
 - **Runtime Library**:
   - Added `js::Object` namespace with static utility methods
+  - Added comprehensive TypedArray base class template with inheritance from array<T>
+  - Implemented all 11 TypedArray types (Int8Array through BigUint64Array)
+  - TypedArray methods: subarray(), set(), fill(), byteLength, BYTES_PER_ELEMENT
+  - TypedArray constructors support both size initialization and data initialization
+  - Uint8ClampedArray includes special value clamping between 0-255
 
 ### 📚 Runtime Library Enhancements
 

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Definite assignment assertion (!) support for strict property initialization control (v0.8.6-dev)
 - feat: Const type parameters support with const modifier detection and C++ comment generation (v0.8.6-dev)
 - feat: NoInfer utility type support for preventing unwanted type inference in generic functions (v0.8.6-dev)
+- feat: TypedArray support for efficient binary data handling with all 11 JavaScript TypedArray types (v0.8.6-dev)
 - feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
 - feat: Type assertion (as) expression support in transformer
 - feat: ConditionalType, InferType, MappedType, TemplateLiteralType, IndexedAccessType, and TypeQuery handling in SimpleTypeChecker
@@ -31,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Enhanced IRTemplateParameter interface with isConst flag for TypeScript 5.0+ const type parameter tracking
 - feat: Template parameter generation with /* const */ comments for improved code readability
 - feat: NoInfer<T> type extraction in SimpleTypeChecker for compile-time type inference control
+- feat: TypedArray base class template implementation with inheritance from array<T> in runtime library
+- feat: TypedArray type mapping in SimpleTypeChecker (Int8Array → js::Int8Array, etc.)
+- feat: TypedArray methods implementation (subarray, set, fill, byteLength, BYTES_PER_ELEMENT)
 
 ### Fixed
 

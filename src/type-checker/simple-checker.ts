@@ -128,6 +128,25 @@ export class SimpleTypeChecker {
             return this.getTypeString(typeRef.typeArguments[0]);
           }
 
+          // Handle TypedArray types
+          const typedArrayTypes = [
+            "Int8Array",
+            "Uint8Array",
+            "Uint8ClampedArray",
+            "Int16Array",
+            "Uint16Array",
+            "Int32Array",
+            "Uint32Array",
+            "Float32Array",
+            "Float64Array",
+            "BigInt64Array",
+            "BigUint64Array",
+          ];
+
+          if (typedArrayTypes.includes(typeName)) {
+            return typeName;
+          }
+
           return typeName;
         }
         return "unknown";
@@ -365,6 +384,25 @@ export class SimpleTypeChecker {
           if (typeName === "NoInfer" && typeRef.typeArguments && typeRef.typeArguments.length > 0) {
             const innerType = this.resolveTypeNode(typeRef.typeArguments[0]);
             return innerType.cppType;
+          }
+
+          // Handle TypedArray types - map to specific C++ types
+          const typedArrayMap: Record<string, string> = {
+            "Int8Array": "js::Int8Array",
+            "Uint8Array": "js::Uint8Array",
+            "Uint8ClampedArray": "js::Uint8ClampedArray",
+            "Int16Array": "js::Int16Array",
+            "Uint16Array": "js::Uint16Array",
+            "Int32Array": "js::Int32Array",
+            "Uint32Array": "js::Uint32Array",
+            "Float32Array": "js::Float32Array",
+            "Float64Array": "js::Float64Array",
+            "BigInt64Array": "js::BigInt64Array",
+            "BigUint64Array": "js::BigUint64Array",
+          };
+
+          if (typedArrayMap[typeName]) {
+            return typedArrayMap[typeName];
           }
 
           if (typeName === "Array" && typeRef.typeArguments && typeRef.typeArguments.length > 0) {

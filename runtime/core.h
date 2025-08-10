@@ -1791,6 +1791,174 @@ inline string decodeURIComponent(const string& component) {
     return string(result);
 }
 
+// TypedArray base class and implementations
+template <typename T>
+class TypedArray : public array<T> {
+private:
+    size_t _byteLength;
+    size_t _bytesPerElement;
+
+public:
+    explicit TypedArray(size_t length) : array<T>(length) {
+        _bytesPerElement = sizeof(T);
+        _byteLength = length * _bytesPerElement;
+    }
+
+    template<typename Container>
+    explicit TypedArray(const Container& data) : array<T>() {
+        _bytesPerElement = sizeof(T);
+        for (const auto& item : data) {
+            this->push(static_cast<T>(item));
+        }
+        _byteLength = this->length() * _bytesPerElement;
+    }
+
+    // TypedArray specific properties
+    size_t get_byteLength() const { return _byteLength; }
+    size_t get_BYTES_PER_ELEMENT() const { return _bytesPerElement; }
+    static size_t BYTES_PER_ELEMENT() { return sizeof(T); }
+
+    // Subarray method - creates a view (simplified as copy for now)
+    TypedArray<T> subarray(size_t start, size_t end = SIZE_MAX) const {
+        if (end == SIZE_MAX) end = this->length();
+        if (start >= this->length()) start = this->length();
+        if (end > this->length()) end = this->length();
+        if (start >= end) return TypedArray<T>(0);
+
+        TypedArray<T> result(end - start);
+        for (size_t i = start; i < end; i++) {
+            result[i - start] = (*this)[i];
+        }
+        return result;
+    }
+
+    // Set method to copy data from another array
+    template<typename Container>
+    void set(const Container& source, size_t offset = 0) {
+        size_t i = 0;
+        for (const auto& item : source) {
+            if (offset + i >= this->length()) break;
+            (*this)[offset + i] = static_cast<T>(item);
+            i++;
+        }
+        _byteLength = this->length() * _bytesPerElement;
+    }
+
+    // Fill method
+    void fill(T value, size_t start = 0, size_t end = SIZE_MAX) {
+        if (end == SIZE_MAX) end = this->length();
+        if (start >= this->length()) return;
+        if (end > this->length()) end = this->length();
+
+        for (size_t i = start; i < end; i++) {
+            (*this)[i] = value;
+        }
+    }
+
+    // Properties as getter methods (JavaScript compatibility)
+    size_t byteLength() const { return get_byteLength(); }
+    size_t bytesPerElement() const { return get_BYTES_PER_ELEMENT(); }
+};
+
+// Specific TypedArray implementations
+class Int8Array : public TypedArray<int8_t> {
+public:
+    explicit Int8Array(size_t length) : TypedArray<int8_t>(length) {}
+    
+    template<typename Container>
+    explicit Int8Array(const Container& data) : TypedArray<int8_t>(data) {}
+};
+
+class Uint8Array : public TypedArray<uint8_t> {
+public:
+    explicit Uint8Array(size_t length) : TypedArray<uint8_t>(length) {}
+    
+    template<typename Container>
+    explicit Uint8Array(const Container& data) : TypedArray<uint8_t>(data) {}
+};
+
+class Uint8ClampedArray : public TypedArray<uint8_t> {
+public:
+    explicit Uint8ClampedArray(size_t length) : TypedArray<uint8_t>(length) {}
+    
+    template<typename Container>
+    explicit Uint8ClampedArray(const Container& data) : TypedArray<uint8_t>(data) {}
+    
+    // Override to clamp values between 0-255
+    void set_clamped(size_t index, double value) {
+        if (index < this->length()) {
+            if (value < 0) value = 0;
+            else if (value > 255) value = 255;
+            else value = std::round(value);
+            (*this)[index] = static_cast<uint8_t>(value);
+        }
+    }
+};
+
+class Int16Array : public TypedArray<int16_t> {
+public:
+    explicit Int16Array(size_t length) : TypedArray<int16_t>(length) {}
+    
+    template<typename Container>
+    explicit Int16Array(const Container& data) : TypedArray<int16_t>(data) {}
+};
+
+class Uint16Array : public TypedArray<uint16_t> {
+public:
+    explicit Uint16Array(size_t length) : TypedArray<uint16_t>(length) {}
+    
+    template<typename Container>
+    explicit Uint16Array(const Container& data) : TypedArray<uint16_t>(data) {}
+};
+
+class Int32Array : public TypedArray<int32_t> {
+public:
+    explicit Int32Array(size_t length) : TypedArray<int32_t>(length) {}
+    
+    template<typename Container>
+    explicit Int32Array(const Container& data) : TypedArray<int32_t>(data) {}
+};
+
+class Uint32Array : public TypedArray<uint32_t> {
+public:
+    explicit Uint32Array(size_t length) : TypedArray<uint32_t>(length) {}
+    
+    template<typename Container>
+    explicit Uint32Array(const Container& data) : TypedArray<uint32_t>(data) {}
+};
+
+class Float32Array : public TypedArray<float> {
+public:
+    explicit Float32Array(size_t length) : TypedArray<float>(length) {}
+    
+    template<typename Container>
+    explicit Float32Array(const Container& data) : TypedArray<float>(data) {}
+};
+
+class Float64Array : public TypedArray<double> {
+public:
+    explicit Float64Array(size_t length) : TypedArray<double>(length) {}
+    
+    template<typename Container>
+    explicit Float64Array(const Container& data) : TypedArray<double>(data) {}
+};
+
+class BigInt64Array : public TypedArray<int64_t> {
+public:
+    explicit BigInt64Array(size_t length) : TypedArray<int64_t>(length) {}
+    
+    template<typename Container>
+    explicit BigInt64Array(const Container& data) : TypedArray<int64_t>(data) {}
+};
+
+class BigUint64Array : public TypedArray<uint64_t> {
+public:
+    explicit BigUint64Array(size_t length) : TypedArray<uint64_t>(length) {}
+    
+    template<typename Container>
+    explicit BigUint64Array(const Container& data) : TypedArray<uint64_t>(data) {}
+};
+
 // Object static methods namespace
 namespace Object {
     // Get all keys from an object
