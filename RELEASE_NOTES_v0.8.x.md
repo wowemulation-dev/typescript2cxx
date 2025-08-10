@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types & Index Types
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types & typeof
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, and **index types with indexed access**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, and dynamic property access. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
+TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, and the **typeof type operator**, enabling type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, and type extraction from values. These features are essential for building type-safe property accessors, generic utility functions, and advanced type manipulations.
 
 ### ✨ New Features
 
@@ -292,6 +292,94 @@ js::array<js::any> pluck(js::array<T> objects, K key) {
 
 **Note:** Index types and indexed access are handled through dynamic property access in C++. Index signatures are represented as `js::object` types that allow dynamic key-value pairs. The type safety is maintained at the TypeScript level during transpilation.
 
+#### Typeof Type Operator Support
+
+The `typeof` type operator extracts the type from a value, enabling type-safe code based on existing variables and expressions:
+
+**TypeScript Code:**
+
+```typescript
+// Basic typeof with variables
+const config = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  retryAttempts: 3,
+} as const;
+
+type ConfigType = typeof config;
+
+// Using typeof in variable declarations
+const anotherConfig: typeof config = {
+  apiUrl: "https://api.backup.com",
+  timeout: 3000,
+  retryAttempts: 5,
+};
+
+// Typeof with functions
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+
+type GreetType = typeof greet; // (name: string) => string
+
+// Using function types
+const myGreet: typeof greet = (n: string) => `Hi, ${n}!`;
+
+// Typeof with classes
+class User {
+  constructor(public name: string, public age: number) {}
+}
+
+const userInstance = new User("John", 30);
+type UserInstanceType = typeof userInstance; // User
+
+// Complex typeof patterns
+function updatePerson(updates: Partial<typeof person>): void {
+  Object.assign(person, updates);
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+// Config object with extracted type
+const js::any config = []() {
+      js::object obj_temp_0;
+      obj_temp_0.set("apiUrl", "https://api.example.com"_S);
+      obj_temp_0.set("timeout", js::number(5000));
+      obj_temp_0.set("retryAttempts", js::number(3));
+      return js::any(obj_temp_0);
+    }();
+
+// Variables with typeof type use js::any
+const js::any anotherConfig = []() {
+      js::object obj_temp_1;
+      obj_temp_1.set("apiUrl", "https://api.backup.com"_S);
+      obj_temp_1.set("timeout", js::number(3000));
+      obj_temp_1.set("retryAttempts", js::number(5));
+      return js::any(obj_temp_1);
+    }();
+
+// Function types
+js::string greet(js::string name) {
+    return ("Hello, "_S + js::toString(name) + "!"_S);
+}
+
+const js::any myGreet = [](js::string n) -> auto { 
+    return ("Hi, "_S + js::toString(n) + "!"_S); 
+};
+
+// Class instances
+const std::shared_ptr<User> userInstance = std::make_shared<User>("John"_S, js::number(30));
+
+// Partial type updates
+void updatePerson(Partial updates) {
+    js::Object::assign(person, updates);
+}
+```
+
+**Note:** The `typeof` type operator is resolved at compile time in TypeScript. Since C++ doesn't have an equivalent compile-time type extraction mechanism, TypeScript2Cxx maps `typeof` expressions to `js::any` for flexibility. The type safety is enforced at the TypeScript level before transpilation.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -299,10 +387,12 @@ js::array<js::any> pluck(js::array<T> objects, K key) {
   - Added `ConditionalType`, `InferType`, and `MappedType` node handling
   - Added `TemplateLiteralType` node handling for template literal types
   - Added `IndexedAccessType` node handling for indexed access types
+  - Added `TypeQuery` node handling for `typeof` type operator
   - Conditional types resolve to their "true" branch by default (compile-time resolution)
   - Mapped types detect readonly and optional modifiers for proper C++ type generation
   - Template literal types map to `js::string` for C++ compatibility
   - Indexed access types currently map to `js::any` for dynamic access
+  - Typeof type expressions map to `js::any` for runtime flexibility
 - **Transform Layer**:
   - Enhanced type assertion (`as`) expression handling to properly pass through expressions
   - Type aliases now correctly skip runtime code generation (they're compile-time only)

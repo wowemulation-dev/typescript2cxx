@@ -242,6 +242,12 @@ export class SimpleTypeChecker {
         return `${objectType}[${indexType}]`;
       }
 
+      case ts.SyntaxKind.TypeQuery: {
+        // TypeQuery represents the typeof operator
+        // Extract the type from a value
+        return "typeof expression";
+      }
+
       default:
         return "unknown";
     }
@@ -446,6 +452,14 @@ export class SimpleTypeChecker {
 
         // Default to regular object
         return "js::object";
+      }
+
+      case ts.SyntaxKind.TypeQuery: {
+        // TypeQuery (typeof operator) extracts the type from a value
+        // In C++, we use decltype for similar functionality
+        // However, since we can't resolve the actual type at compile time,
+        // we return js::any as a safe fallback
+        return "js::any";
       }
 
       default:

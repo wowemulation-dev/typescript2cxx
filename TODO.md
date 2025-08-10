@@ -19,9 +19,10 @@ This document tracks planned features and known issues for typescript2cxx.
 - ✅ **Complete JavaScript Runtime** - String, Number, Array, Object, Math, Date, RegExp, JSON, Console
 - ✅ **Class System** - Inheritance, constructors, methods, properties, decorators, abstract classes, private fields
 - ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
-- ✅ **Advanced Types** - Unions, intersections, type guards, decorators, keyof, conditional types, mapped types
+- ✅ **Advanced Types** - Unions, intersections, type guards, decorators, keyof, conditional types, mapped types, typeof
 - ✅ **Template Literal Types** - String pattern types with js::string mapping
 - ✅ **Index Types & Indexed Access** - T[K] support with dynamic property access
+- ✅ **Typeof Type Operator** - Type extraction from values with js::any mapping
 - ✅ **Enum Support** - Numeric, string, mixed, const enums with reverse mapping
 - ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline with 12/12 tests passing (100% success)
 - ✅ **CMake Build System** - Complete CMake integration with CLI support
@@ -238,9 +239,9 @@ Based on analysis of both reference implementations:
   - ✅ Template literal types (v0.8.6-dev)
   - ✅ Index types and indexed access (v0.8.6-dev)
   - ✅ `keyof` operator (v0.8.6-dev)
-  - [ ] `typeof` type operator
-  - Const assertions (`as const`)
-  - Satisfies operator
+  - ✅ `typeof` type operator (v0.8.6-dev)
+  - [ ] Const assertions (`as const`)
+  - [ ] Satisfies operator
   - Non-null assertion operator (!)
   - Definite assignment assertion (!)
   - Const type parameters
