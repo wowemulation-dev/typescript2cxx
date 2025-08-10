@@ -2665,11 +2665,41 @@ class ASTTransformer {
       defaultType = this.resolveType(node.default);
     }
 
+    // Check for const modifier (TypeScript 5.0+ feature)
+    const isConst = this.hasConstModifier(node);
+
     return {
       name,
       constraint,
       defaultType,
       isVariadic: false, // TypeScript doesn't have variadic type parameters like C++
+      isConst,
     };
+  }
+
+  /**
+   * Check if a type parameter has the const modifier
+   */
+  private hasConstModifier(node: ts.TypeParameterDeclaration): boolean {
+    // Check for const modifier on type parameters
+    // TypeScript 5.0+ stores const modifier differently
+    const anyNode = node as any;
+
+    // Try different ways to access const modifier
+    if (anyNode.modifiers) {
+      const modifiers = anyNode.modifiers as ts.NodeArray<ts.Modifier>;
+      if (modifiers.some((m) => m.kind === ts.SyntaxKind.ConstKeyword)) {
+        return true;
+      }
+    }
+
+    // Check if node has const property directly
+    if (anyNode.const === true) {
+      return true;
+    }
+
+    // Check standard modifiers API
+    const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+    return modifiers ? modifiers.some((m) => m.kind === ts.SyntaxKind.ConstKeyword) : false;
   }
 }

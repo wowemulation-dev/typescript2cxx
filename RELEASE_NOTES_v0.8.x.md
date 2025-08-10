@@ -624,19 +624,19 @@ class ConfigManager {
   // Definite assignment assertion - property will be assigned in initialize()
   apiUrl!: string;
   timeout!: number;
-  debug?: boolean;  // Optional property for comparison
-  
+  debug?: boolean; // Optional property for comparison
+
   // Additional properties with assertions
   initialized!: boolean;
   settings!: { [key: string]: any };
-  
+
   initialize(url: string, timeoutMs: number) {
     this.apiUrl = url;
     this.timeout = timeoutMs;
     this.initialized = true;
     this.settings = { theme: "dark" };
   }
-  
+
   isReady(): boolean {
     return this.initialized;
   }
@@ -673,6 +673,94 @@ auto ConfigManager::initialize(js::string url, js::number timeoutMs) {
 
 **Note:** The definite assignment assertion (`!`) is a TypeScript compile-time feature that suppresses strict property initialization checking. In C++, this translates to declaring properties without initializers, which is the natural behavior. TypeScript2Cxx handles this automatically - properties with definite assignment assertions are transpiled as regular C++ member variables that are assigned later in constructors or initialization methods.
 
+#### Const Type Parameters Support
+
+TypeScript 5.0+ introduces const type parameters using the `const` modifier on generic type parameters. This feature enables better type inference and literal type preservation in generic functions and classes.
+
+**TypeScript Example:**
+
+```typescript
+// Basic const type parameter
+function identity<const T>(value: T): T {
+  return value;
+}
+
+// Multiple const type parameters
+function pair<const T, const U>(first: T, second: U): [T, U] {
+  return [first, second];
+}
+
+// Mixed const and non-const parameters
+function mixed<const T, U>(constParam: T, normalParam: U): void {
+  console.log("Const:", constParam, "Normal:", normalParam);
+}
+
+// Const type parameter on class method
+class Container {
+  store<const T>(value: T): T {
+    return value;
+  }
+}
+
+// Generic class with const type parameter
+class TypedContainer<const T> {
+  private value: T;
+  
+  constructor(initialValue: T) {
+    this.value = initialValue;
+  }
+  
+  getValue(): T {
+    return this.value;
+  }
+}
+```
+
+**Generated C++ Code:**
+
+```cpp
+// Function templates with const comments
+template</* const */ typename T>
+T identity(T value) {
+    return value;
+}
+
+template</* const */ typename T, /* const */ typename U>
+js::any pair(T first, U second) {
+    return js::array<js::any>{first, second};
+}
+
+template</* const */ typename T, typename U>
+void mixed(T constParam, U normalParam) {
+    js::console.log("Const:"_S, constParam, "Normal:"_S, normalParam);
+}
+
+// Class with const type parameter method
+class Container {
+public:
+    template</* const */ typename T>
+    T store(T value) {
+        return value;
+    }
+};
+
+// Generic class with const type parameter
+template</* const */ typename T>
+class TypedContainer {
+private:
+    T value;
+    
+public:
+    TypedContainer(T initialValue) : value(initialValue) {}
+    
+    T getValue() {
+        return value;
+    }
+};
+```
+
+**Note:** Const type parameters are a TypeScript compile-time feature for improved type inference and literal type preservation. In C++, TypeScript2Cxx generates standard template parameters but adds `/* const */` comments to indicate which parameters had the const modifier in the original TypeScript code. This helps maintain readability and provides context for developers familiar with the TypeScript source.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -694,8 +782,11 @@ auto ConfigManager::initialize(js::string url, js::number timeoutMs) {
 - **Transform Layer**:
   - Enhanced type assertion (`as`) expression handling to properly pass through expressions
   - Type aliases now correctly skip runtime code generation (they're compile-time only)
+  - Added `hasConstModifier` method for detecting const modifiers on type parameters
+  - Enhanced `IRTemplateParameter` interface with `isConst` flag for const type parameter tracking
 - **Code Generation**:
   - Fixed Object identifier mapping (was incorrectly dual-mapped to both js::Object and js::object)
+  - Enhanced template parameter generation to include `/* const */` comments for const type parameters
 - **Runtime Library**:
   - Added `js::Object` namespace with static utility methods
 

@@ -432,7 +432,8 @@ class CppGenerator {
     if (func.templateParams && func.templateParams.length > 0) {
       const templateParams = func.templateParams.map((tp) => {
         const constraint = tp.constraint || "typename";
-        return `${constraint} ${tp.name}`;
+        const constComment = tp.isConst ? "/* const */ " : "";
+        return `${constComment}${constraint} ${tp.name}`;
       }).join(", ");
       templateDecl += `template<${templateParams}>\n`;
     }
@@ -560,7 +561,8 @@ class CppGenerator {
       if (cls.templateParams && cls.templateParams.length > 0) {
         const templateParams = cls.templateParams.map((tp) => {
           const constraint = tp.constraint || "typename";
-          return `${constraint} ${tp.name}`;
+          const constComment = tp.isConst ? "/* const */ " : "";
+          return `${constComment}${constraint} ${tp.name}`;
         }).join(", ");
         lines.push(`template<${templateParams}>`);
       }

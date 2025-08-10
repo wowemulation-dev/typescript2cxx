@@ -415,6 +415,12 @@ export interface IRTemplateParameter {
 
   /** Default type */
   defaultType?: string;
+
+  /** Is variadic */
+  isVariadic: boolean;
+
+  /** Is const type parameter */
+  isConst?: boolean;
 }
 
 /**
@@ -484,23 +490,6 @@ export interface IRParameter {
 
   /** Decorators */
   decorators?: IRDecorator[];
-}
-
-/**
- * Template parameter
- */
-export interface IRTemplateParameter {
-  /** Parameter name */
-  name: string;
-
-  /** Constraint (e.g., "typename", "class", or concept) */
-  constraint?: string;
-
-  /** Default type */
-  defaultType?: string;
-
-  /** Is variadic */
-  isVariadic: boolean;
 }
 
 /**
