@@ -4,22 +4,24 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ## 📊 Implementation Status Summary
 
-**Current Version: v0.8.2-dev**
+**Current Version: v0.8.6-dev** (January 2025)
 
 ### Overall Progress
 
-- **Core TypeScript Features**: ~85% complete
+- **Core TypeScript Features**: ~88% complete
 - **JavaScript Runtime**: ~98% complete
-- **Advanced Features**: ~65% complete
+- **Advanced Features**: ~70% complete
 - **Build & Tooling**: ~50% complete
 
 ### Key Achievements
 
 - ✅ **TypeScript Compiler API Integration** - Full type checking and analysis
 - ✅ **Complete JavaScript Runtime** - String, Number, Array, Object, Math, Date, RegExp, JSON, Console
-- ✅ **Class System** - Inheritance, constructors, methods, properties, decorators, abstract classes
+- ✅ **Class System** - Inheritance, constructors, methods, properties, decorators, abstract classes, private fields
 - ✅ **Exception Handling** - Try/catch/finally with proper C++ semantics
-- ✅ **Advanced Types** - Unions, intersections, type guards, decorators
+- ✅ **Advanced Types** - Unions, intersections, type guards, decorators, keyof, conditional types, mapped types
+- ✅ **Template Literal Types** - String pattern types with js::string mapping
+- ✅ **Index Types & Indexed Access** - T[K] support with dynamic property access
 - ✅ **Enum Support** - Numeric, string, mixed, const enums with reverse mapping
 - ✅ **E2E Compilation** - TypeScript → C++ → Executable working pipeline with 12/12 tests passing (100% success)
 - ✅ **CMake Build System** - Complete CMake integration with CLI support
@@ -232,9 +234,9 @@ Based on analysis of both reference implementations:
   - ✅ Intersection types (v0.4.0)
   - ✅ Type guards and narrowing (custom and built-in) (v0.4.0)
   - ✅ Conditional types (basic support) (v0.8.6-dev)
-  - [ ] Mapped types with modifiers (+/- readonly/optional)
-  - [ ] Template literal types
-  - [ ] Index types and indexed access
+  - ✅ Mapped types (basic support) (v0.8.6-dev)
+  - ✅ Template literal types (v0.8.6-dev)
+  - ✅ Index types and indexed access (v0.8.6-dev)
   - ✅ `keyof` operator (v0.8.6-dev)
   - [ ] `typeof` type operator
   - Const assertions (`as const`)

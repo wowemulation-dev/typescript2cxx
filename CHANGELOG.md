@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - feat: keyof operator support for type-safe property key extraction (v0.8.6-dev)
 - feat: Conditional types basic support with compile-time resolution (v0.8.6-dev)
+- feat: Mapped types basic support with readonly/optional modifier detection (v0.8.6-dev)
+- feat: Template literal types support with js::string mapping (v0.8.6-dev)
+- feat: Index types and indexed access support with dynamic property access (v0.8.6-dev)
 - feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
 - feat: Type assertion (as) expression support in transformer
-- feat: ConditionalType, InferType, and MappedType handling in SimpleTypeChecker
+- feat: ConditionalType, InferType, MappedType, TemplateLiteralType, and IndexedAccessType handling in SimpleTypeChecker
 
 ### Fixed
 

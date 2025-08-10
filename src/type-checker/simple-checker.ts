@@ -207,9 +207,39 @@ export class SimpleTypeChecker {
       }
 
       case ts.SyntaxKind.MappedType: {
-        // Mapped types create new types by iterating over properties
-        // For now, treat as object
+        const mappedType = typeNode as ts.MappedTypeNode;
+        // Mapped types create new types by transforming properties
+        // Extract information about the mapped type
+
+        // Check for readonly modifier
+        const hasReadonly = mappedType.readonlyToken !== undefined;
+        // Check for optional modifier
+        const hasOptional = mappedType.questionToken !== undefined;
+
+        // For now, we treat mapped types as objects with modifiers
+        // In the future, we could generate specific C++ types based on the mapping
+        if (hasReadonly) {
+          return "readonly object";
+        } else if (hasOptional) {
+          return "partial object";
+        }
         return "object";
+      }
+
+      case ts.SyntaxKind.TemplateLiteralType: {
+        // Template literal types represent string patterns
+        // Since C++ doesn't have native template literal types,
+        // we represent them as regular strings
+        return "template literal";
+      }
+
+      case ts.SyntaxKind.IndexedAccessType: {
+        const indexedAccess = typeNode as ts.IndexedAccessTypeNode;
+        // Indexed access types like T[K]
+        // For now, return a simplified representation
+        const objectType = this.getTypeString(indexedAccess.objectType);
+        const indexType = this.getTypeString(indexedAccess.indexType);
+        return `${objectType}[${indexType}]`;
       }
 
       default:
@@ -382,9 +412,39 @@ export class SimpleTypeChecker {
         return "auto";
       }
 
+      case ts.SyntaxKind.TemplateLiteralType: {
+        // Template literal types like `Hello ${string}` or `on${Capitalize<T>}`
+        // In C++, we represent these as js::string since C++ doesn't have
+        // native template literal types
+        return "js::string";
+      }
+
+      case ts.SyntaxKind.IndexedAccessType: {
+        // Indexed access types like T[K] or Person["name"]
+        // In C++, we need to resolve the actual type at compile time
+        // For now, we return js::any as a fallback
+        // In the future, we could do compile-time type resolution
+        return "js::any";
+      }
+
       case ts.SyntaxKind.MappedType: {
+        const mappedType = typeNode as ts.MappedTypeNode;
         // Mapped types create new types by transforming properties
-        // For C++, we treat them as generic objects
+
+        // Check for modifiers
+        const hasReadonly = mappedType.readonlyToken !== undefined;
+        const hasOptional = mappedType.questionToken !== undefined;
+
+        // For C++, we generate different types based on the mapping
+        if (hasReadonly) {
+          // Readonly mapped types become const objects
+          return "const js::object";
+        } else if (hasOptional) {
+          // Partial mapped types use optional wrapper
+          return "js::object"; // Could use js::typed::Partial<T> in future
+        }
+
+        // Default to regular object
         return "js::object";
       }
 
