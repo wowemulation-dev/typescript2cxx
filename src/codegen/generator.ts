@@ -3278,9 +3278,11 @@ class CppGenerator {
       // Check for tuple types in variable declarations
       if (node.kind === IRNodeKind.VariableDeclaration) {
         const varDecl = node as IRVariableDeclaration;
-        for (const decl of varDecl.declarations) {
-          if (typeof decl.cppType === "string" && decl.cppType.includes("std::tuple<")) {
-            return true;
+        if (varDecl.declarations && Array.isArray(varDecl.declarations)) {
+          for (const decl of varDecl.declarations) {
+            if (typeof decl.cppType === "string" && decl.cppType.includes("std::tuple<")) {
+              return true;
+            }
           }
         }
       }

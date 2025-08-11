@@ -96,5 +96,5 @@ deno lint
 
 Feel free to ask in:
 
-- [Discord #typescript2cxx](https://discord.gg/QbXn7Vqb)
+- [Discord #typescript2cxx](https://discord.gg/Q44pPMvGEd)
 - [GitHub Discussions](https://github.com/wowemulation-dev/typescript2cxx/discussions)

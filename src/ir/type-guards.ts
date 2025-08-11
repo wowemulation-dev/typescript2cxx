@@ -478,7 +478,15 @@ export function isGeneratorFunction(node: IRNode): boolean {
  */
 export function hasDecorators(node: IRNode): boolean {
   if (isIRClassDeclaration(node) || isIRFunctionDeclaration(node)) {
-    return node.decorators && node.decorators.length > 0;
+    const decorators = node.decorators;
+    if (Array.isArray(decorators)) {
+      return decorators.length > 0;
+    }
+    // Check if it's IRDecoratorMetadata
+    if (decorators && typeof decorators === "object") {
+      return true; // Metadata exists
+    }
+    return false;
   }
   if ("decorators" in node && Array.isArray(node.decorators)) {
     return node.decorators.length > 0;
