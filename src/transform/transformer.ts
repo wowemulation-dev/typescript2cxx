@@ -5,6 +5,9 @@
 import { ts } from "../ast/parser.ts";
 import { MemoryAnnotation, MemoryAnnotationParser } from "../memory/annotations.ts";
 import type { SimpleTypeChecker } from "../type-checker/simple-checker.ts";
+import type { CompilerContext, SourceLocation } from "../types.ts";
+import type { Plugin } from "../plugins/types.ts";
+import type { ErrorReporter } from "../errors.ts";
 import type {
   IRArrayExpression,
   IRArrayPattern,
@@ -90,13 +93,13 @@ export interface TransformOptions {
   source?: string;
 
   /** Compiler context */
-  context: any;
+  context: CompilerContext;
 
   /** Active plugins */
-  plugins: any[];
+  plugins: Plugin[];
 
   /** Error reporter */
-  errorReporter: any;
+  errorReporter: ErrorReporter;
 
   /** Type checker instance */
   typeChecker?: SimpleTypeChecker;
@@ -191,7 +194,7 @@ class ASTTransformer {
   constructor(options: TransformOptions) {
     this.options = options;
     // Use outputName from options if available, otherwise default to "main"
-    const moduleName = (options as any).outputName || "main";
+    const moduleName = options.outputName || "main";
     const runtimeInclude = options.context.options.runtimeInclude || "runtime/core.h";
 
     // Initialize memory annotation parser
@@ -521,17 +524,17 @@ class ASTTransformer {
   /**
    * Transform function declaration
    */
-  private transformFunctionDeclaration(node: any): IRFunctionDeclaration {
+  private transformFunctionDeclaration(node: ts.FunctionDeclaration): IRFunctionDeclaration {
     const name = node.name?.text || "anonymous";
     const params = this.transformParameters(node.parameters || []);
     const returnType = this.resolveType(node.type);
 
     // Check if function is async
-    const isAsync = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.AsyncKeyword) ||
+    const isAsync = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword) ||
       false;
 
     // Check if function is exported
-    const isExported = node.modifiers?.some((m: any) => m.kind === ts.SyntaxKind.ExportKeyword) ||
+    const isExported = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ||
       false;
 
     // Track exported function
@@ -541,7 +544,7 @@ class ASTTransformer {
 
     // Transform type parameters (generics) if present
     const templateParams = node.typeParameters
-      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      ? node.typeParameters.map((tp) => this.transformTypeParameter(tp))
       : undefined;
 
     const func: IRFunctionDeclaration = {
@@ -549,7 +552,7 @@ class ASTTransformer {
       id: { kind: IRNodeKind.Identifier, name },
       params,
       returnType,
-      body: null as any,
+      body: null as unknown as IRBlockStatement,
       isAsync,
       isGenerator: false,
       templateParams,
@@ -609,7 +612,7 @@ class ASTTransformer {
 
     // Transform type parameters (generics) if present
     const templateParams = node.typeParameters
-      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      ? node.typeParameters.map((tp) => this.transformTypeParameter(tp))
       : undefined;
 
     const cls: IRClassDeclaration = {
@@ -714,7 +717,7 @@ class ASTTransformer {
 
     // Transform type parameters (generics) if present
     const templateParams = node.typeParameters
-      ? node.typeParameters.map((tp: any) => this.transformTypeParameter(tp))
+      ? node.typeParameters.map((tp) => this.transformTypeParameter(tp))
       : undefined;
 
     // Create the function declaration for the method
@@ -723,7 +726,7 @@ class ASTTransformer {
       id: null,
       params,
       returnType,
-      body: null as any,
+      body: null as unknown as IRBlockStatement,
       isAsync: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword),
       isGenerator: !!node.asteriskToken,
       isStatic: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword),
@@ -773,7 +776,7 @@ class ASTTransformer {
   /**
    * Transform constructor
    */
-  private transformConstructor(node: any): IRMethodDefinition {
+  private transformConstructor(node: ts.ConstructorDeclaration): IRMethodDefinition {
     const params = this.transformParameters(node.parameters || []);
 
     const funcDecl: IRFunctionDeclaration = {
@@ -781,7 +784,7 @@ class ASTTransformer {
       id: null,
       params,
       returnType: "void",
-      body: null as any,
+      body: null as unknown as IRBlockStatement,
       isAsync: false,
       isGenerator: false,
     };
@@ -936,7 +939,7 @@ class ASTTransformer {
   /**
    * Transform expression statement
    */
-  private transformExpressionStatement(node: any): IRExpressionStatement {
+  private transformExpressionStatement(node: ts.ExpressionStatement): IRExpressionStatement {
     return {
       kind: IRNodeKind.ExpressionStatement,
       expression: this.transformExpression(node.expression),
@@ -984,7 +987,7 @@ class ASTTransformer {
   /**
    * Transform while statement
    */
-  private transformWhileStatement(node: any): IRWhileStatement {
+  private transformWhileStatement(node: ts.WhileStatement): IRWhileStatement {
     return {
       kind: IRNodeKind.WhileStatement,
       test: this.transformExpression(node.test),
@@ -1361,7 +1364,7 @@ class ASTTransformer {
    * Transform literal
    */
   private transformLiteral(node: ts.Expression): IRLiteral {
-    let value: any;
+    let value: string | number | boolean | null;
     let type: string;
 
     switch (node.kind) {
@@ -1590,7 +1593,9 @@ class ASTTransformer {
   /**
    * Transform optional chaining expression
    */
-  private transformOptionalChainingExpression(node: any): IROptionalChainingExpression {
+  private transformOptionalChainingExpression(
+    node: ts.PropertyAccessExpression | ts.ElementAccessExpression | ts.CallExpression,
+  ): IROptionalChainingExpression {
     return {
       kind: IRNodeKind.OptionalChainingExpression,
       base: this.transformExpression(node.base),
@@ -1600,7 +1605,9 @@ class ASTTransformer {
   /**
    * Transform binary expression
    */
-  private transformBinaryExpression(node: any): IRBinaryExpression | IRAssignmentExpression {
+  private transformBinaryExpression(
+    node: ts.BinaryExpression,
+  ): IRBinaryExpression | IRAssignmentExpression {
     const opText = ts.tokenToString(node.operatorToken.kind);
 
     // Check if this is an assignment expression
@@ -1690,7 +1697,7 @@ class ASTTransformer {
       // This is primarily for type checking; the runtime behavior is the same
       // In C++, this will generate const qualifiers on the resulting type
       if (expression) {
-        (expression as any).isConstAssertion = true;
+        (expression as IRExpression & { isConstAssertion?: boolean }).isConstAssertion = true;
       }
     }
 
@@ -1723,7 +1730,7 @@ class ASTTransformer {
   /**
    * Transform assignment expression
    */
-  private transformAssignmentExpression(node: any): IRAssignmentExpression {
+  private transformAssignmentExpression(node: ts.BinaryExpression): IRAssignmentExpression {
     return {
       kind: IRNodeKind.AssignmentExpression,
       operator: node.operator,
@@ -1735,7 +1742,7 @@ class ASTTransformer {
   /**
    * Transform conditional expression
    */
-  private transformConditionalExpression(node: any): IRConditionalExpression {
+  private transformConditionalExpression(node: ts.ConditionalExpression): IRConditionalExpression {
     return {
       kind: IRNodeKind.ConditionalExpression,
       test: this.transformExpression(node.test),
@@ -1747,7 +1754,7 @@ class ASTTransformer {
   /**
    * Transform template literal
    */
-  private transformTemplateLiteral(node: any): IRExpression {
+  private transformTemplateLiteral(node: ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral): IRExpression {
     // TypeScript template expressions
     if (node.kind === ts.SyntaxKind.TemplateExpression) {
       const parts: Array<IRExpression | IRLiteral> = [];
@@ -1825,7 +1832,7 @@ class ASTTransformer {
       isAsync: false,
       isGenerator: false,
       isArrow: true, // Mark as arrow function for proper this binding
-    } as any;
+    } as IRExpression;
   }
 
   /**
@@ -1857,13 +1864,13 @@ class ASTTransformer {
       isAsync: !!node.modifiers?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword),
       isGenerator: !!node.asteriskToken,
       isArrow: false, // Regular function expression, not arrow function
-    } as any;
+    } as IRExpression;
   }
 
   /**
    * Transform this expression
    */
-  private transformThisExpression(_node: any): IRThisExpression {
+  private transformThisExpression(_node: ts.Node): IRThisExpression {
     return {
       kind: IRNodeKind.ThisExpression,
     };
@@ -1872,7 +1879,7 @@ class ASTTransformer {
   /**
    * Transform super expression
    */
-  private transformSuperExpression(_node: any): IRIdentifier {
+  private transformSuperExpression(_node: ts.Node): IRIdentifier {
     // We represent super as a special identifier
     // The code generator will handle it appropriately
     return { kind: IRNodeKind.Identifier, name: "super" };
@@ -1910,7 +1917,9 @@ class ASTTransformer {
   /**
    * Transform update expression (++ and --)
    */
-  private transformUpdateExpression(node: any): IRUnaryExpression {
+  private transformUpdateExpression(
+    node: ts.PrefixUnaryExpression | ts.PostfixUnaryExpression,
+  ): IRUnaryExpression {
     const operator = node.operator as UnaryOp;
     return {
       kind: IRNodeKind.UnaryExpression,
@@ -1923,7 +1932,7 @@ class ASTTransformer {
   /**
    * Transform parameters
    */
-  private transformParameters(params: any[]): IRParameter[] {
+  private transformParameters(params: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[]): IRParameter[] {
     const result: IRParameter[] = [];
 
     for (const param of params) {
@@ -1976,7 +1985,7 @@ class ASTTransformer {
     };
   }
 
-  private createLiteral(value: any): IRLiteral {
+  private createLiteral(value: string | number | boolean | null): IRLiteral {
     let literalType: "string" | "number" | "boolean" | "null" | "bigint" | "regexp";
 
     if (value === null) {
@@ -2084,14 +2093,14 @@ class ASTTransformer {
     }
 
     // Fallback for other cases
-    return this.transformExpression(key as any);
+    return this.transformExpression(key as ts.Expression);
   }
 
-  private getAccessibility(node: any): "public" | "private" | "protected" | undefined {
+  private getAccessibility(node: ts.Node & { accessibility?: string }): "public" | "private" | "protected" | undefined {
     return node.accessibility;
   }
 
-  private getAccessModifier(node: any): AccessModifier {
+  private getAccessModifier(node: ts.Node): AccessModifier {
     if (node.accessibility === "private") return AccessModifier.Private;
     if (node.accessibility === "protected") return AccessModifier.Protected;
     return AccessModifier.Public;
@@ -2445,7 +2454,7 @@ class ASTTransformer {
 
       if (node) {
         if ("type" in node) {
-          return (node as any).type;
+          return (node as ts.Node & { type?: ts.TypeNode }).type;
         }
       }
     }
@@ -2474,13 +2483,16 @@ class ASTTransformer {
     });
   }
 
-  private getLocation(node: ts.Node): any {
+  private getLocation(node: ts.Node): SourceLocation | undefined {
     const sourceFile = node.getSourceFile();
     const start = sourceFile.getLineAndCharacterOfPosition(node.getStart());
     const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
     return {
-      start: { line: start.line + 1, column: start.character },
-      end: { line: end.line + 1, column: end.character },
+      file: this.options.filename || "<unknown>",
+      line: start.line + 1,
+      column: start.character + 1,
+      endLine: end.line + 1,
+      endColumn: end.character + 1,
     };
   }
 
@@ -2504,7 +2516,7 @@ class ASTTransformer {
   /**
    * Get line number from AST node span
    */
-  private getLineNumber(node: any): number {
+  private getLineNumber(node: ts.Node): number {
     if (!node.span?.start || !this.options.source) {
       return 1;
     }
@@ -2683,7 +2695,7 @@ class ASTTransformer {
   private hasConstModifier(node: ts.TypeParameterDeclaration): boolean {
     // Check for const modifier on type parameters
     // TypeScript 5.0+ stores const modifier differently
-    const anyNode = node as any;
+    const anyNode = node as ts.Node & { accessibility?: string };
 
     // Try different ways to access const modifier
     if (anyNode.modifiers) {

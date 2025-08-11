@@ -20,6 +20,7 @@ import { generateCpp } from "./codegen/generator.ts";
 import { analyzeMemory } from "./memory/analyzer.ts";
 import type { MemoryAnalysisResult } from "./memory/types.ts";
 import type { IRNode } from "./ir/nodes.ts";
+import { IRNodeKind } from "./ir/nodes.ts";
 import { loadPlugins } from "./plugins/loader.ts";
 
 /**
@@ -109,7 +110,7 @@ export async function transpile(
     if (options.memoryStrategy !== "manual") {
       const memoryResults = await analyzeMemory(ir, {
         strategy: options.memoryStrategy ?? "auto",
-        options,
+        options: options as Record<string, unknown>,
       });
 
       // Apply memory analysis results
@@ -234,8 +235,11 @@ function createTypeChecker(): TypeChecker {
  * Create plugin context
  */
 function createPluginContext(plugin: Plugin, context: CompilerContext): PluginContext {
-  const storage = context.pluginContexts.get(plugin.name) ?? new Map();
-  context.pluginContexts.set(plugin.name, storage);
+  const existingStorage = context.pluginContexts.get(plugin.name);
+  const storage = existingStorage instanceof Map ? existingStorage : new Map<string, unknown>();
+  if (!existingStorage) {
+    context.pluginContexts.set(plugin.name, storage);
+  }
 
   return {
     pluginName: plugin.name,
@@ -252,7 +256,8 @@ function createPluginContext(plugin: Plugin, context: CompilerContext): PluginCo
       },
       getIR: () => {
         // TODO: Return current IR tree
-        return null;
+        // For now, return a dummy IR node
+        return { kind: IRNodeKind.Program, modules: [] } as IRNode;
       },
       emit: {
         addInclude: (_header: string) => {
@@ -291,17 +296,18 @@ function countIRNodes(node: IRNode): number {
   let count = 1;
 
   // Count child nodes recursively
-  for (const key of Object.keys(node)) {
-    const value = node[key];
+  const nodeAsRecord = node as unknown as Record<string, unknown>;
+  for (const key of Object.keys(nodeAsRecord)) {
+    const value = nodeAsRecord[key];
     if (value && typeof value === "object") {
       if (Array.isArray(value)) {
         for (const item of value) {
           if (item && typeof item === "object" && "kind" in item) {
-            count += countIRNodes(item);
+            count += countIRNodes(item as IRNode);
           }
         }
       } else if ("kind" in value) {
-        count += countIRNodes(value);
+        count += countIRNodes(value as IRNode);
       }
     }
   }

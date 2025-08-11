@@ -3,6 +3,9 @@
  */
 
 import { createSourceMap } from "../sourcemap/generator.ts";
+import type { CompilerContext } from "../types.ts";
+import type { Plugin } from "../plugins/types.ts";
+import type { ErrorReporter } from "../errors.ts";
 
 import type {
   IRArrayExpression,
@@ -15,7 +18,9 @@ import type {
   IRCallExpression,
   IRCatchClause,
   IRClassDeclaration,
+  IRClassMember,
   IRConditionalExpression,
+  IRNode,
   IRContinueStatement,
   IRDecorator as _IRDecorator,
   IRDecoratorMetadata as _IRDecoratorMetadata,
@@ -44,6 +49,7 @@ import type {
   IRObjectExpression,
   IRObjectPattern,
   IROptionalChainingExpression,
+  IRParameter,
   IRPattern,
   IRProgram,
   IRPropertyDefinition,
@@ -71,13 +77,13 @@ export interface GenerateOptions {
   options: TranspileOptions;
 
   /** Compiler context */
-  context: any;
+  context: CompilerContext;
 
   /** Active plugins */
-  plugins: any[];
+  plugins: Plugin[];
 
   /** Error reporter */
-  errorReporter: any;
+  errorReporter: ErrorReporter;
 }
 
 /**
@@ -93,6 +99,28 @@ export interface GenerateResult {
   /** Source map (if enabled) */
   sourceMap?: string;
 }
+
+/**
+ * Temporary interface for function expressions until IR nodes are updated
+ */
+interface IRFunctionExpression extends IRExpression {
+  kind: IRNodeKind.FunctionExpression | IRNodeKind.ArrowFunctionExpression;
+  id: IRIdentifier | null;
+  params: IRParameter[];
+  returnType?: string;
+  body: IRBlockStatement;
+  isAsync: boolean;
+  isGenerator: boolean;
+  isArrow: boolean;
+}
+
+/**
+ * Type for IR class members with accessibility
+ */
+type IRClassMemberWithAccess = IRClassMember & {
+  accessibility?: "public" | "private" | "protected";
+  isPrivateField?: boolean;
+};
 
 /**
  * Code generation context
@@ -252,7 +280,9 @@ class CppGenerator {
     let sourceMap: string | undefined;
     if (this.options.options.sourceMap) {
       // Get original source information from options context
-      const originalSource = (this.options.context as any)?.originalSource || "";
+      const originalSource =
+        (this.options.context as CompilerContext & { originalSource?: string })?.originalSource ||
+        "";
       const originalFilename = this.options.options.filename || "input.ts";
 
       const sourceMaps = createSourceMap(
@@ -599,13 +629,14 @@ class CppGenerator {
       lines.push(classDecl);
 
       // Group members by access level
-      const publicMembers: any[] = [];
-      const privateMembers: any[] = [];
-      const protectedMembers: any[] = [];
+      const publicMembers: IRClassMember[] = [];
+      const privateMembers: IRClassMember[] = [];
+      const protectedMembers: IRClassMember[] = [];
 
       for (const member of cls.members) {
-        const access = (member as any).accessibility || "public";
-        const isJsPrivateField = (member as any).isPrivateField || false;
+        const memberWithAccess = member as IRClassMemberWithAccess;
+        const access = memberWithAccess.accessibility || "public";
+        const isJsPrivateField = memberWithAccess.isPrivateField || false;
 
         // JavaScript private fields (#field) should always be private in C++
         if (access === "private" || isJsPrivateField) {
@@ -754,7 +785,7 @@ class CppGenerator {
    * Generate class member
    */
   private generateClassMember(
-    member: any,
+    member: IRClassMember,
     context: CodeGenContext,
     cls?: IRClassDeclaration,
   ): string {
@@ -999,7 +1030,8 @@ class CppGenerator {
       const type = decl.cppType;
       // Check for const declaration or const assertion
       const isConst = varDecl.declarationKind === "const" ||
-        (decl.init && (decl.init as any).isConstAssertion);
+        (decl.init &&
+          (decl.init as IRExpression & { isConstAssertion?: boolean }).isConstAssertion);
 
       if (context.isHeader) {
         // In header, only declare extern variables with explicit types
@@ -1012,7 +1044,8 @@ class CppGenerator {
         cppType = this.mapType(cppType);
         // For arrays with const assertions, use const to make them readonly
         // For regular const declarations, arrays are mutable (JavaScript semantics)
-        const hasConstAssertion = decl.init && (decl.init as any).isConstAssertion;
+        const hasConstAssertion = decl.init &&
+          (decl.init as IRExpression & { isConstAssertion?: boolean }).isConstAssertion;
         const shouldBeConst = isConst && (!cppType.startsWith("js::array") || hasConstAssertion);
         const code = `extern ${shouldBeConst ? "const " : ""}${cppType} ${name};`;
         lines.push(code);
@@ -1027,7 +1060,8 @@ class CppGenerator {
         cppType = this.mapType(cppType);
         // For arrays with const assertions, use const to make them readonly
         // For regular const declarations, arrays are mutable (JavaScript semantics)
-        const hasConstAssertion = decl.init && (decl.init as any).isConstAssertion;
+        const hasConstAssertion = decl.init &&
+          (decl.init as IRExpression & { isConstAssertion?: boolean }).isConstAssertion;
         const shouldBeConst = isConst && (!cppType.startsWith("js::array") || hasConstAssertion);
         let code = `${shouldBeConst ? "const " : ""}${cppType} ${name}`;
         if (decl.init) {
@@ -1447,7 +1481,7 @@ class CppGenerator {
 
       case IRNodeKind.FunctionExpression:
       case IRNodeKind.ArrowFunctionExpression:
-        return this.generateLambda(expr as any, context);
+        return this.generateLambda(expr as IRFunctionExpression, context);
 
       case IRNodeKind.SpreadElement:
         // Spread elements are handled by their container (array/object/call)
@@ -2067,7 +2101,7 @@ class CppGenerator {
   /**
    * Generate lambda/arrow function expression
    */
-  private generateLambda(expr: any, context: CodeGenContext): string {
+  private generateLambda(expr: IRFunctionExpression, context: CodeGenContext): string {
     // C++11 lambda syntax: [capture](params) -> return_type { body }
     // For arrow functions, we need to consider the scope:
     // - At global scope, we cannot use capture by reference
@@ -2076,7 +2110,7 @@ class CppGenerator {
     const capture = isGlobalScope ? "[]" : (expr.isArrow ? "[&]" : "[=]");
 
     // Generate parameter list
-    const params = expr.params.map((p: any) => {
+    const params = expr.params.map((p) => {
       const type = p.type || "js::any";
       const defaultValue = p.defaultValue
         ? ` = ${this.generateExpression(p.defaultValue, context)}`
@@ -2099,7 +2133,7 @@ class CppGenerator {
     // Format the lambda
     if (bodyLines.length === 1 && expr.body.body[0].kind === IRNodeKind.ReturnStatement) {
       // Simple single-expression lambda
-      const returnStmt = expr.body.body[0] as any;
+      const returnStmt = expr.body.body[0] as IRReturnStatement;
       if (returnStmt.argument) {
         const value = this.generateExpression(returnStmt.argument, context);
         return `${capture}(${params})${returnType} { return ${value}; }`;
@@ -2304,7 +2338,7 @@ class CppGenerator {
    * Generate parameters
    */
   private generateParameters(
-    params: any[],
+    params: IRParameter[],
     context: CodeGenContext,
     includeDefaults: boolean = true,
   ): string {
@@ -3003,8 +3037,9 @@ class CppGenerator {
           const varName = (element as IRIdentifier).name;
 
           // Handle default values for array elements
-          if ((element as any).defaultValue) {
-            const defaultExpr = this.generateExpression((element as any).defaultValue, context);
+          const elementWithDefault = element as IRRestElement & { defaultValue?: IRExpression };
+          if (elementWithDefault.defaultValue) {
+            const defaultExpr = this.generateExpression(elementWithDefault.defaultValue, context);
             lines.push(
               `${
                 isConst ? "const " : ""
@@ -3186,17 +3221,23 @@ class CppGenerator {
    * Check if module contains async functions
    */
   private hasAsyncFunctions(module: IRModule): boolean {
-    const checkAsync = (node: any): boolean => {
+    const checkAsync = (node: IRNode): boolean => {
       if (!node) return false;
 
       // Check if it's an async function
-      if (
-        (node.kind === IRNodeKind.FunctionDeclaration ||
-          node.kind === IRNodeKind.FunctionExpression ||
-          node.kind === IRNodeKind.ArrowFunctionExpression) &&
-        node.isAsync
+      if (node.kind === IRNodeKind.FunctionDeclaration) {
+        const funcNode = node as IRFunctionDeclaration;
+        if (funcNode.isAsync) {
+          return true;
+        }
+      } else if (
+        node.kind === IRNodeKind.FunctionExpression ||
+        node.kind === IRNodeKind.ArrowFunctionExpression
       ) {
-        return true;
+        const funcExpr = node as IRFunctionExpression;
+        if (funcExpr.isAsync) {
+          return true;
+        }
       }
 
       // Check if it contains await expressions
@@ -3206,14 +3247,14 @@ class CppGenerator {
 
       // Recursively check children
       for (const key in node) {
-        const value = node[key];
+        const value = (node as unknown as Record<string, unknown>)[key];
         if (value && typeof value === "object") {
           if (Array.isArray(value)) {
             for (const item of value) {
               if (checkAsync(item)) return true;
             }
           } else {
-            if (checkAsync(value)) return true;
+            if (checkAsync(value as IRNode)) return true;
           }
         }
       }
@@ -3228,31 +3269,33 @@ class CppGenerator {
    * Check if module uses tuple types that require <tuple> include
    */
   private needsTupleInclude(module: IRModule): boolean {
-    const checkForTuple = (node: any): boolean => {
+    const checkForTuple = (node: IRNode): boolean => {
       if (!node) return false;
 
-      // Check for std::tuple in type strings
-      if (typeof node === "string" && node.includes("std::tuple<")) {
-        return true;
-      }
+      // Check for std::tuple in type strings (this won't actually happen since node is IRNode)
+      // Removed this check as it's incorrect
 
       // Check for tuple types in variable declarations
-      if (node.kind === IRNodeKind.VariableDeclaration && node.type) {
-        if (typeof node.type === "string" && node.type.includes("std::tuple<")) {
-          return true;
+      if (node.kind === IRNodeKind.VariableDeclaration) {
+        const varDecl = node as IRVariableDeclaration;
+        for (const decl of varDecl.declarations) {
+          if (typeof decl.cppType === "string" && decl.cppType.includes("std::tuple<")) {
+            return true;
+          }
         }
       }
 
       // Check for tuple types in function parameters and return types
       if (node.kind === IRNodeKind.FunctionDeclaration) {
+        const funcDecl = node as IRFunctionDeclaration;
         if (
-          node.returnType && typeof node.returnType === "string" &&
-          node.returnType.includes("std::tuple<")
+          funcDecl.returnType && typeof funcDecl.returnType === "string" &&
+          funcDecl.returnType.includes("std::tuple<")
         ) {
           return true;
         }
-        if (node.params) {
-          for (const param of node.params) {
+        if (funcDecl.params) {
+          for (const param of funcDecl.params) {
             if (
               param.type && typeof param.type === "string" &&
               param.type.includes("std::tuple<")
@@ -3266,14 +3309,14 @@ class CppGenerator {
       // Recursively check all properties
       for (const key in node) {
         if (key === "parent") continue; // Skip parent to avoid circular references
-        const value = node[key];
+        const value = (node as unknown as Record<string, unknown>)[key];
         if (value && typeof value === "object") {
           if (Array.isArray(value)) {
             for (const item of value) {
               if (checkForTuple(item)) return true;
             }
           } else {
-            if (checkForTuple(value)) return true;
+            if (checkForTuple(value as IRNode)) return true;
           }
         }
       }
