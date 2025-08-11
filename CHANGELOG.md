@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: Const type parameters support with const modifier detection and C++ comment generation (v0.8.6-dev)
 - feat: NoInfer utility type support for preventing unwanted type inference in generic functions (v0.8.6-dev)
 - feat: TypedArray support for efficient binary data handling with all 11 JavaScript TypedArray types (v0.8.6-dev)
+- feat: Tuple types support with rest elements, optional elements, and named members mapping to std::tuple (v0.8.6-dev)
+- feat: Literal types support for string, number, and boolean literals with const qualifier mapping (v0.8.6-dev)
 - feat: Object static methods (keys, values, entries, fromEntries, assign, create) in runtime library
 - feat: Type assertion (as) expression support in transformer
 - feat: ConditionalType, InferType, MappedType, TemplateLiteralType, IndexedAccessType, and TypeQuery handling in SimpleTypeChecker
@@ -35,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: TypedArray base class template implementation with inheritance from array<T> in runtime library
 - feat: TypedArray type mapping in SimpleTypeChecker (Int8Array → js::Int8Array, etc.)
 - feat: TypedArray methods implementation (subarray, set, fill, byteLength, BYTES_PER_ELEMENT)
+- feat: TupleType support in SimpleTypeChecker with std::tuple C++ mapping
+- feat: Rest type elements handling in tuples with variadic template support
+- feat: Optional type elements in tuples using std::optional
+- feat: Named tuple member support for TypeScript 4.0+ tuple syntax
+- feat: Automatic <tuple> include detection in code generator
+- feat: Enhanced LiteralType handling for string, number, and boolean literals in SimpleTypeChecker
 
 ### Fixed
 

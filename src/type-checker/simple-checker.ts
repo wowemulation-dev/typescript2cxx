@@ -157,6 +157,24 @@ export class SimpleTypeChecker {
         return `${this.getTypeString(arrayType.elementType)}[]`;
       }
 
+      case ts.SyntaxKind.TupleType: {
+        const tupleType = typeNode as ts.TupleTypeNode;
+        const elements = tupleType.elements.map((element) => {
+          if (ts.isRestTypeNode(element)) {
+            return `...${this.getTypeString(element.type)}[]`;
+          } else if (ts.isOptionalTypeNode(element)) {
+            return `${this.getTypeString(element.type)}?`;
+          } else if (ts.isNamedTupleMember(element)) {
+            const name = element.name ? element.name.getText() : "";
+            const type = element.type ? this.getTypeString(element.type) : "any";
+            return name ? `${name}: ${type}` : type;
+          } else {
+            return this.getTypeString(element);
+          }
+        });
+        return `[${elements.join(", ")}]`;
+      }
+
       case ts.SyntaxKind.UnionType: {
         const unionType = typeNode as ts.UnionTypeNode;
         return unionType.types.map((t) => this.getTypeString(t)).join(" | ");
@@ -431,13 +449,65 @@ export class SimpleTypeChecker {
         return `std::function<${returnType}(${params.join(", ")})>`;
       }
 
+      case ts.SyntaxKind.TupleType: {
+        const tupleType = typeNode as ts.TupleTypeNode;
+        const elementTypes = tupleType.elements.map((element) => {
+          // Handle rest elements in tuples
+          if (ts.isRestTypeNode(element)) {
+            const innerType = this.resolveTypeNode(element.type).cppType;
+            return `${innerType}...`; // Mark as rest element
+          } else if (ts.isOptionalTypeNode(element)) {
+            const innerType = this.resolveTypeNode(element.type).cppType;
+            return `std::optional<${innerType}>`;
+          } else if (ts.isNamedTupleMember(element)) {
+            // Named tuple members like [x: number, y: number]
+            const innerType = element.type ? this.resolveTypeNode(element.type).cppType : "js::any";
+            return innerType;
+          } else {
+            return this.resolveTypeNode(element).cppType;
+          }
+        });
+
+        // Generate std::tuple for C++
+        // Handle rest elements specially
+        const hasRest = elementTypes.some((t) => t.endsWith("..."));
+        if (hasRest) {
+          // For tuples with rest elements, use std::tuple with variadic template
+          const nonRestTypes = elementTypes.filter((t) => !t.endsWith("..."));
+          const restType = elementTypes.find((t) => t.endsWith("..."))?.replace("...", "");
+          if (nonRestTypes.length > 0) {
+            return `std::tuple<${nonRestTypes.join(", ")}>`; // Simplified - rest elements need special handling
+          }
+          return `js::array<${restType || "js::any"}>`;
+        }
+
+        return `std::tuple<${elementTypes.join(", ")}>`;
+      }
+
       case ts.SyntaxKind.LiteralType: {
         const literalType = typeNode as ts.LiteralTypeNode;
         if (literalType.literal.kind === ts.SyntaxKind.NullKeyword) {
           return "std::nullptr_t";
         }
-        // Handle other literal types (string, number, boolean literals)
-        return "js::any"; // Fallback for other literal types
+        // Handle string, number, and boolean literal types
+        if (literalType.literal.kind === ts.SyntaxKind.StringLiteral) {
+          // String literal like "hello" - in C++ we can't represent literal types
+          // but we can use const js::string for immutability
+          return "js::string";
+        }
+        if (literalType.literal.kind === ts.SyntaxKind.NumericLiteral) {
+          // Number literal like 42 - similar to string literals
+          return "js::number";
+        }
+        if (
+          literalType.literal.kind === ts.SyntaxKind.TrueKeyword ||
+          literalType.literal.kind === ts.SyntaxKind.FalseKeyword
+        ) {
+          // Boolean literals
+          return "bool";
+        }
+        // Fallback for other literal types
+        return "js::any";
       }
 
       case ts.SyntaxKind.ParenthesizedType: {

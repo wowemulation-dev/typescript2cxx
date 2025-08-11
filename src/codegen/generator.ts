@@ -228,6 +228,11 @@ class CppGenerator {
       context.includes.add(include.startsWith("<") ? include : `"${include}"`);
     }
 
+    // Add tuple include if needed
+    if (this.needsTupleInclude(module)) {
+      context.includes.add("<tuple>");
+    }
+
     // Generate header content
     context.isHeader = true;
     this.generateModuleHeader(module, context);
@@ -3217,6 +3222,66 @@ class CppGenerator {
     };
 
     return module.body.some((stmt) => checkAsync(stmt));
+  }
+
+  /**
+   * Check if module uses tuple types that require <tuple> include
+   */
+  private needsTupleInclude(module: IRModule): boolean {
+    const checkForTuple = (node: any): boolean => {
+      if (!node) return false;
+
+      // Check for std::tuple in type strings
+      if (typeof node === "string" && node.includes("std::tuple<")) {
+        return true;
+      }
+
+      // Check for tuple types in variable declarations
+      if (node.kind === IRNodeKind.VariableDeclaration && node.type) {
+        if (typeof node.type === "string" && node.type.includes("std::tuple<")) {
+          return true;
+        }
+      }
+
+      // Check for tuple types in function parameters and return types
+      if (node.kind === IRNodeKind.FunctionDeclaration) {
+        if (
+          node.returnType && typeof node.returnType === "string" &&
+          node.returnType.includes("std::tuple<")
+        ) {
+          return true;
+        }
+        if (node.params) {
+          for (const param of node.params) {
+            if (
+              param.type && typeof param.type === "string" &&
+              param.type.includes("std::tuple<")
+            ) {
+              return true;
+            }
+          }
+        }
+      }
+
+      // Recursively check all properties
+      for (const key in node) {
+        if (key === "parent") continue; // Skip parent to avoid circular references
+        const value = node[key];
+        if (value && typeof value === "object") {
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (checkForTuple(item)) return true;
+            }
+          } else {
+            if (checkForTuple(value)) return true;
+          }
+        }
+      }
+
+      return false;
+    };
+
+    return module.body.some((stmt) => checkForTuple(stmt));
   }
 
   /**

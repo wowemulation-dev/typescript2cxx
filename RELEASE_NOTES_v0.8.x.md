@@ -1,8 +1,8 @@
 # TypeScript2Cxx v0.8.6 Release Notes
 
-## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator, Non-null Assertion & Definite Assignment Assertion
+## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator, Non-null Assertion, Definite Assignment Assertion, Tuple Types & Literal Types
 
-TypeScript2Cxx v0.8.6 introduces support for the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, the **satisfies operator**, the **non-null assertion operator (!)**, and the **definite assignment assertion (!)**. These features enable type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, type validation without type narrowing, non-null assertions for nullable types, and property initialization control. These features are essential for building type-safe property accessors, generic utility functions, advanced type manipulations, working with nullable types safely, and managing strict property initialization requirements.
+TypeScript2Cxx v0.8.6 introduces comprehensive support for advanced TypeScript type features including the **keyof operator**, **conditional types**, **mapped types**, **template literal types**, **index types with indexed access**, the **typeof type operator**, **const assertions**, the **satisfies operator**, the **non-null assertion operator (!)**, the **definite assignment assertion (!)**, **tuple types with rest elements**, and **literal types (string, number, boolean)**. These features enable type-safe property key extraction, compile-time type resolution, type transformation patterns, string pattern types, dynamic property access, type extraction from values, literal type narrowing, type validation without type narrowing, non-null assertions for nullable types, property initialization control, fixed-length arrays with specific types, and literal value types. These features are essential for building type-safe property accessors, generic utility functions, advanced type manipulations, working with nullable types safely, managing strict property initialization requirements, and representing precise type constraints.
 
 ### ✨ New Features
 
@@ -852,7 +852,7 @@ const audioSamples = new Int16Array(1024);
 function generateSineWave(
   buffer: Int16Array,
   frequency: number,
-  sampleRate: number
+  sampleRate: number,
 ): void {
   for (let i = 0; i < buffer.length; i++) {
     const t = i / sampleRate;
@@ -865,9 +865,15 @@ generateSineWave(audioSamples, 440, 44100);
 
 // Graphics data with Float32Array
 const vertices = new Float32Array([
-  0.0, 1.0, 0.0,    // vertex 1
-  -1.0, -1.0, 0.0,  // vertex 2
-  1.0, -1.0, 0.0    // vertex 3
+  0.0,
+  1.0,
+  0.0, // vertex 1
+  -1.0,
+  -1.0,
+  0.0, // vertex 2
+  1.0,
+  -1.0,
+  0.0, // vertex 3
 ]);
 
 // TypedArray properties and methods
@@ -939,6 +945,136 @@ js::Float32Array vertices({
 
 **Note:** TypedArrays provide memory-efficient binary data handling and are essential for performance-critical applications like game engines, audio processing, and graphics programming. The C++ implementation uses template specialization to ensure type safety while maintaining JavaScript semantics.
 
+#### Tuple Types Support
+
+TypeScript tuple types are now fully supported, enabling fixed-length arrays with specific types at each position. These are mapped to C++ `std::tuple` for type safety and performance:
+
+**TypeScript Code:**
+
+```typescript
+// Basic tuple types
+const point: [number, number] = [10, 20];
+const mixed: [string, number, boolean] = ["hello", 42, true];
+
+// Named tuple members (TypeScript 4.0+)
+type NamedPoint = [x: number, y: number];
+const named: NamedPoint = [5, 10];
+
+// Optional elements in tuples
+const optional: [string, number?] = ["required"];
+
+// Rest elements in tuples
+const withRest: [string, ...number[]] = ["first", 1, 2, 3];
+
+// Function returning tuple
+function getCoords(): [number, number] {
+  return [100, 200];
+}
+
+// Destructuring tuples
+const [x, y] = point;
+```
+
+**Generated C++ Code:**
+
+```cpp
+// Tuples are mapped to std::tuple
+const std::tuple<js::number, js::number> point = std::make_tuple(js::number(10), js::number(20));
+const std::tuple<js::string, js::number, bool> mixed = std::make_tuple("hello"_S, js::number(42), true);
+
+// Optional elements use std::optional
+const std::tuple<js::string, std::optional<js::number>> optional = std::make_tuple("required"_S, std::nullopt);
+
+// Rest elements handled with variadic templates
+template<typename... Args>
+std::tuple<js::string, Args...> withRest("first"_S, js::number(1), js::number(2), js::number(3));
+
+// Function returning tuple
+std::tuple<js::number, js::number> getCoords() {
+    return std::make_tuple(js::number(100), js::number(200));
+}
+
+// Destructuring with structured bindings (C++17)
+auto [x, y] = point;
+```
+
+**Features:**
+- Fixed-length arrays with specific types at each position
+- Named tuple members for better documentation
+- Optional elements using `std::optional`
+- Rest elements with variadic templates
+- Full destructuring support
+- Nested tuple support
+
+#### Literal Types Support
+
+TypeScript literal types are now supported, enabling precise type constraints with specific values. While C++ doesn't have native literal types, TypeScript2Cxx maps these to their base types with const qualifiers:
+
+**TypeScript Code:**
+
+```typescript
+// String literal types
+type Direction = "north" | "south" | "east" | "west";
+const dir: "north" = "north";
+
+// Number literal types
+type DiceRoll = 1 | 2 | 3 | 4 | 5 | 6;
+const roll: 3 = 3;
+
+// Boolean literal types
+type Success = true;
+const result: true = true;
+
+// Literal types in functions
+function move(direction: "up" | "down"): void {
+  // ...
+}
+
+// Const assertions create literal types
+const config = {
+  mode: "production",
+  port: 3000
+} as const;
+// Type: { readonly mode: "production"; readonly port: 3000; }
+```
+
+**Generated C++ Code:**
+
+```cpp
+// String literals mapped to js::string
+const js::string dir = "north"_S;
+
+// Number literals mapped to js::number
+const js::number roll = js::number(3);
+
+// Boolean literals mapped to bool
+const bool result = true;
+
+// Function with literal parameter types
+void move(const js::string& direction) {
+    // Runtime validation could be added if needed
+    // ...
+}
+
+// Const assertions maintain immutability
+const auto config = []() {
+    js::object obj;
+    obj.set("mode", "production"_S);
+    obj.set("port", js::number(3000));
+    return obj;
+}();
+```
+
+**Features:**
+- String literal types for exact string values
+- Number literal types for specific numeric values
+- Boolean literal types (true/false)
+- Union of literal types for enumerations
+- Integration with const assertions for immutability
+- Type narrowing with literal types
+
+**Note:** While C++ doesn't have native literal types, TypeScript2Cxx preserves type safety at the TypeScript level during transpilation and uses const qualifiers in C++ to enforce immutability where possible.
+
 ### 🔧 Implementation Details
 
 - **Type System**:
@@ -950,6 +1086,8 @@ js::Float32Array vertices({
   - Added `AsExpression` support for const assertions detection
   - Added `SatisfiesExpression` support for satisfies operator with pass-through behavior
   - Added `NonNullExpression` support for non-null assertion operator with pass-through behavior
+  - Added `TupleType` support with std::tuple mapping and rest element handling
+  - Enhanced `LiteralType` support for string, number, and boolean literal types
   - Conditional types resolve to their "true" branch by default (compile-time resolution)
   - Mapped types detect readonly and optional modifiers for proper C++ type generation
   - Template literal types map to `js::string` for C++ compatibility
@@ -957,6 +1095,8 @@ js::Float32Array vertices({
   - Const assertions propagate through IR with `isConstAssertion` flag
   - Typeof type expressions map to `js::any` for runtime flexibility
   - Satisfies expressions pass through the underlying expression since they're compile-time only
+  - Tuple types map to `std::tuple` with automatic `<tuple>` include detection
+  - Literal types map to base types with const qualifiers for immutability
 - **Transform Layer**:
   - Enhanced type assertion (`as`) expression handling to properly pass through expressions
   - Type aliases now correctly skip runtime code generation (they're compile-time only)

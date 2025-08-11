@@ -248,9 +248,9 @@ Based on analysis of both reference implementations:
   - [x] Const type parameters (v0.8.6-dev)
   - [x] NoInfer utility type (v0.8.6-dev)
   - [x] TypedArray support (v0.8.6-dev)
-  - Tuple types with rest elements
-  - Literal types (string, number, boolean)
-  - Enum literal types
+  - [x] Tuple types with rest elements (v0.8.6-dev)
+  - [x] Literal types (string, number, boolean) (v0.8.6-dev)
+  - [ ] Enum literal types
   - Type aliases (simple and complex)
   - Unknown type with type guards
   - Never type
