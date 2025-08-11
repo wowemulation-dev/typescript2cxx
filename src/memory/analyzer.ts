@@ -10,7 +10,7 @@ import type { MemoryAnalysisResult } from "./types.ts";
  */
 export interface AnalyzeOptions {
   strategy: string;
-  options: any;
+  options: Record<string, unknown>;
 }
 
 /**

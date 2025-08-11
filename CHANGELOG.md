@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat: Code quality improvements - enforcing strict type checking (v0.8.7-dev)
+- feat: Started replacing 100+ `any` types with proper interfaces (v0.8.7-dev)
+- feat: Removed `no-explicit-any` exclusion from linting rules (v0.8.7-dev)
+
+### Fixed
+
+- fix: transpiler.ts now uses proper TypeChecker and PluginContext types (v0.8.7-dev)
+- fix: cli.ts now uses CompileOptions type with proper type casting (v0.8.7-dev)
+- fix: memory/analyzer.ts uses Record<string, unknown> instead of any (v0.8.7-dev)
+
+### Changed
+
+- refactor: Improved type safety across transpiler, cli, and memory modules (v0.8.7-dev)
+
+### Added
+
 - feat: keyof operator support for type-safe property key extraction (v0.8.6-dev)
 - feat: Conditional types basic support with compile-time resolution (v0.8.6-dev)
 - feat: Mapped types basic support with readonly/optional modifier detection (v0.8.6-dev)

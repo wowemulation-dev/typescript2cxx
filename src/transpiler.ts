@@ -10,12 +10,16 @@ import type {
   TranspileResult,
   TranspilerWarning as _TranspilerWarning,
   TranspileStats,
+  TypeChecker,
 } from "./types.ts";
+import type { Plugin, PluginContext } from "./plugins/types.ts";
 
 // These will be implemented as we build out the transpiler
 import { transformToIR } from "./transform/transformer.ts";
 import { generateCpp } from "./codegen/generator.ts";
 import { analyzeMemory } from "./memory/analyzer.ts";
+import type { MemoryAnalysisResult } from "./memory/types.ts";
+import type { IRNode } from "./ir/nodes.ts";
 import { loadPlugins } from "./plugins/loader.ts";
 
 /**
@@ -41,8 +45,8 @@ export async function transpile(
     // Load plugins
     const plugins = await loadPlugins(options.plugins ?? []);
 
-    // Create compiler context
-    const context: CompilerContext = {
+    // Create compiler context with extended properties
+    const context: CompilerContext & { originalSource: string } = {
       options: normalizeOptions(options),
       typeChecker: createTypeChecker(),
       currentFile: options.filename,
@@ -50,7 +54,7 @@ export async function transpile(
       stats,
       pluginContexts: new Map(),
       originalSource: source, // Add original source for source maps
-    } as any;
+    };
 
     // Initialize plugins
     for (const plugin of plugins) {
@@ -203,7 +207,7 @@ function normalizeOptions(options: TranspileOptions): TranspileOptions {
  * Create a minimal type checker
  * TODO: Implement full type checking with TypeScript compiler API
  */
-function createTypeChecker(): any {
+function createTypeChecker(): TypeChecker {
   return {
     resolveType: (_node: unknown) => ({
       name: "unknown",
@@ -229,7 +233,7 @@ function createTypeChecker(): any {
 /**
  * Create plugin context
  */
-function createPluginContext(plugin: any, context: CompilerContext): any {
+function createPluginContext(plugin: Plugin, context: CompilerContext): PluginContext {
   const storage = context.pluginContexts.get(plugin.name) ?? new Map();
   context.pluginContexts.set(plugin.name, storage);
 
@@ -283,7 +287,7 @@ function createPluginContext(plugin: any, context: CompilerContext): any {
 /**
  * Count IR nodes for statistics
  */
-function countIRNodes(node: any): number {
+function countIRNodes(node: IRNode): number {
   let count = 1;
 
   // Count child nodes recursively
@@ -315,7 +319,7 @@ function countLines(code: string): number {
 /**
  * Apply memory analysis results to IR
  */
-function applyMemoryAnalysis(_ir: any, _results: any): void {
+function applyMemoryAnalysis(_ir: IRNode, _results: Map<IRNode, MemoryAnalysisResult>): void {
   // TODO: Apply memory analysis results to IR nodes
   // This would modify pointer types based on analysis
 }

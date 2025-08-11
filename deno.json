@@ -26,8 +26,7 @@
   },
   "lint": {
     "rules": {
-      "tags": ["recommended"],
-      "exclude": ["no-explicit-any"]
+      "tags": ["recommended"]
     },
     "exclude": [
       ".output/",

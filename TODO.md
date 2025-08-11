@@ -2,6 +2,169 @@
 
 This document tracks planned features and known issues for typescript2cxx.
 
+## 🚨 Code Quality Improvements (HIGH PRIORITY)
+
+**Added: January 2025** - Critical code quality and maintainability improvements identified during code review.
+
+### High Priority - Type Safety & Code Organization
+
+- [x] **Started removing `any` types** (100+ instances found, fixed 10+)
+  - [x] Fixed transpiler.ts:
+    - ✅ `createTypeChecker()` → returns `TypeChecker` interface
+    - ✅ `createPluginContext(plugin: Plugin, context)` → returns `PluginContext`
+    - ✅ `countIRNodes(node: IRNode)` → uses proper IRNode type
+    - ✅ `applyMemoryAnalysis(ir: IRNode, results: Map<IRNode, MemoryAnalysisResult>)` → uses proper types
+  - [x] Fixed cli.ts:
+    - ✅ `compileFile(filePath: string, options: CompileOptions)` → uses proper type
+    - ✅ Cast command-line args to proper types
+  - [ ] Fix generator.ts (in progress):
+    - `context: CompilerContext` → use existing type
+    - `plugins: Plugin[]` → use Plugin interface from plugins/types.ts
+    - `errorReporter: ErrorReporter` → use existing type from errors.ts
+    - `member: IRClassMember | IRProperty | IRMethod` → use union type
+    - Lambda `params: IRParameter[]` → define parameter type
+  - [ ] Fix transformer.ts:
+    - `context: CompilerContext` → use existing type
+    - `plugins: Plugin[]` → use Plugin interface
+    - `errorReporter: ErrorReporter` → use existing type
+  - [x] Fixed memory/analyzer.ts:
+    - ✅ `options: Record<string, unknown>` → uses proper type
+  - [ ] Test files can keep `any` for testing edge cases
+
+- [x] **Enable strict TypeScript mode**
+  - [x] Removed `no-explicit-any` exclusion from linting rules
+  - [x] Already has strict compiler options in deno.json
+  - [ ] Fix remaining type errors (100+ any types across codebase)
+
+- [ ] **Refactor large classes** (Critical for maintainability)
+  - [ ] Break down generator.ts (3339 lines, 50+ methods) into:
+    - `ExpressionGenerator` module:
+      - generateExpression, generateIdentifier, generateLiteral
+      - generateBinary, generateUnary, generateAssignment
+      - generateCall, generateMember, generateConditional
+      - generateArray, generateObject, generateNew
+      - generateTemplate, generateAwait, generateLambda
+    - `StatementGenerator` module:
+      - generateStatement, generateBlock, generateIf
+      - generateSwitch, generateWhile, generateFor
+      - generateForOf, generateForIn, generateReturn
+      - generateBreak, generateContinue, generateThrow
+      - generateTry, generateCatch, generateExpressionStatement
+    - `DeclarationGenerator` module:
+      - generateFunction, generateClass, generateInterface
+      - generateEnum, generateVariable, generateTypeAlias
+      - generateImport, generateExport, generateNamespace
+    - `TypeGenerator` module:
+      - generateType, generateCppType, resolveType
+      - generateTemplateParams, generateGenericConstraints
+      - generateUnionType, generateIntersectionType
+    - `UtilityGenerator` module:
+      - generateIncludes, generateForwardDeclarations
+      - generateNamespaceWrapper, generateHeaderGuards
+      - formatCode, escapeString, indent
+  - [ ] Break down transformer.ts (2705 lines) into similar modules:
+    - `ExpressionTransformer` module
+    - `StatementTransformer` module
+    - `DeclarationTransformer` module
+    - `TypeTransformer` module
+    - `UtilityTransformer` module
+
+### Code Examples for Improvements
+
+#### Type Guards Implementation
+
+```typescript
+// src/ir/type-guards.ts
+export function isIRFunction(node: IRNode): node is IRFunctionDeclaration {
+  return node.kind === IRNodeKind.FunctionDeclaration;
+}
+
+export function isIRClass(node: IRNode): node is IRClassDeclaration {
+  return node.kind === IRNodeKind.ClassDeclaration;
+}
+
+export function isIRExpression(node: IRNode): node is IRExpression {
+  return node.nodeType === "Expression";
+}
+```
+
+#### Branded Types Example
+
+```typescript
+// src/codegen/types.ts
+export type CppCode = string & { readonly __brand: "CppCode" };
+export type TypeScriptCode = string & { readonly __brand: "TypeScriptCode" };
+
+export function toCppCode(code: string): CppCode {
+  return code as CppCode;
+}
+
+export function toTypeScriptCode(code: string): TypeScriptCode {
+  return code as TypeScriptCode;
+}
+```
+
+### Medium Priority - Best Practices
+
+- [ ] **Implement type guards** for better type narrowing
+  ```typescript
+  function isIRFunction(node: IRNode): node is IRFunctionDeclaration;
+  function isAsyncFunction(node: IRNode): node is IRFunctionDeclaration;
+  ```
+
+- [ ] **Use branded types** for type safety
+  ```typescript
+  type CppCode = string & { __brand: "CppCode" };
+  type TypeScriptCode = string & { __brand: "TypeScriptCode" };
+  ```
+
+- [ ] **Add exhaustive switch checks**
+  ```typescript
+  function assertNever(x: never): never;
+  ```
+
+- [ ] **Consistent import organization**
+  - Group type imports separately
+  - Sort imports alphabetically
+  - Use consistent import patterns
+
+- [ ] **Extract magic numbers** to named constants
+  - Replace hard-coded values with const enums
+  - Document special values
+
+- [ ] **Use const assertions** for configuration
+  ```typescript
+  const CONFIG = { ... } as const;
+  ```
+
+### Implementation Strategy
+
+1. **Phase 1: Type Safety** (1-2 days)
+   - Enable strict mode and fix type errors
+   - Replace all `any` types with proper interfaces
+   - Run full test suite after each change
+
+2. **Phase 2: Code Organization** (3-4 days)
+   - Extract generator modules one by one
+   - Extract transformer modules one by one
+   - Ensure all tests pass after each extraction
+
+3. **Phase 3: Best Practices** (2-3 days)
+   - Implement type guards and branded types
+   - Add exhaustive switch checks
+   - Organize imports and extract constants
+
+### Impact & Benefits
+
+- **Type Coverage**: Increase from ~70% to >95%
+- **Function Length**: Reduce from ~50 lines average to <30
+- **Cyclomatic Complexity**: Reduce high complexity in generator.ts
+- **Maintainability**: Easier to understand, test, and extend
+- **Bug Prevention**: Catch errors at compile time
+- **Developer Experience**: Better IDE support and autocomplete
+- **Performance**: Potential performance improvements from better type inference
+- **Testing**: Easier to unit test smaller, focused modules
+
 ## 📊 Implementation Status Summary
 
 **Current Version: v0.8.6-dev** (January 2025)

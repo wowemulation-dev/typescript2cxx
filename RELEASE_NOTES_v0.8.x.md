@@ -1,3 +1,43 @@
+# TypeScript2Cxx v0.8.7 Release Notes (In Development)
+
+## 🎯 Code Quality Improvements - Type Safety & Maintainability
+
+TypeScript2Cxx v0.8.7 focuses on significant code quality improvements to enhance maintainability, type safety, and developer experience. This release addresses critical technical debt identified during code review, improving the codebase's type coverage from ~70% to target >95%.
+
+### ✨ Code Quality Improvements (In Progress)
+
+#### Type Safety Enhancements
+
+- **Removed `no-explicit-any` linting exclusion** - Now enforcing strict type checking
+- **Started replacing 100+ `any` types** with proper interfaces:
+  - ✅ Fixed `transpiler.ts`: `createTypeChecker()`, `createPluginContext()`, `countIRNodes()`, `applyMemoryAnalysis()`
+  - ✅ Fixed `cli.ts`: `compileFile()` now uses `CompileOptions`, proper type casting for CLI args
+  - ✅ Fixed `memory/analyzer.ts`: Replaced `any` with `Record<string, unknown>`
+  - 🚧 In progress: `generator.ts`, `transformer.ts`, AST parser, type checker modules
+
+#### TypeScript Strict Mode
+
+- **Already enabled `strict: true`** in compiler options
+- **Working to fix 100+ type errors** revealed by removing `any` type exclusion
+- **Target: >95% type coverage** from current ~70%
+
+### 🔧 Technical Improvements
+
+- Proper type interfaces for all major modules
+- Better IDE support with improved type inference
+- Reduced runtime errors through compile-time type checking
+- Enhanced maintainability through explicit type contracts
+
+### 📝 Next Steps
+
+- Complete removal of all `any` types across the codebase
+- Refactor large classes (generator.ts: 3339 lines, transformer.ts: 2705 lines)
+- Implement type guards for IRNode types
+- Add branded types for CppCode and TypeScriptCode
+- Implement exhaustive switch checks with `assertNever`
+
+---
+
 # TypeScript2Cxx v0.8.6 Release Notes
 
 ## 🎯 Advanced Type Features - keyof, Conditional Types, Mapped Types, Template Literal Types, Index Types, typeof, Const Assertions, Satisfies Operator, Non-null Assertion, Definite Assignment Assertion, Tuple Types & Literal Types
@@ -999,6 +1039,7 @@ auto [x, y] = point;
 ```
 
 **Features:**
+
 - Fixed-length arrays with specific types at each position
 - Named tuple members for better documentation
 - Optional elements using `std::optional`
@@ -1033,7 +1074,7 @@ function move(direction: "up" | "down"): void {
 // Const assertions create literal types
 const config = {
   mode: "production",
-  port: 3000
+  port: 3000,
 } as const;
 // Type: { readonly mode: "production"; readonly port: 3000; }
 ```
@@ -1066,6 +1107,7 @@ const auto config = []() {
 ```
 
 **Features:**
+
 - String literal types for exact string values
 - Number literal types for specific numeric values
 - Boolean literal types (true/false)

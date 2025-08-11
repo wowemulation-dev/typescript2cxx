@@ -37,7 +37,7 @@
  */
 
 import { parseArgs } from "jsr:@std/cli@1/parse-args";
-import { compile } from "./compiler.ts";
+import { compile, type CompileOptions } from "./compiler.ts";
 import { VERSION } from "./mod.ts";
 
 interface CliArgs {
@@ -157,13 +157,13 @@ async function main() {
     debug: args.debug ?? false,
     verbose: args.verbose ?? false,
     dryRun: args["dry-run"] ?? false,
-    standard: args.std as any ?? "c++20",
-    readability: args.readable as any ?? "default",
-    optimization: args.optimization as any ?? "O2",
-    memoryStrategy: args.memory as any ?? "auto",
+    standard: (args.std as "c++17" | "c++20" | "c++23") ?? "c++20",
+    readability: (args.readable as "default" | "debug" | "minimal" | false) ?? "default",
+    optimization: (args.optimization as "O0" | "O1" | "O2" | "O3" | "Os") ?? "O2",
+    memoryStrategy: (args.memory as "auto" | "shared" | "unique" | "manual") ?? "auto",
     runtimeInclude: args.runtime as string,
     plugins: Array.isArray(args.plugin) ? args.plugin : (args.plugin ? [args.plugin] : []),
-    compiler: args.compiler as any ?? "auto",
+    compiler: (args.compiler as "clang++" | "g++" | "msvc" | "auto") ?? "auto",
     includePaths: Array.isArray(args.include) ? args.include : (args.include ? [args.include] : []),
     libraries: Array.isArray(args.lib) ? args.lib : (args.lib ? [args.lib] : []),
   };
@@ -199,7 +199,7 @@ async function main() {
 }
 
 // Compile file function
-async function compileFile(filePath: string, options: any): Promise<void> {
+async function compileFile(filePath: string, options: CompileOptions): Promise<void> {
   try {
     console.log(`Transpiling ${filePath}...`);
 
