@@ -137,6 +137,49 @@ export type { MemoryAnnotation } from "./memory/types.ts";
 export { MemoryManagement } from "./ir/nodes.ts";
 
 /**
+ * Type guards for IR nodes - provides type-safe narrowing
+ */
+export * from "./ir/type-guards.ts";
+
+/**
+ * Branded types for code generation - provides type-safe code strings
+ */
+export type {
+  CppCode,
+  CppHeaderCode,
+  CppSourceCode,
+  TypeScriptCode,
+} from "./codegen/types.ts";
+
+export {
+  concatCppCode,
+  cpp,
+  indentCppCode,
+  isCppCode,
+  isTypeScriptCode,
+  joinCppCode,
+  toCppCode,
+  toCppHeaderCode,
+  toCppSourceCode,
+  toTypeScriptCode,
+  ts,
+} from "./codegen/types.ts";
+
+/**
+ * Exhaustive switch checks - ensures all cases are handled
+ */
+export {
+  assertNever,
+  assertUnreachable,
+  createAssertNever,
+  exhaustiveCheck,
+  ExhaustivenessValidator,
+  isNever,
+} from "./utils/assert-never.ts";
+
+export type { ExhaustiveCheck } from "./utils/assert-never.ts";
+
+/**
  * Transpiler error types
  */
 export { CodeGenError, ParseError, TranspilerError } from "./errors.ts";

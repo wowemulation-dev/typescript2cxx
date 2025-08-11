@@ -8,7 +8,7 @@ This document tracks planned features and known issues for typescript2cxx.
 
 ### High Priority - Type Safety & Code Organization
 
-- [x] **Started removing `any` types** (100+ instances found, fixed 10+)
+- [x] **Started removing `any` types** (100+ instances found, fixed 20+)
   - [x] Fixed transpiler.ts:
     - ✅ `createTypeChecker()` → returns `TypeChecker` interface
     - ✅ `createPluginContext(plugin: Plugin, context)` → returns `PluginContext`
@@ -17,16 +17,18 @@ This document tracks planned features and known issues for typescript2cxx.
   - [x] Fixed cli.ts:
     - ✅ `compileFile(filePath: string, options: CompileOptions)` → uses proper type
     - ✅ Cast command-line args to proper types
-  - [ ] Fix generator.ts (in progress):
-    - `context: CompilerContext` → use existing type
-    - `plugins: Plugin[]` → use Plugin interface from plugins/types.ts
-    - `errorReporter: ErrorReporter` → use existing type from errors.ts
-    - `member: IRClassMember | IRProperty | IRMethod` → use union type
-    - Lambda `params: IRParameter[]` → define parameter type
-  - [ ] Fix transformer.ts:
-    - `context: CompilerContext` → use existing type
-    - `plugins: Plugin[]` → use Plugin interface
-    - `errorReporter: ErrorReporter` → use existing type
+  - [x] Fix generator.ts (completed):
+    - ✅ `context: CompilerContext` → uses existing type
+    - ✅ `plugins: Plugin[]` → uses Plugin interface from plugins/types.ts
+    - ✅ `errorReporter: ErrorReporter` → uses existing type from errors.ts
+    - ✅ `member` → uses IRClassMember with IRClassMemberWithAccess type
+    - ✅ Lambda `params: IRParameter[]` → properly typed
+    - ✅ Added temporary IRFunctionExpression interface for arrow functions
+  - [x] Fix transformer.ts (completed):
+    - ✅ `context: CompilerContext` → uses existing type
+    - ✅ `plugins: Plugin[]` → uses Plugin interface
+    - ✅ `errorReporter: ErrorReporter` → uses existing type
+    - ✅ Fixed method signatures to use TypeScript compiler API types
   - [x] Fixed memory/analyzer.ts:
     - ✅ `options: Record<string, unknown>` → uses proper type
   - [ ] Test files can keep `any` for testing edge cases
@@ -106,22 +108,23 @@ export function toTypeScriptCode(code: string): TypeScriptCode {
 
 ### Medium Priority - Best Practices
 
-- [ ] **Implement type guards** for better type narrowing
-  ```typescript
-  function isIRFunction(node: IRNode): node is IRFunctionDeclaration;
-  function isAsyncFunction(node: IRNode): node is IRFunctionDeclaration;
-  ```
+- [x] **Implement type guards** for better type narrowing ✅ COMPLETED (v0.8.7-dev)
+  - ✅ Created comprehensive type guards in `src/ir/type-guards.ts`
+  - ✅ Guards for all IR node types (100+ type guard functions)
+  - ✅ Utility guards for async/generator functions, decorators, etc.
+  - ✅ Exported from main module for use throughout codebase
 
-- [ ] **Use branded types** for type safety
-  ```typescript
-  type CppCode = string & { __brand: "CppCode" };
-  type TypeScriptCode = string & { __brand: "TypeScriptCode" };
-  ```
+- [x] **Use branded types** for type safety ✅ COMPLETED (v0.8.7-dev)
+  - ✅ Created branded types in `src/codegen/types.ts`
+  - ✅ `CppCode`, `TypeScriptCode`, `CppHeaderCode`, `CppSourceCode` types
+  - ✅ Helper functions for type conversion and concatenation
+  - ✅ Template literal tags `cpp` and `ts` for type-safe code generation
 
-- [ ] **Add exhaustive switch checks**
-  ```typescript
-  function assertNever(x: never): never;
-  ```
+- [x] **Add exhaustive switch checks** ✅ COMPLETED (v0.8.7-dev)
+  - ✅ Created exhaustiveness utilities in `src/utils/assert-never.ts`
+  - ✅ `assertNever` and `assertUnreachable` functions
+  - ✅ `ExhaustivenessValidator` class for runtime validation
+  - ✅ Type-level exhaustiveness check types
 
 - [ ] **Consistent import organization**
   - Group type imports separately

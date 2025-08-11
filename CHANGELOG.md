@@ -10,18 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - feat: Code quality improvements - enforcing strict type checking (v0.8.7-dev)
-- feat: Started replacing 100+ `any` types with proper interfaces (v0.8.7-dev)
+- feat: Replaced 20+ `any` types with proper interfaces across core modules (v0.8.7-dev)
 - feat: Removed `no-explicit-any` exclusion from linting rules (v0.8.7-dev)
+- feat: Added temporary IRFunctionExpression interface for lambda/arrow function support (v0.8.7-dev)
+- feat: Comprehensive type guards for all IR node types in `src/ir/type-guards.ts` (v0.8.7-dev)
+- feat: Branded types for type-safe code generation (`CppCode`, `TypeScriptCode`) (v0.8.7-dev)
+- feat: Exhaustive switch checks with `assertNever` utilities (v0.8.7-dev)
+- feat: Added 15+ missing IR node types for complete type system (v0.8.7-dev)
+- feat: Template literal tags `cpp` and `ts` for type-safe code strings (v0.8.7-dev)
+- feat: ExhaustivenessValidator class for runtime validation (v0.8.7-dev)
 
 ### Fixed
 
 - fix: transpiler.ts now uses proper TypeChecker and PluginContext types (v0.8.7-dev)
 - fix: cli.ts now uses CompileOptions type with proper type casting (v0.8.7-dev)
 - fix: memory/analyzer.ts uses Record<string, unknown> instead of any (v0.8.7-dev)
+- fix: generator.ts now uses proper CompilerContext, Plugin[], and ErrorReporter types (v0.8.7-dev)
+- fix: transformer.ts now uses proper TypeScript compiler API types (v0.8.7-dev)
+- fix: Improved type safety in recursive node traversal functions (v0.8.7-dev)
 
 ### Changed
 
-- refactor: Improved type safety across transpiler, cli, and memory modules (v0.8.7-dev)
+- refactor: Improved type safety across transpiler, cli, generator, transformer, and memory modules (v0.8.7-dev)
+- refactor: Enhanced module exports with type guards and branded types (v0.8.7-dev)
 
 ### Added
 

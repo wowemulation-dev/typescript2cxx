@@ -1754,7 +1754,9 @@ class ASTTransformer {
   /**
    * Transform template literal
    */
-  private transformTemplateLiteral(node: ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral): IRExpression {
+  private transformTemplateLiteral(
+    node: ts.TemplateExpression | ts.NoSubstitutionTemplateLiteral,
+  ): IRExpression {
     // TypeScript template expressions
     if (node.kind === ts.SyntaxKind.TemplateExpression) {
       const parts: Array<IRExpression | IRLiteral> = [];
@@ -1932,7 +1934,9 @@ class ASTTransformer {
   /**
    * Transform parameters
    */
-  private transformParameters(params: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[]): IRParameter[] {
+  private transformParameters(
+    params: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[],
+  ): IRParameter[] {
     const result: IRParameter[] = [];
 
     for (const param of params) {
@@ -2096,7 +2100,9 @@ class ASTTransformer {
     return this.transformExpression(key as ts.Expression);
   }
 
-  private getAccessibility(node: ts.Node & { accessibility?: string }): "public" | "private" | "protected" | undefined {
+  private getAccessibility(
+    node: ts.Node & { accessibility?: string },
+  ): "public" | "private" | "protected" | undefined {
     return node.accessibility;
   }
 

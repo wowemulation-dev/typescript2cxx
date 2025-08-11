@@ -1358,3 +1358,104 @@ export interface IRSpreadElement extends IRExpression {
   /** Expression to spread */
   argument: IRExpression;
 }
+
+// Additional IR types needed for type guards compatibility
+// TODO: Implement these fully once needed
+
+export interface IRArrowFunctionExpression extends IRExpression {
+  kind: IRNodeKind.ArrowFunctionExpression;
+  params: IRParameter[];
+  body: IRBlockStatement | IRExpression;
+  isAsync?: boolean;
+  returnType?: string;
+}
+
+export interface IRFunctionExpression extends IRExpression {
+  kind: IRNodeKind.FunctionExpression;
+  name?: IRIdentifier;
+  params: IRParameter[];
+  body: IRBlockStatement;
+  isAsync?: boolean;
+  isGenerator?: boolean;
+  returnType?: string;
+}
+
+export interface IRClassExpression extends IRExpression {
+  kind: IRNodeKind.ClassExpression;
+  name?: IRIdentifier;
+  superClass?: IRExpression;
+  body: Array<IRMethodDefinition | IRPropertyDefinition | IRConstructor | IRAccessorProperty>;
+  decorators?: IRDecorator[] | IRDecoratorMetadata;
+}
+
+export interface IRDoWhileStatement extends IRStatement {
+  kind: IRNodeKind.DoWhileStatement;
+  body: IRStatement;
+  test: IRExpression;
+}
+
+export interface IRLogicalExpression extends IRExpression {
+  kind: IRNodeKind.LogicalExpression;
+  operator: "&&" | "||" | "??";
+  left: IRExpression;
+  right: IRExpression;
+}
+
+export interface IRUpdateExpression extends IRExpression {
+  kind: IRNodeKind.UpdateExpression;
+  operator: "++" | "--";
+  argument: IRExpression;
+  prefix: boolean;
+}
+
+export interface IRSuperExpression extends IRExpression {
+  kind: IRNodeKind.SuperExpression;
+}
+
+export interface IRYieldExpression extends IRExpression {
+  kind: IRNodeKind.YieldExpression;
+  argument?: IRExpression;
+  delegate?: boolean;
+}
+
+export interface IRTaggedTemplateExpression extends IRExpression {
+  kind: IRNodeKind.TaggedTemplateExpression;
+  tag: IRExpression;
+  quasi: IRTemplateLiteral;
+}
+
+export interface IRTypeAliasDeclaration extends IRDeclaration {
+  kind: IRNodeKind.TypeAliasDeclaration;
+  name: string;
+  typeParameters?: IRTemplateParameter[];
+  type: string;
+}
+
+export interface IRCppRawExpression extends IRExpression {
+  kind: IRNodeKind.CppRawExpression;
+  code: string;
+}
+
+export interface IRMoveExpression extends IRExpression {
+  kind: IRNodeKind.MoveExpression;
+  argument: IRExpression;
+}
+
+export interface IRTypeAnnotation extends IRNode {
+  kind: IRNodeKind.TypeAnnotation;
+  type: string;
+}
+
+export interface IRTypeParameter extends IRNode {
+  kind: IRNodeKind.TypeParameter;
+  name: string;
+  constraint?: string;
+  default?: string;
+  isConst?: boolean;
+}
+
+export interface IRNamespace extends IRNode {
+  kind: IRNodeKind.Namespace;
+  name: string;
+  body: IRStatement[];
+}
