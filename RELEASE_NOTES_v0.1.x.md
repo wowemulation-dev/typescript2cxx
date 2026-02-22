@@ -131,7 +131,7 @@ We welcome contributions! Check out:
 
 ### Community
 
-Join us on [Discord](https://discord.gg/Q44pPMvGEd) in the #typescript2cxx channel!
+Join us on [Discord](https://discord.gg/Jj4uWy3DGP) in the #typescript2cxx channel!
 
 ### Acknowledgments
 

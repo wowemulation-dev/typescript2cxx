@@ -5,7 +5,7 @@ code from TypeScript sources, targeting World of Warcraft emulation projects.
 
 <div align="center">
 
-[![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Q44pPMvGEd)
+[![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Jj4uWy3DGP)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE-APACHE)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 
@@ -483,7 +483,7 @@ See [RELEASE.md](docs/RELEASE.md) for the release process.
 
 ## Community
 
-- [Discord Server](https://discord.gg/Q44pPMvGEd) - Join #typescript2cxx channel
+- [Discord Server](https://discord.gg/Jj4uWy3DGP) - Join #typescript2cxx channel
 - [Issue Tracker](https://github.com/wowemulation-dev/typescript2cxx/issues)
 - [Discussions](https://github.com/wowemulation-dev/typescript2cxx/discussions)
 
