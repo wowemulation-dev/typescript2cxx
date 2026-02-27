@@ -1,0 +1,76 @@
+name: Transpilation Issue
+description: Report a TypeScript feature that doesn't transpile correctly to C++
+title: "[Transpile]: "
+labels: ["transpilation", "bug"]
+body:
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues to ensure this isn't a duplicate
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the transpilation issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: typescript-input
+    attributes:
+      label: TypeScript Input
+      description: The TypeScript code that fails to transpile correctly
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-output
+    attributes:
+      label: Expected C++ Output
+      description: What the generated C++ should look like
+      render: cpp
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual-output
+    attributes:
+      label: Actual C++ Output
+      description: What the transpiler actually generated
+      render: cpp
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ts-feature
+    attributes:
+      label: TypeScript Feature
+      description: Which TypeScript feature is involved?
+      options:
+        - Types/interfaces
+        - Classes/inheritance
+        - Generics
+        - Enums
+        - Modules/imports
+        - Async/await
+        - Decorators
+        - Template literals
+        - Destructuring
+        - Spread/rest operators
+        - Union/intersection types
+        - Type guards
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+    validations:
+      required: false
